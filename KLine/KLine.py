@@ -1,3 +1,4 @@
+# cython: language_level=3
 from Combiner.KLine_Combiner import CKLine_Combiner
 from Common.CEnum import FX_CHECK_METHOD, FX_TYPE, KLINE_DIR
 from Common.ChanException import CChanException, ErrCode

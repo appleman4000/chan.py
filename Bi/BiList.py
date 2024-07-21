@@ -1,3 +1,4 @@
+# cython: language_level=3
 from typing import List, Optional, Union, overload
 
 from Common.CEnum import FX_TYPE, KLINE_DIR

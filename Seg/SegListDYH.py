@@ -1,3 +1,4 @@
+# cython: language_level=3
 from Bi.BiList import CBiList
 from Common.CEnum import BI_DIR, SEG_TYPE
 

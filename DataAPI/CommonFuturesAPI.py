@@ -5,15 +5,14 @@ from typing import Iterable
 from KLine.KLine_Unit import CKLine_Unit
 
 
-class CCommonStockApi:
-    def __init__(self, code, k_type, begin_date, end_date, autype):
+class CCommonForexApi:
+    def __init__(self, code, k_type, begin_date, end_date):
         self.code = code
         self.name = None
-        self.is_stock = None
+        self.is_stock = False
         self.k_type = k_type
         self.begin_date = begin_date
         self.end_date = end_date
-        self.autype = autype
         self.SetBasciInfo()
 
     @abc.abstractmethod

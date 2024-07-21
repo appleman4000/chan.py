@@ -1,3 +1,4 @@
+# cython: language_level=3
 from typing import Generic, Iterable, List, Optional, Self, TypeVar, Union, overload
 
 from Common.cache import make_cache

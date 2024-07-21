@@ -1,3 +1,4 @@
+# cython: language_level=3
 from enum import Enum, auto
 from typing import Literal
 
@@ -6,20 +7,23 @@ class DATA_SRC(Enum):
     BAO_STOCK = auto()
     CCXT = auto()
     CSV = auto()
+    FOREX = auto()
+    AKSHARE_STOCK = auto()
+    AKSHARE_ETF = auto()
 
 
 class KL_TYPE(Enum):
     K_1M = auto()
-    K_DAY = auto()
-    K_WEEK = auto()
-    K_MON = auto()
-    K_YEAR = auto()
+    K_3M = auto()
     K_5M = auto()
     K_15M = auto()
     K_30M = auto()
     K_60M = auto()
-    K_3M = auto()
+    K_DAY = auto()
+    K_WEEK = auto()
+    K_MON = auto()
     K_QUARTER = auto()
+    K_YEAR = auto()
 
 
 class KLINE_DIR(Enum):

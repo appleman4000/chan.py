@@ -1,3 +1,4 @@
+# cython: language_level=3
 import copy
 from typing import List
 

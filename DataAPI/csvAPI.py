@@ -1,3 +1,4 @@
+# cython: language_level=3
 import os
 
 from Common.CEnum import DATA_FIELD, KL_TYPE

@@ -1,3 +1,4 @@
+# cython: language_level=3
 from typing import Dict, Optional
 
 from Common.CEnum import TRADE_INFO_LST

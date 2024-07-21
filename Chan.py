@@ -1,3 +1,4 @@
+# cython: language_level=3
 import copy
 import datetime
 from collections import defaultdict
@@ -176,6 +177,15 @@ class CChan:
         elif self.data_src == DATA_SRC.CSV:
             from DataAPI.csvAPI import CSV_API
             _dict[DATA_SRC.CSV] = CSV_API
+        elif self.data_src == DATA_SRC.FOREX:
+            from DataAPI.MT5ForexAPI import CMT5ForexAPI
+            _dict[DATA_SRC.FOREX] = CMT5ForexAPI
+        elif self.data_src == DATA_SRC.AKSHARE_STOCK:
+            from DataAPI.AKShareStockAPI import CAKShareStockAPI
+            _dict[DATA_SRC.AKSHARE_STOCK] = CAKShareStockAPI
+        elif self.data_src == DATA_SRC.AKSHARE_ETF:
+            from DataAPI.AKShareETFAPI import CAKShareETFAPI
+            _dict[DATA_SRC.AKSHARE_ETF] = CAKShareETFAPI
         if self.data_src in _dict:
             return _dict[self.data_src]
         assert isinstance(self.data_src, str)

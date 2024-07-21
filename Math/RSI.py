@@ -1,3 +1,4 @@
+# cython: language_level=3
 class RSI:
     def __init__(self, period: int = 14):
         super(RSI, self).__init__()

@@ -1,3 +1,4 @@
+# cython: language_level=3
 from Common.CEnum import TREND_TYPE
 from Common.ChanException import CChanException, ErrCode
 

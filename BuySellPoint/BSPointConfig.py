@@ -1,3 +1,4 @@
+# cython: language_level=3
 from typing import Dict, List, Optional
 
 from Common.CEnum import BSP_TYPE, MACD_ALGO
@@ -75,4 +76,4 @@ class CPointConfig:
         if k == "macd_algo":
             self.SetMacdAlgo(v)
         else:
-            exec(f"self.{k} = {v}")
+            setattr(self,k,v)

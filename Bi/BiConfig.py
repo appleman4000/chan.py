@@ -1,3 +1,4 @@
+# cython: language_level=3
 from Common.CEnum import FX_CHECK_METHOD
 from Common.ChanException import CChanException, ErrCode
 

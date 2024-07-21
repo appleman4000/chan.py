@@ -1,3 +1,4 @@
+# cython: language_level=3
 from typing import List, Optional
 
 from Bi.Bi import CBi

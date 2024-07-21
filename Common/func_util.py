@@ -1,3 +1,4 @@
+# cython: language_level=3
 from .CEnum import BI_DIR, KL_TYPE
 
 
