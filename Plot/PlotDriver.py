@@ -181,7 +181,7 @@ class CPlotDriver:
             ax = axes[lv][0]
             ax_macd = None if len(axes[lv]) == 1 else axes[lv][1]
             set_grid(ax, figure_config.get("grid", "xy"))
-            ax.set_title(f"{chan.code}/{lv.name.split('K_')[1]}", fontsize=16, loc='left', color='r')
+            ax.set_title(f"{chan.name}({chan.code})/{lv.name.split('K_')[1]}", fontsize=16, loc='left', color='r')
 
             x_limits = cal_x_limit(meta, x_range)
             if lv != self.lv_lst[0]:

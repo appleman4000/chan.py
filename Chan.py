@@ -30,6 +30,7 @@ class CChan:
             lv_list = [KL_TYPE.K_DAY, KL_TYPE.K_60M]
         check_kltype_order(lv_list)  # lv_list顺序从高到低
         self.code = code
+        self.name = code
         self.begin_time = str(begin_time) if isinstance(begin_time, datetime.date) else begin_time
         self.end_time = str(end_time) if isinstance(end_time, datetime.date) else end_time
         self.autype = autype
@@ -94,6 +95,7 @@ class CChan:
 
     def get_load_stock_iter(self, stockapi_cls, lv):
         stockapi_instance = stockapi_cls(code=self.code, k_type=lv, begin_date=self.begin_time, end_date=self.end_time, autype=self.autype)
+        self.name = stockapi_instance.name
         return self.load_stock_data(stockapi_instance, lv)
 
     def add_lv_iter(self, lv_idx, iter):

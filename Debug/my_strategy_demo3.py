@@ -36,8 +36,8 @@ def main():
     begin_time = "2021-01-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
     data_src_type = DATA_SRC.FOREX
-    lower_kl_type = KL_TYPE.K_30M
-    higher_kl_type = KL_TYPE.K_60M
+    lower_kl_type = KL_TYPE.K_1M
+    higher_kl_type = KL_TYPE.K_5M
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "divergence_rate": 0.8,
