@@ -112,6 +112,7 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
         )
         plot_driver.figure.tight_layout(pad=5)
         placeholder.pyplot(plot_driver.figure)
+        plt.close(plot_driver.figure)
 
     else:
         CAnimateDriver(
