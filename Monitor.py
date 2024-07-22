@@ -11,7 +11,7 @@ from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE
 from Common.func_util import str2float
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, parse_time_column
 from KLine.KLine_Unit import CKLine_Unit
-from mail_tools import send_email
+from Mail_Tools import send_email
 
 timeframe_seconds = {
     MT5.TIMEFRAME_M1: 60,
@@ -61,14 +61,7 @@ symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF",
 periods = [MT5.TIMEFRAME_H1, MT5.TIMEFRAME_M15, MT5.TIMEFRAME_M5]
 enable_send_mail = False
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
-             '837801694@qq.com']
-
-
-def TimeCurrent():
-    local_current = datetime.datetime.now()
-    time_struct_current = time.mktime(local_current.timetuple())
-    utc_current = datetime.datetime.utcfromtimestamp(time_struct_current)
-    return utc_current.timestamp()
+             '837801694@qq.com', '1169006942@qq.com']
 
 
 def to_beijing_datetime(timestamp):
@@ -106,7 +99,7 @@ def on_tick(symbol, tick):
             bars = MT5.copy_rates_from_pos(symbol, period, 0, 1)
             bars = pd.DataFrame(bars)
             bars.dropna(inplace=True)
-            bars['time'] = pd.to_datetime(bars['time'], unit='s').tz_localize('Asia/Shanghai')
+            bars['time'] = pd.to_datetime(bars['time'], unit='s')
             bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
             bar = bars.iloc[0]
             fields = "time,open,high,low,close,volume"
@@ -134,7 +127,7 @@ def on_bar(symbol, period, bar):
             if BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type or BSP_TYPE.T2 in last_bsp.type or \
                     BSP_TYPE.T2S in last_bsp.type or BSP_TYPE.T3A in last_bsp.type or BSP_TYPE.T3B in last_bsp.type:
                 if enable_send_mail:
-                    message = f"北京时间:{to_beijing_datetime(bar.time.ts)} 瑞士时间:{datetime.datetime.fromtimestamp(bar.time.ts)} {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买' if last_bsp.is_buy else '卖'}"
+                    message = f"北京时间:{to_beijing_datetime(bar.time.ts)} 瑞士时间:{datetime.datetime.fromtimestamp(bar.time.ts)} {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'}"
                     print(message)
                     send_email(to_emails, message)
 
@@ -142,7 +135,7 @@ def on_bar(symbol, period, bar):
 def init():
     for symbol in symbols:
         for period in periods:
-            bars = MT5.copy_rates_from_pos(symbol, period, 0, 1000)
+            bars = MT5.copy_rates_from_pos(symbol, period, 0, 200)
             last_tick_time[symbol] = bars[-1][0]
             next_bar_open[symbol + str(period)] = bars[-1][0]
             next_bar_open[symbol + str(period)] -= next_bar_open[symbol + str(period)] % PeriodSeconds(period)

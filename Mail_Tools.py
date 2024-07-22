@@ -17,7 +17,6 @@ def asynchronous(f):
 
 @asynchronous
 def send_email(to_emails, message):
-    return
     try:
         # 发信方的信息：发信邮箱，QQ 邮箱授权码
         from_addr = 'appleman4000@qq.com'
