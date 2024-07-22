@@ -3,6 +3,7 @@ import time
 
 import MetaTrader5 as MT5
 import pandas as pd
+import pytz
 
 from Chan import CChan
 from ChanConfig import CChanConfig
@@ -11,6 +12,7 @@ from Common.func_util import str2float
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, parse_time_column
 from KLine.KLine_Unit import CKLine_Unit
 from mail_tools import send_email
+
 timeframe_seconds = {
     MT5.TIMEFRAME_M1: 60,
     MT5.TIMEFRAME_M2: 120,
@@ -55,9 +57,11 @@ period_name = {
 
 }
 # 设置交易对
-symbols = ["EURUSD"]
+symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP"]
 periods = [MT5.TIMEFRAME_H1, MT5.TIMEFRAME_M15, MT5.TIMEFRAME_M5]
 enable_send_mail = False
+to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
+             '837801694@qq.com']
 
 
 def TimeCurrent():
@@ -65,6 +69,21 @@ def TimeCurrent():
     time_struct_current = time.mktime(local_current.timetuple())
     utc_current = datetime.datetime.utcfromtimestamp(time_struct_current)
     return utc_current.timestamp()
+
+
+def to_beijing_datetime(timestamp):
+    # 创建一个包含 'Europe/Athens' 时区信息的时间戳
+    zurich_tz = pytz.timezone('Europe/Zurich')
+    shanghai_tz = pytz.timezone('Asia/Shanghai')
+    timestamp = zurich_tz.localize(datetime.datetime.fromtimestamp(timestamp))
+
+    # 将时间戳转换到 'Asia/Shanghai' 时区
+    shanghai_time = timestamp.astimezone(shanghai_tz)
+
+    # 格式化时间并包含时区信息
+    formatted_time = shanghai_time.strftime('%Y-%m-%d %H:%M:%S')
+
+    return formatted_time
 
 
 def PeriodSeconds(period):
@@ -87,7 +106,7 @@ def on_tick(symbol, tick):
             bars = MT5.copy_rates_from_pos(symbol, period, 0, 1)
             bars = pd.DataFrame(bars)
             bars.dropna(inplace=True)
-            bars['time'] = pd.to_datetime(bars['time'], unit='s')
+            bars['time'] = pd.to_datetime(bars['time'], unit='s').tz_localize('Asia/Shanghai')
             bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
             bar = bars.iloc[0]
             fields = "time,open,high,low,close,volume"
@@ -104,7 +123,8 @@ def on_tick(symbol, tick):
 
 
 def on_bar(symbol, period, bar):
-    print(f"{bar.time} on_bar {symbol} {str(period)}")
+    print(
+        f"北京时间:{to_beijing_datetime(bar.time.ts)} 瑞士时间:{datetime.datetime.fromtimestamp(bar.time.ts)}  on_bar {symbol} {str(period)}")
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
     bsp_list = chan.get_bsp(0)
@@ -114,8 +134,9 @@ def on_bar(symbol, period, bar):
             if BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type or BSP_TYPE.T2 in last_bsp.type or \
                     BSP_TYPE.T2S in last_bsp.type or BSP_TYPE.T3A in last_bsp.type or BSP_TYPE.T3B in last_bsp.type:
                 if enable_send_mail:
-                    send_mail(
-                        f"{chan[0][-1][-1].time} {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买' if last_bsp.is_buy else '卖'}")
+                    message = f"北京时间:{to_beijing_datetime(bar.time.ts)} 瑞士时间:{datetime.datetime.fromtimestamp(bar.time.ts)} {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买' if last_bsp.is_buy else '卖'}"
+                    print(message)
+                    send_email(to_emails, message)
 
 
 def init():
