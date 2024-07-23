@@ -454,7 +454,7 @@ class CPlotDriver:
                     ax.text(
                         seg_meta.begin_x,
                         seg_meta.begin_y,
-                        f'{seg_meta.begin_y:.2f}',
+                        f'{seg_meta.begin_y:.4f}',
                         fontsize=end_fontsize,
                         color=end_color,
                         verticalalignment="top" if seg_meta.dir == BI_DIR.UP else "bottom",
@@ -462,7 +462,7 @@ class CPlotDriver:
                 ax.text(
                     seg_meta.end_x,
                     seg_meta.end_y,
-                    f'{seg_meta.end_y:.2f}',
+                    f'{seg_meta.end_y:.4f}',
                     fontsize=end_fontsize,
                     color=end_color,
                     verticalalignment="top" if seg_meta.dir == BI_DIR.DOWN else "bottom",
@@ -845,7 +845,7 @@ def bi_text(bi_idx, ax: Axes, bi, end_fontsize, end_color):
         ax.text(
             bi.begin_x,
             bi.begin_y,
-            f'{bi.begin_y:.2f}',
+            f'{bi.begin_y:.4f}',
             fontsize=end_fontsize,
             color=end_color,
             verticalalignment="top" if bi.dir == BI_DIR.UP else "bottom",
@@ -853,7 +853,7 @@ def bi_text(bi_idx, ax: Axes, bi, end_fontsize, end_color):
     ax.text(
         bi.end_x,
         bi.end_y,
-        f'{bi.end_y:.2f}',
+        f'{bi.end_y:.4f}',
         fontsize=end_fontsize,
         color=end_color,
         verticalalignment="top" if bi.dir == BI_DIR.DOWN else "bottom",
@@ -877,7 +877,7 @@ def add_zs_text(ax: Axes, zs_meta: CZS_meta, fontsize, text_color):
     ax.text(
         zs_meta.begin,
         zs_meta.low,
-        f'{zs_meta.low:.2f}',
+        f'{zs_meta.low:.4f}',
         fontsize=fontsize,
         color=text_color,
         verticalalignment="top",
@@ -886,7 +886,7 @@ def add_zs_text(ax: Axes, zs_meta: CZS_meta, fontsize, text_color):
     ax.text(
         zs_meta.begin + zs_meta.w,
         zs_meta.low + zs_meta.h,
-        f'{zs_meta.low + zs_meta.h:.2f}',
+        f'{zs_meta.low + zs_meta.h:.4f}',
         fontsize=fontsize,
         color=text_color,
         verticalalignment="bottom",

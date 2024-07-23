@@ -253,7 +253,7 @@ class CChan:
                 try:
                     kline_unit = self.get_next_lv_klu(lv_idx)
                     self.try_set_klu_idx(lv_idx, kline_unit)
-                    if not kline_unit.time > self.klu_last_t[lv_idx]:
+                    if not kline_unit.time >= self.klu_last_t[lv_idx]:
                         raise CChanException(f"kline time err, cur={kline_unit.time}, last={self.klu_last_t[lv_idx]}", ErrCode.KL_NOT_MONOTONOUS)
                     self.klu_last_t[lv_idx] = kline_unit.time
                 except StopIteration:
