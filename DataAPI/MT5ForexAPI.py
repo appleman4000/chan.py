@@ -1,10 +1,10 @@
 # cython: language_level=3
 import datetime
-import time
 
 import MetaTrader5 as MT5
 import baostock as bs
 import pandas as pd
+import pytz
 
 from Common.CEnum import DATA_FIELD, KL_TYPE
 from Common.CTime import CTime
@@ -90,15 +90,27 @@ class CMT5ForexAPI(CCommonForexApi):
             timeframe = MT5.TIMEFRAME_D1
         else:
             raise Exception("不支持的时间框")
+        local_time_format = '%Y-%m-%d %H:%M:%S'
 
-        local_from = datetime.datetime.strptime(self.begin_date, '%Y-%m-%d %H:%M:%S')
-        local_to = datetime.datetime.strptime(self.end_date, '%Y-%m-%d %H:%M:%S')
+        local_tz = pytz.timezone('Asia/Shanghai')
+        zurich_tz = pytz.timezone('Europe/Zurich')
+        # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
+        # 解析时间字符串为datetime对象
+        begin_date = datetime.datetime.strptime(self.begin_date, local_time_format)
+        # 本地时区
 
-        time_struct_from = time.mktime(local_from.timetuple())
-        utc_from = datetime.datetime.utcfromtimestamp(time_struct_from)
+        # 将datetime对象本地化为本地时区时间
+        begin_date = local_tz.localize(begin_date)
+        # 将本地时区时间转换为UTC时间
+        begin_date = begin_date.astimezone(pytz.utc)
 
-        time_struct_to = time.mktime(local_to.timetuple())
-        utc_to = datetime.datetime.utcfromtimestamp(time_struct_to)
+        end_date = datetime.datetime.strptime(self.end_date, local_time_format)
+
+        # 将datetime对象本地化为本地时区时间
+        end_date = local_tz.localize(end_date)
+        # 将本地时区时间转换为UTC时间
+        end_date = end_date.astimezone(pytz.utc)
+
         timeframe_seconds = {
             MT5.TIMEFRAME_M1: 60,
             MT5.TIMEFRAME_M2: 120,
@@ -123,11 +135,13 @@ class CMT5ForexAPI(CCommonForexApi):
             MT5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
         }
 
-        bars = MT5.copy_rates_range(self.code, timeframe, utc_from, utc_to)
+        # bars = MT5.copy_rates_range(self.code, timeframe, begin_date, end_date)
+        bars = MT5.copy_rates_from_pos(self.code, timeframe, 0, 1000)
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
-        bars['time'] = pd.to_datetime(bars['time'], unit='s') + datetime.timedelta(
-            seconds=timeframe_seconds[timeframe] - 1)
+        bars['time'] = pd.to_datetime(bars['time'], unit='s')
+        bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
+        bars['time'] = bars['time'].dt.tz_convert(local_tz)
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"

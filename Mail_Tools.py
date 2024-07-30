@@ -29,7 +29,7 @@ plot_config = {
         "plot_kline_combine": True,
         "plot_bi": True,
         "plot_seg": True,
-        "plot_eigen": True,
+        "plot_eigen": False,
         "plot_zs": True,
         "plot_macd": True,
         "plot_mean": False,
@@ -68,8 +68,6 @@ def send_email(to_emails, subject, message, chan):
         # 发信方的信息：发信邮箱，QQ 邮箱授权码
         from_addr = 'appleman4000@qq.com'
         password = 'unfzwuwkwdwqcace'
-        # 收信方邮箱
-
         # 发信服务器
         smtp_server = 'smtp.qq.com'
         smtpobj = smtplib.SMTP_SSL(smtp_server)
@@ -83,33 +81,31 @@ def send_email(to_emails, subject, message, chan):
         g.figure.savefig(buf, format='png')
         buf.seek(0)
         # 发送邮件
-        for to_email in to_emails:
-            to_addr = to_email
-            msg = MIMEMultipart('related')
-            # 邮件头信息
-            msg['From'] = formataddr((Header("程恩", 'utf-8').encode(), from_addr))
-            msg['To'] = formataddr((Header(to_email, 'utf-8').encode(), to_email))
-            msg['Subject'] = Header(subject, 'utf-8')  # 邮件主题
-            # 构建邮件正文
-            html = f"""
-                        <html>
-                          <body>
-                            <p>{message}<br>
-                               <img src="cid:image1"><br>
-                            </p>
-                          </body>
-                        </html>
-                        """
-            msg.attach(MIMEText(html, 'html', 'utf-8'))
-            msg_image = MIMEImage(buf.getvalue())
-            msg_image.add_header('Content-ID', '<image1>')
-            msg.attach(msg_image)
-            # 发送邮件
-            try:
-                smtpobj.sendmail(from_addr, to_addr, msg.as_string())
-                print(f"邮件成功发送到: {to_email}")
-            except Exception as e:
-                print(f"发送到 {to_email} 时发生错误: {e}")
+        msg = MIMEMultipart('related')
+        # 邮件头信息
+        msg['From'] = from_addr
+        msg['To'] = ', '.join(to_emails)
+        msg['Subject'] = Header(subject, 'utf-8')  # 邮件主题
+        # 构建邮件正文
+        html = f"""
+                    <html>
+                      <body>
+                        <p>{message}<br>
+                           <img src="cid:image1"><br>
+                        </p>
+                      </body>
+                    </html>
+                    """
+        msg.attach(MIMEText(html, 'html', 'utf-8'))
+        msg_image = MIMEImage(buf.getvalue())
+        msg_image.add_header('Content-ID', '<image1>')
+        msg.attach(msg_image)
+        # 发送邮件
+        try:
+            smtpobj.sendmail(from_addr, to_emails, msg.as_string())
+            print(f"邮件成功发送到: {', '.join(to_emails)}")
+        except Exception as e:
+            print(f"发送到 {', '.join(to_emails)} 时发生错误: {e}")
 
     except smtplib.SMTPException as e:
         print(e)
