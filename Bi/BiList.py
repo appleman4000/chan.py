@@ -3,11 +3,10 @@ from typing import List, Optional, Union, overload
 
 from Common.CEnum import FX_TYPE, KLINE_DIR
 from KLine.KLine import CKLine
-
 from .Bi import CBi
 from .BiConfig import CBiConfig
 
-
+# 所有笔的列表
 class CBiList:
     def __init__(self, bi_conf=CBiConfig()):
         self.bi_list: List[CBi] = []
@@ -19,21 +18,28 @@ class CBiList:
     def __str__(self):
         return "\n".join([str(bi) for bi in self.bi_list])
 
+    # 返回笔列表的迭代器
     def __iter__(self):
         yield from self.bi_list
 
+    # 根据索引获取笔
     @overload
-    def __getitem__(self, index: int) -> CBi: ...
+    def __getitem__(self, index: int) -> CBi:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> List[CBi]: ...
+    def __getitem__(self, index: slice) -> List[CBi]:
+        ...
 
+    # 根据索引列表获取笔集合
     def __getitem__(self, index: Union[slice, int]) -> Union[List[CBi], CBi]:
         return self.bi_list[index]
 
+    # 得到笔的个数
     def __len__(self):
         return len(self.bi_list)
 
+    # 创建第一个笔
     def try_create_first_bi(self, klc: CKLine) -> bool:
         for exist_free_klc in self.free_klc_lst:
             if exist_free_klc.fx == klc.fx:
@@ -125,7 +131,8 @@ class CBiList:
             return False
         if klc.idx == self[-1].end_klc.idx:
             return False
-        if (self[-1].is_up() and klc.high >= self[-1].end_klc.high) or (self[-1].is_down() and klc.low <= self[-1].end_klc.low):
+        if (self[-1].is_up() and klc.high >= self[-1].end_klc.high) or (
+                self[-1].is_down() and klc.low <= self[-1].end_klc.low):
             # 更新最后一笔
             self.bi_list[-1].update_virtual_end(klc)
             return True
@@ -203,13 +210,14 @@ class CBiList:
             return False
         last_bi = self.bi_list[-1]
         if (last_bi.is_up() and check_top(klc, for_virtual) and klc.high >= last_bi.get_end_val()) or \
-           (last_bi.is_down() and check_bottom(klc, for_virtual) and klc.low <= last_bi.get_end_val()):
+                (last_bi.is_down() and check_bottom(klc, for_virtual) and klc.low <= last_bi.get_end_val()):
             last_bi.update_virtual_end(klc) if for_virtual else last_bi.update_new_end(klc)
             self.last_end = klc
             return True
         else:
             return False
 
+    # 得到最后一笔的结束合并K线中最低或者最高K线
     def get_last_klu_of_last_bi(self) -> Optional[int]:
         return self.bi_list[-1].get_end_klu().idx if len(self) > 0 else None
 

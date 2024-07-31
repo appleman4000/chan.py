@@ -7,24 +7,25 @@ from typing import Dict, Iterable, List, Optional, Union
 from BuySellPoint.BS_Point import CBS_Point
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from Common.ChanException import CChanException, ErrCode
 from Common.CTime import CTime
+from Common.ChanException import CChanException, ErrCode
 from Common.func_util import check_kltype_order, kltype_lte_day
 from DataAPI.CommonStockAPI import CCommonStockApi
 from KLine.KLine_List import CKLine_List
 from KLine.KLine_Unit import CKLine_Unit
 
 
+# 缠论实现类
 class CChan:
     def __init__(
-        self,
-        code,
-        begin_time=None,
-        end_time=None,
-        data_src: Union[DATA_SRC, str] = DATA_SRC.BAO_STOCK,
-        lv_list=None,
-        config=None,
-        autype: AUTYPE = AUTYPE.QFQ,
+            self,
+            code,
+            begin_time=None,
+            end_time=None,
+            data_src: Union[DATA_SRC, str] = DATA_SRC.BAO_STOCK,
+            lv_list=None,
+            config=None,
+            autype: AUTYPE = AUTYPE.QFQ,
     ):
         if lv_list is None:
             lv_list = [KL_TYPE.K_DAY, KL_TYPE.K_60M]
@@ -94,7 +95,8 @@ class CChan:
             yield klu
 
     def get_load_stock_iter(self, stockapi_cls, lv):
-        stockapi_instance = stockapi_cls(code=self.code, k_type=lv, begin_date=self.begin_time, end_date=self.end_time, autype=self.autype)
+        stockapi_instance = stockapi_cls(code=self.code, k_type=lv, begin_date=self.begin_time, end_date=self.end_time,
+                                         autype=self.autype)
         self.name = stockapi_instance.name
         return self.load_stock_data(stockapi_instance, lv)
 
@@ -219,7 +221,7 @@ class CChan:
             raise CChanException("最高级别没有获得任何数据", ErrCode.NO_DATA)
 
     def set_klu_parent_relation(self, parent_klu, kline_unit, cur_lv, lv_idx):
-        if self.conf.kl_data_check and kltype_lte_day(cur_lv) and kltype_lte_day(self.lv_list[lv_idx-1]):
+        if self.conf.kl_data_check and kltype_lte_day(cur_lv) and kltype_lte_day(self.lv_list[lv_idx - 1]):
             self.check_kl_consitent(parent_klu, kline_unit)
         parent_klu.add_children(kline_unit)
         kline_unit.set_parent(parent_klu)
@@ -254,7 +256,8 @@ class CChan:
                     kline_unit = self.get_next_lv_klu(lv_idx)
                     self.try_set_klu_idx(lv_idx, kline_unit)
                     if not kline_unit.time >= self.klu_last_t[lv_idx]:
-                        raise CChanException(f"kline time err, cur={kline_unit.time}, last={self.klu_last_t[lv_idx]}", ErrCode.KL_NOT_MONOTONOUS)
+                        raise CChanException(f"kline time err, cur={kline_unit.time}, last={self.klu_last_t[lv_idx]}",
+                                             ErrCode.KL_NOT_MONOTONOUS)
                     self.klu_last_t[lv_idx] = kline_unit.time
                 except StopIteration:
                     break
@@ -265,8 +268,8 @@ class CChan:
             self.add_new_kl(cur_lv, kline_unit)
             if parent_klu:
                 self.set_klu_parent_relation(parent_klu, kline_unit, cur_lv, lv_idx)
-            if lv_idx != len(self.lv_list)-1:
-                for _ in self.load_iterator(lv_idx+1, kline_unit, step):
+            if lv_idx != len(self.lv_list) - 1:
+                for _ in self.load_iterator(lv_idx + 1, kline_unit, step):
                     ...
                 self.check_kl_align(kline_unit, lv_idx)
             if lv_idx == 0 and step:
@@ -274,21 +277,23 @@ class CChan:
 
     def check_kl_consitent(self, parent_klu, sub_klu):
         if parent_klu.time.year != sub_klu.time.year or \
-           parent_klu.time.month != sub_klu.time.month or \
-           parent_klu.time.day != sub_klu.time.day:
+                parent_klu.time.month != sub_klu.time.month or \
+                parent_klu.time.day != sub_klu.time.day:
             self.kl_inconsistent_detail[str(parent_klu.time)].append(sub_klu.time)
             if self.conf.print_warning:
                 print(f"[WARNING-{self.code}]父级别时间是{parent_klu.time}，次级别时间却是{sub_klu.time}")
             if len(self.kl_inconsistent_detail) >= self.conf.max_kl_inconsistent_cnt:
-                raise CChanException(f"父&子级别K线时间不一致条数超过{self.conf.max_kl_inconsistent_cnt}！！", ErrCode.KL_TIME_INCONSISTENT)
+                raise CChanException(f"父&子级别K线时间不一致条数超过{self.conf.max_kl_inconsistent_cnt}！！",
+                                     ErrCode.KL_TIME_INCONSISTENT)
 
     def check_kl_align(self, kline_unit, lv_idx):
         if self.conf.kl_data_check and len(kline_unit.sub_kl_list) == 0:
             self.kl_misalign_cnt += 1
             if self.conf.print_warning:
-                print(f"[WARNING-{self.code}]当前{kline_unit.time}没在次级别{self.lv_list[lv_idx+1]}找到K线！！")
+                print(f"[WARNING-{self.code}]当前{kline_unit.time}没在次级别{self.lv_list[lv_idx + 1]}找到K线！！")
             if self.kl_misalign_cnt >= self.conf.max_kl_misalgin_cnt:
-                raise CChanException(f"在次级别找不到K线条数超过{self.conf.max_kl_misalgin_cnt}！！", ErrCode.KL_DATA_NOT_ALIGN)
+                raise CChanException(f"在次级别找不到K线条数超过{self.conf.max_kl_misalgin_cnt}！！",
+                                     ErrCode.KL_DATA_NOT_ALIGN)
 
     def __getitem__(self, n) -> CKLine_List:
         if isinstance(n, KL_TYPE):

@@ -2,6 +2,7 @@
 from Common.ChanException import CChanException, ErrCode
 
 
+# 定义合并k线/笔/线段
 class CCombine_Item:
     def __init__(self, item):
         from Bi.Bi import CBi

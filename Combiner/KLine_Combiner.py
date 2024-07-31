@@ -1,16 +1,16 @@
 # cython: language_level=3
 from typing import Generic, Iterable, List, Optional, Self, TypeVar, Union, overload
 
-from Common.cache import make_cache
 from Common.CEnum import FX_TYPE, KLINE_DIR
 from Common.ChanException import CChanException, ErrCode
+from Common.cache import make_cache
 from KLine.KLine_Unit import CKLine_Unit
-
 from .Combine_Item import CCombine_Item
 
 T = TypeVar('T')
 
 
+# k线/笔/线段合并器
 class CKLine_Combiner(Generic[T]):
     def __init__(self, kl_unit: T, _dir):
         item = CCombine_Item(kl_unit)
@@ -30,25 +30,32 @@ class CKLine_Combiner(Generic[T]):
         self._memoize_cache = {}
 
     @property
-    def time_begin(self): return self.__time_begin
+    def time_begin(self):
+        return self.__time_begin
 
     @property
-    def time_end(self): return self.__time_end
+    def time_end(self):
+        return self.__time_end
 
     @property
-    def high(self): return self.__high
+    def high(self):
+        return self.__high
 
     @property
-    def low(self): return self.__low
+    def low(self):
+        return self.__low
 
     @property
-    def lst(self): return self.__lst
+    def lst(self):
+        return self.__lst
 
     @property
-    def dir(self): return self.__dir
+    def dir(self):
+        return self.__dir
 
     @property
-    def fx(self): return self.__fx
+    def fx(self):
+        return self.__fx
 
     @property
     def pre(self) -> Self:
@@ -56,7 +63,8 @@ class CKLine_Combiner(Generic[T]):
         return self.__pre
 
     @property
-    def next(self): return self.__next
+    def next(self):
+        return self.__next
 
     def get_next(self) -> Self:
         assert self.next is not None
@@ -105,7 +113,8 @@ class CKLine_Combiner(Generic[T]):
                     self.__high = min([self.high, combine_item.high])
                     self.__low = min([self.low, combine_item.low])
             else:
-                raise CChanException(f"KLINE_DIR = {self.dir} err!!! must be {KLINE_DIR.UP}/{KLINE_DIR.DOWN}", ErrCode.COMBINER_ERR)
+                raise CChanException(f"KLINE_DIR = {self.dir} err!!! must be {KLINE_DIR.UP}/{KLINE_DIR.DOWN}",
+                                     ErrCode.COMBINER_ERR)
             self._time_end = combine_item.time_end
             self.clean_cache()
         # 返回UP/DOWN/COMBINE给KL_LIST，设置下一个的方向
@@ -153,10 +162,12 @@ class CKLine_Combiner(Generic[T]):
         return f"{self.time_begin}~{self.time_end} {self.low}->{self.high}"
 
     @overload
-    def __getitem__(self, index: int) -> T: ...
+    def __getitem__(self, index: int) -> T:
+        ...
 
     @overload
-    def __getitem__(self, index: slice) -> List[T]: ...
+    def __getitem__(self, index: slice) -> List[T]:
+        ...
 
     def __getitem__(self, index: Union[slice, int]) -> Union[List[T], T]:
         return self.lst[index]

@@ -1,13 +1,14 @@
 # cython: language_level=3
 from typing import List, Optional
 
-from Common.cache import make_cache
 from Common.CEnum import BI_DIR, BI_TYPE, DATA_FIELD, FX_TYPE, MACD_ALGO
 from Common.ChanException import CChanException, ErrCode
+from Common.cache import make_cache
 from KLine.KLine import CKLine
 from KLine.KLine_Unit import CKLine_Unit
 
 
+# 笔的定义
 class CBi:
     def __init__(self, begin_klc: CKLine, end_klc: CKLine, idx: int, is_sure: bool):
         # self.__begin_klc = begin_klc
@@ -35,27 +36,42 @@ class CBi:
     def clean_cache(self):
         self._memoize_cache = {}
 
+    # 笔的开始合并K线
     @property
-    def begin_klc(self): return self.__begin_klc
+    def begin_klc(self):
+        return self.__begin_klc
 
+    # 笔的结束合并K线
     @property
-    def end_klc(self): return self.__end_klc
+    def end_klc(self):
+        return self.__end_klc
 
+    # 笔的方向
     @property
-    def dir(self): return self.__dir
+    def dir(self):
+        return self.__dir
 
+    # 笔的索引
     @property
-    def idx(self): return self.__idx
+    def idx(self):
+        return self.__idx
 
+    # 笔的类型
     @property
-    def type(self): return self.__type
+    def type(self):
+        return self.__type
 
+    # 笔是否被确认
     @property
-    def is_sure(self): return self.__is_sure
+    def is_sure(self):
+        return self.__is_sure
 
+    # 待确认的笔结束合并K线列表，笔被确认之后会被清除
     @property
-    def sure_end(self): return self.__sure_end
+    def sure_end(self):
+        return self.__sure_end
 
+    # 笔包含的所有合并K线迭代器
     @property
     def klc_lst(self):
         klc = self.begin_klc
@@ -65,6 +81,7 @@ class CBi:
             if not klc or klc.idx > self.end_klc.idx:
                 break
 
+    # 笔包含的所有合并K线迭代器(逆序)
     @property
     def klc_lst_re(self):
         klc = self.end_klc
@@ -74,15 +91,19 @@ class CBi:
             if not klc or klc.idx < self.begin_klc.idx:
                 break
 
+    # 笔所属线段ID
     @property
-    def seg_idx(self): return self.__seg_idx
+    def seg_idx(self):
+        return self.__seg_idx
 
+    # 设置笔所属线段ID
     def set_seg_idx(self, idx):
         self.__seg_idx = idx
 
     def __str__(self):
         return f"{self.dir}|{self.begin_klc} ~ {self.end_klc}"
 
+    # 笔的合法性检查
     def check(self):
         try:
             if self.is_down():
@@ -90,8 +111,11 @@ class CBi:
             else:
                 assert self.begin_klc.low < self.end_klc.high
         except Exception as e:
-            raise CChanException(f"{self.idx}:{self.begin_klc[0].time}~{self.end_klc[-1].time}笔的方向和收尾位置不一致!", ErrCode.BI_ERR) from e
+            raise CChanException(
+                f"{self.idx}:{self.begin_klc[0].time}~{self.end_klc[-1].time}笔的方向和收尾位置不一致!",
+                ErrCode.BI_ERR) from e
 
+    # 创建笔
     def set(self, begin_klc: CKLine, end_klc: CKLine):
         self.__begin_klc: CKLine = begin_klc
         self.__end_klc: CKLine = end_klc
@@ -104,14 +128,17 @@ class CBi:
         self.check()
         self.clean_cache()
 
+    # 得到笔的起点价格
     @make_cache
     def get_begin_val(self):
         return self.begin_klc.low if self.is_up() else self.begin_klc.high
 
+    # 得到笔的终点价格
     @make_cache
     def get_end_val(self):
         return self.end_klc.high if self.is_up() else self.end_klc.low
 
+    # 得到笔的开始合并K线中最低或者最高K线
     @make_cache
     def get_begin_klu(self) -> CKLine_Unit:
         if self.is_up():
@@ -119,6 +146,7 @@ class CBi:
         else:
             return self.begin_klc.get_peak_klu(is_high=True)
 
+    # 得到笔的结束合并K线中最低或者最高K线
     @make_cache
     def get_end_klu(self) -> CKLine_Unit:
         if self.is_up():
@@ -126,58 +154,71 @@ class CBi:
         else:
             return self.end_klc.get_peak_klu(is_high=False)
 
+    # 笔的价格波幅
     @make_cache
     def amp(self):
         return abs(self.get_end_val() - self.get_begin_val())
 
+    # 笔包含的K线数量
     @make_cache
     def get_klu_cnt(self):
         return self.get_end_klu().idx - self.get_begin_klu().idx + 1
 
+    # 笔包含的合并K线数量
     @make_cache
     def get_klc_cnt(self):
         assert self.end_klc.idx == self.get_end_klu().klc.idx
         assert self.begin_klc.idx == self.get_begin_klu().klc.idx
         return self.end_klc.idx - self.begin_klc.idx + 1
 
+    # 笔的最高价
     @make_cache
     def _high(self):
         return self.end_klc.high if self.is_up() else self.begin_klc.high
 
+    # 笔的最低价
     @make_cache
     def _low(self):
         return self.begin_klc.low if self.is_up() else self.end_klc.low
 
+    # 笔的中间价
     @make_cache
     def _mid(self):
         return (self._high() + self._low()) / 2  # 笔的中位价
 
+    # 笔是否是下降笔
     @make_cache
     def is_down(self):
         return self.dir == BI_DIR.DOWN
 
+    # 笔是否是上升笔
     @make_cache
     def is_up(self):
         return self.dir == BI_DIR.UP
 
+    # 不断更新待确认笔的结束合并K线
     def update_virtual_end(self, new_klc: CKLine):
         self.append_sure_end(self.end_klc)
         self.update_new_end(new_klc)
         self.__is_sure = False
 
+    # 笔被确认
     def restore_from_virtual_end(self, sure_end: CKLine):
         self.__is_sure = True
         self.update_new_end(new_klc=sure_end)
         self.__sure_end = []
 
+    # 插入合并K线进入待确定笔端点
     def append_sure_end(self, klc: CKLine):
         self.__sure_end.append(klc)
 
+    # 更新笔的结束合并K线
     def update_new_end(self, new_klc: CKLine):
         self.__end_klc = new_klc
         self.check()
         self.clean_cache()
 
+    # 计算MACD指标背驰算法
     def cal_macd_metric(self, macd_algo, is_reverse):
         if macd_algo == MACD_ALGO.AREA:
             return self.Cal_MACD_half(is_reverse)
@@ -204,14 +245,17 @@ class CBi:
         elif macd_algo == MACD_ALGO.RSI:
             return self.Cal_Rsi()
         else:
-            raise CChanException(f"unsupport macd_algo={macd_algo}, should be one of area/full_area/peak/diff/slope/amp", ErrCode.PARA_ERROR)
+            raise CChanException(
+                f"unsupport macd_algo={macd_algo}, should be one of area/full_area/peak/diff/slope/amp",
+                ErrCode.PARA_ERROR)
 
+    # 以下是众多MACD背离计算函数
     @make_cache
     def Cal_Rsi(self):
         rsi_lst: List[float] = []
         for klc in self.klc_lst:
             rsi_lst.extend(klu.rsi for klu in klc.lst)
-        return 10000.0/(min(rsi_lst)+1e-7) if self.is_down() else max(rsi_lst)
+        return 10000.0 / (min(rsi_lst) + 1e-7) if self.is_down() else max(rsi_lst)
 
     @make_cache
     def Cal_MACD_area(self):
@@ -248,7 +292,7 @@ class CBi:
             for klu in klc.lst:
                 if klu.idx < begin_klu.idx:
                     continue
-                if klu.macd.macd*peak_macd > 0:
+                if klu.macd.macd * peak_macd > 0:
                     _s += abs(klu.macd.macd)
                 else:
                     break
@@ -266,7 +310,7 @@ class CBi:
             for klu in klc[::-1]:
                 if klu.idx > begin_klu.idx:
                     continue
-                if klu.macd.macd*peak_macd > 0:
+                if klu.macd.macd * peak_macd > 0:
                     _s += abs(klu.macd.macd)
                 else:
                     break
@@ -288,25 +332,25 @@ class CBi:
                     _max = macd
                 if macd < _min:
                     _min = macd
-        return _max-_min
+        return _max - _min
 
     @make_cache
     def Cal_MACD_slope(self):
         begin_klu = self.get_begin_klu()
         end_klu = self.get_end_klu()
         if self.is_up():
-            return (end_klu.high - begin_klu.low)/end_klu.high/(end_klu.idx - begin_klu.idx + 1)
+            return (end_klu.high - begin_klu.low) / end_klu.high / (end_klu.idx - begin_klu.idx + 1)
         else:
-            return (begin_klu.high - end_klu.low)/begin_klu.high/(end_klu.idx - begin_klu.idx + 1)
+            return (begin_klu.high - end_klu.low) / begin_klu.high / (end_klu.idx - begin_klu.idx + 1)
 
     @make_cache
     def Cal_MACD_amp(self):
         begin_klu = self.get_begin_klu()
         end_klu = self.get_end_klu()
         if self.is_down():
-            return (begin_klu.high-end_klu.low)/begin_klu.high
+            return (begin_klu.high - end_klu.low) / begin_klu.high
         else:
-            return (end_klu.high-begin_klu.low)/begin_klu.low
+            return (end_klu.high - begin_klu.low) / begin_klu.low
 
     def Cal_MACD_trade_metric(self, metric: str, cal_avg=False) -> float:
         _s = 0

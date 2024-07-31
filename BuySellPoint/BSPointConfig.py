@@ -76,4 +76,4 @@ class CPointConfig:
         if k == "macd_algo":
             self.SetMacdAlgo(v)
         else:
-            setattr(self,k,v)
+            setattr(self, k, v)

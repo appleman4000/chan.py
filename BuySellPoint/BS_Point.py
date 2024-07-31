@@ -9,6 +9,7 @@ from Seg.Seg import CSeg
 LINE_TYPE = TypeVar('LINE_TYPE', CBi, CSeg)
 
 
+# ÂòÂôµã¶¨Òå
 class CBS_Point(Generic[LINE_TYPE]):
     def __init__(self, bi: LINE_TYPE, is_buy, bs_type: BSP_TYPE, relate_bsp1: Optional['CBS_Point'], feature_dict=None):
         self.bi: LINE_TYPE = bi
@@ -35,5 +36,6 @@ class CBS_Point(Generic[LINE_TYPE]):
         elif relate_bsp1 is not None:
             assert self.relate_bsp1.klu.idx == relate_bsp1.klu.idx
 
-    def add_feat(self, inp1: Union[str, Dict[str, float], Dict[str, Optional[float]], 'CFeatures'], inp2: Optional[float] = None):
+    def add_feat(self, inp1: Union[str, Dict[str, float], Dict[str, Optional[float]], 'CFeatures'],
+                 inp2: Optional[float] = None):
         self.features.add_feat(inp1, inp2)

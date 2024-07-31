@@ -5,13 +5,13 @@ from Common.ChanException import CChanException, ErrCode
 
 class CBiConfig:
     def __init__(
-        self,
-        bi_algo="normal",
-        is_strict=True,
-        bi_fx_check="half",
-        gap_as_kl=True,
-        bi_end_is_peak=True,
-        bi_allow_sub_peak=True,
+            self,
+            bi_algo="normal",
+            is_strict=True,
+            bi_fx_check="half",
+            gap_as_kl=True,  # 价格跳空缺口处理为一根K线
+            bi_end_is_peak=True,
+            bi_allow_sub_peak=True,
     ):
         self.bi_algo = bi_algo
         self.is_strict = is_strict
