@@ -65,6 +65,8 @@ symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF",
 periods = [mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
+
+
 # to_emails = ['appleman4000@qq.com']
 
 
@@ -103,7 +105,7 @@ def on_bar(symbol, period, bar, enable_send_mail=False):
 
     if enable_send_mail:
         subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {bar.close}"
-        message = f"北京时间:{bar.time} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts)}"
+        message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
         send_email(to_emails, subject, message, chan)
 
 
@@ -158,7 +160,7 @@ def init_chan():
 
 
 def initialize_mt5():
-    if not mt5.initialize():
+    if not mt5.initialize(server="Swissquote-Server", login=6150644, password="Sj!i2zHy"):
         print("初始化失败")
         return False
     return True

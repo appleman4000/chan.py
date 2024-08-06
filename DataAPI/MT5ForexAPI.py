@@ -100,29 +100,6 @@ class CMT5ForexAPI(CCommonForexApi):
         end_date = datetime.datetime.strptime(self.end_date, local_time_format)
         end_date = end_date + datetime.timedelta(hours=2)
 
-        timeframe_seconds = {
-            MT5.TIMEFRAME_M1: 60,
-            MT5.TIMEFRAME_M2: 120,
-            MT5.TIMEFRAME_M3: 180,
-            MT5.TIMEFRAME_M4: 240,
-            MT5.TIMEFRAME_M5: 300,
-            MT5.TIMEFRAME_M6: 360,
-            MT5.TIMEFRAME_M10: 600,
-            MT5.TIMEFRAME_M12: 720,
-            MT5.TIMEFRAME_M15: 900,
-            MT5.TIMEFRAME_M20: 1200,
-            MT5.TIMEFRAME_M30: 1800,
-            MT5.TIMEFRAME_H1: 3600,
-            MT5.TIMEFRAME_H2: 7200,
-            MT5.TIMEFRAME_H3: 10800,
-            MT5.TIMEFRAME_H4: 14400,
-            MT5.TIMEFRAME_H6: 21600,
-            MT5.TIMEFRAME_H8: 28800,
-            MT5.TIMEFRAME_H12: 43200,
-            MT5.TIMEFRAME_D1: 86400,
-            MT5.TIMEFRAME_W1: 604800,
-            MT5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
-        }
         bars = MT5.copy_rates_range(self.code, timeframe, begin_date, end_date)
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)

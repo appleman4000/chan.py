@@ -21,9 +21,19 @@ time_frame_mapping = {
     '15分钟': KL_TYPE.K_15M,
     '30分钟': KL_TYPE.K_30M,
     '1小时': KL_TYPE.K_60M,
+    '4小时': KL_TYPE.K_240M,
     '1天': KL_TYPE.K_DAY
 }
-time_frame_type = ['1分钟', '5分钟', '15分钟', '30分钟', '1小时', '1天']
+time_frame_type = ['1分钟', '5分钟', '15分钟', '30分钟', '1小时', '4小时', '1天']
+timeframe_seconds = {
+    '1分钟': 60,
+    '5分钟': 300,
+    '15分钟': 900,
+    '30分钟': 1800,
+    '1小时': 3600,
+    '4小时': 14400,
+    '1天': 86400,
+}
 
 
 def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time_frames=[], trigger_step=False):
@@ -45,8 +55,6 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
     lv_list = [time_frame_mapping[time_frame] for time_frame in time_frames]
     config = CChanConfig({
         "trigger_step": trigger_step,  # 打开开关！
-        "divergence_rate": 0.9,
-        "max_bs2_rate": 0.8,
         "min_zs_cnt": 1,
         "kl_data_check": False,
     })
@@ -166,20 +174,19 @@ if __name__ == "__main__":
         elif market_type == "外汇/贵金属/CFD":
             code = st.text_input("交易品种", value="USDCNH")
         time_frames = st.multiselect('时间周期', time_frame_type, default=['1天'])
+        time_frames = sorted(time_frames, key=lambda i: time_frame_type[::-1].index(i))
         query = st.button("开始分析", use_container_width=True)
         if query:
             st.balloons()
             with st.spinner('正在计算缠论，请耐心稍候...'):
-                PlotDriver.figure = None
-                PlotDriver.axes = None
-                PlotDriver.axes_origin = None
                 if mode == "在线分析":
                     # 获取当前日期
                     end_time = datetime.datetime.now()
                     # 计算200天前的日期
-                    begin_time = end_time - datetime.timedelta(days=200)
+                    seconds = timeframe_seconds[time_frames[0]]
+                    begin_time = end_time - datetime.timedelta(seconds=seconds * 300)
                     begin_time = begin_time.strftime("%Y-%m-%d %H:%M:%S")
                     end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
-                time_frames = sorted(time_frames, key=lambda i: time_frame_type[::-1].index(i))
+
                 run_chanlun(code=code, begin_time=begin_time, end_time=end_time, market_type=market_type,
                             time_frames=time_frames, trigger_step=mode == "历史复盘")
