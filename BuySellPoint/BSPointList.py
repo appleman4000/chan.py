@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi

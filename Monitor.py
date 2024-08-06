@@ -1,3 +1,5 @@
+# cython: language_level=3
+# encoding:utf-8
 import builtins
 import datetime
 import time
@@ -43,6 +45,7 @@ period_map = {
     mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
     mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
     mt5.TIMEFRAME_H1: KL_TYPE.K_60M,
+    mt5.TIMEFRAME_H4: KL_TYPE.K_240M,
     mt5.TIMEFRAME_D1: KL_TYPE.K_DAY,
 
 }
@@ -53,12 +56,13 @@ period_name = {
     mt5.TIMEFRAME_M15: "15分钟",
     mt5.TIMEFRAME_M30: "30分钟",
     mt5.TIMEFRAME_H1: "1小时",
+    mt5.TIMEFRAME_H4: "4小时",
     mt5.TIMEFRAME_D1: "1天",
 
 }
 # 设置交易对
 symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP"]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1]
+periods = [mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 # to_emails = ['appleman4000@qq.com']
@@ -111,7 +115,6 @@ def init_chan():
             lv_list = [period_map[period]]
             config = CChanConfig({
                 "trigger_step": True,  # 打开开关！
-                "divergence_rate": float("inf"),
                 "min_zs_cnt": 1,
                 "kl_data_check": False,
             })
@@ -128,7 +131,7 @@ def init_chan():
 
     for symbol in symbols:
         for period in periods:
-            bars = mt5.copy_rates_from_pos(symbol, period, 1, 500)
+            bars = mt5.copy_rates_from_pos(symbol, period, 1, 200)
             bars = pd.DataFrame(bars)
             last_bar_time = bars.iloc[-1].time
             bars.dropna(inplace=True)

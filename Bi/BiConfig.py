@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from Common.CEnum import FX_CHECK_METHOD
 from Common.ChanException import CChanException, ErrCode
 
@@ -9,7 +10,7 @@ class CBiConfig:
             bi_algo="normal",
             is_strict=True,
             bi_fx_check="half",
-            gap_as_kl=True,  # ¼Û¸ñÌø¿ÕÈ±¿Ú´¦ÀíÎªÒ»¸ùKÏß
+            gap_as_kl=True,  # ä»·æ ¼è·³ç©ºç¼ºå£å¤„ç†ä¸ºä¸€æ ¹Kçº¿
             bi_end_is_peak=True,
             bi_allow_sub_peak=True,
     ):

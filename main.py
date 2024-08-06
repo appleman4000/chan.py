@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE

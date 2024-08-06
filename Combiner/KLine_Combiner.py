@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from typing import Generic, Iterable, List, Optional, Self, TypeVar, Union, overload
 
 from Common.CEnum import FX_TYPE, KLINE_DIR

@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 class KDJ_Item:
     def __init__(self, k, d, j):
         self.k = k

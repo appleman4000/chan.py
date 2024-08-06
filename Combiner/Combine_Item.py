@@ -1,8 +1,9 @@
 # cython: language_level=3
+# encoding:utf-8
 from Common.ChanException import CChanException, ErrCode
 
 
-# ¶¨ÒåºÏ²¢kÏß/±Ê/Ïß¶Î
+# å®šä¹‰åˆå¹¶kçº¿/ç¬”/çº¿æ®µ
 class CCombine_Item:
     def __init__(self, item):
         from Bi.Bi import CBi

@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from .CEnum import BI_DIR, KL_TYPE
 
 
@@ -18,11 +19,12 @@ def check_kltype_order(type_list: list):
         KL_TYPE.K_15M: 4,
         KL_TYPE.K_30M: 5,
         KL_TYPE.K_60M: 6,
-        KL_TYPE.K_DAY: 7,
-        KL_TYPE.K_WEEK: 8,
-        KL_TYPE.K_MON: 9,
-        KL_TYPE.K_QUARTER: 10,
-        KL_TYPE.K_YEAR: 11,
+        KL_TYPE.K_240M: 7,
+        KL_TYPE.K_DAY: 8,
+        KL_TYPE.K_WEEK: 9,
+        KL_TYPE.K_MON: 10,
+        KL_TYPE.K_QUARTER: 11,
+        KL_TYPE.K_YEAR: 12,
     }
     last_lv = float("inf")
     for kl_type in type_list:

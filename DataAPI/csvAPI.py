@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import os
 
 from Common.CEnum import DATA_FIELD, KL_TYPE

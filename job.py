@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import time
 import subprocess
 from datetime import datetime, timedelta

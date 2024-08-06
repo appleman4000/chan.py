@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import datetime
 
 import MetaTrader5 as MT5
@@ -86,30 +87,18 @@ class CMT5ForexAPI(CCommonForexApi):
             timeframe = MT5.TIMEFRAME_M30
         elif self.k_type == KL_TYPE.K_60M:
             timeframe = MT5.TIMEFRAME_H1
+        elif self.k_type == KL_TYPE.K_240M:
+            timeframe = MT5.TIMEFRAME_H4
         elif self.k_type == KL_TYPE.K_DAY:
             timeframe = MT5.TIMEFRAME_D1
         else:
             raise Exception("不支持的时间框")
         local_time_format = '%Y-%m-%d %H:%M:%S'
 
-        local_tz = pytz.timezone('Asia/Shanghai')
-        zurich_tz = pytz.timezone('Europe/Zurich')
-        # create 'datetime' objects in UTC time zone to avoid the implementation of a local time zone offset
         # 解析时间字符串为datetime对象
         begin_date = datetime.datetime.strptime(self.begin_date, local_time_format)
-        # 本地时区
-
-        # 将datetime对象本地化为本地时区时间
-        begin_date = local_tz.localize(begin_date)
-        # 将本地时区时间转换为UTC时间
-        begin_date = begin_date.astimezone(pytz.utc)
-
         end_date = datetime.datetime.strptime(self.end_date, local_time_format)
-
-        # 将datetime对象本地化为本地时区时间
-        end_date = local_tz.localize(end_date)
-        # 将本地时区时间转换为UTC时间
-        end_date = end_date.astimezone(pytz.utc)
+        end_date = end_date + datetime.timedelta(hours=2)
 
         timeframe_seconds = {
             MT5.TIMEFRAME_M1: 60,
@@ -134,14 +123,12 @@ class CMT5ForexAPI(CCommonForexApi):
             MT5.TIMEFRAME_W1: 604800,
             MT5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
         }
-
-        # bars = MT5.copy_rates_range(self.code, timeframe, begin_date, end_date)
-        bars = MT5.copy_rates_from_pos(self.code, timeframe, 0, 1000)
+        bars = MT5.copy_rates_range(self.code, timeframe, begin_date, end_date)
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
         bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
-        bars['time'] = bars['time'].dt.tz_convert(local_tz)
+        bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"
@@ -181,5 +168,6 @@ class CMT5ForexAPI(CCommonForexApi):
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
             KL_TYPE.K_60M: '60',
+            KL_TYPE.K_240M: '240',
         }
         return _dict[self.k_type]

@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import baostock as bs
 import pandas as pd
 from tqsdk import TqApi, TqKq, TqAuth

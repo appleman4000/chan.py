@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from enum import Enum, auto
 from typing import Literal
 
@@ -19,6 +20,7 @@ class KL_TYPE(Enum):
     K_15M = auto()
     K_30M = auto()
     K_60M = auto()
+    K_240M = auto()
     K_DAY = auto()
     K_WEEK = auto()
     K_MON = auto()

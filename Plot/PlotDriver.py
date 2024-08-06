@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import inspect
 from typing import Dict, List, Literal, Optional, Tuple, Union
 

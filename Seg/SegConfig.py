@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from Common.CEnum import LEFT_SEG_METHOD
 from Common.ChanException import CChanException, ErrCode
 

@@ -1,6 +1,8 @@
 # cython: language_level=3
+# encoding:utf-8
 # smtplib 用于邮件的发信动作
 import io
+import json
 import smtplib
 # 构建邮件头
 from email.header import Header
@@ -8,10 +10,13 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 # email 用于构建邮件内容
 from email.mime.text import MIMEText
-from email.utils import formataddr
 from threading import Thread
 
+import lark_oapi as lark
 import matplotlib
+import matplotlib.pyplot as plt
+import requests
+from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody, CreateImageResponse
 
 from Plot.PlotDriver import CPlotDriver
 
@@ -25,22 +30,22 @@ def asynchronous(f):
 
 
 plot_config = {
-        "plot_kline": True,
-        "plot_kline_combine": True,
-        "plot_bi": True,
-        "plot_seg": True,
-        "plot_eigen": False,
-        "plot_zs": True,
-        "plot_macd": True,
-        "plot_mean": False,
-        "plot_channel": False,
-        "plot_bsp": True,
-        "plot_extrainfo": True,
-        "plot_demark": False,
-        "plot_marker": False,
-        "plot_rsi": False,
-        "plot_kdj": False,
-    }
+    "plot_kline": True,
+    "plot_kline_combine": False,
+    "plot_bi": True,
+    "plot_seg": True,
+    "plot_eigen": False,
+    "plot_zs": True,
+    "plot_macd": True,
+    "plot_mean": False,
+    "plot_channel": False,
+    "plot_bsp": True,
+    "plot_extrainfo": True,
+    "plot_demark": False,
+    "plot_marker": False,
+    "plot_rsi": False,
+    "plot_kdj": False,
+}
 
 plot_para = {
     "seg": {
@@ -62,6 +67,63 @@ plot_para = {
 }
 
 
+def send_feishu_message(subject, message, image_file):
+    def send_card_message(webhook_url, subject, message, image_key):
+        headers = {
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "msg_type": "interactive",
+            "card": {
+                "elements": [
+                    {
+                        "tag": "img",
+                        "img_key": image_key,
+                        "alt": {
+                            "tag": "plain_text",
+                            "content": "Image description"
+                        }
+                    }
+                ],
+                "header": {
+                    "title": {
+                        "tag": "plain_text",
+                        "content": f"{subject}\n{message}"
+                    }
+                }
+            }
+        }
+        response = requests.post(webhook_url, headers=headers, data=json.dumps(payload))
+        return response.json()
+
+    def upload_image(client, image_file):
+        # 构造请求对象
+        # file = open(image_path, "rb")
+        request: CreateImageRequest = CreateImageRequest.builder() \
+            .request_body(CreateImageRequestBody.builder()
+                          .image_type("message")
+                          .image(image_file)
+                          .build()) \
+            .build()
+
+        # 发起请求
+        response: CreateImageResponse = client.im.v1.image.create(request)
+        return response.data.image_key
+
+    app_id = 'cli_a63ae160c79d500b'
+    app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
+    webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/b5d0499b-4082-4dd3-82a5-70528e548695'
+    # 创建client
+    client = lark.Client.builder() \
+        .app_id(app_id) \
+        .app_secret(app_secret) \
+        .log_level(lark.LogLevel.DEBUG) \
+        .build()
+
+    image_key = upload_image(client, image_file)
+    send_card_message(webhook_url, subject=subject, message=message, image_key=image_key)
+
+
 @asynchronous
 def send_email(to_emails, subject, message, chan):
     try:
@@ -79,6 +141,7 @@ def send_email(to_emails, subject, message, chan):
         g = CPlotDriver(chan, plot_config, plot_para)
         buf = io.BytesIO()
         g.figure.savefig(buf, format='png')
+        plt.close(g.figure)
         buf.seek(0)
         # 发送邮件
         msg = MIMEMultipart('related')
@@ -104,6 +167,9 @@ def send_email(to_emails, subject, message, chan):
         try:
             smtpobj.sendmail(from_addr, to_emails, msg.as_string())
             print(f"邮件成功发送到: {', '.join(to_emails)}")
+            buf.seek(0)
+            send_feishu_message(subject, message, buf)
+            print("飞书成功发送")
         except Exception as e:
             print(f"发送到 {', '.join(to_emails)} 时发生错误: {e}")
 

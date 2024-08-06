@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from typing import Dict, List, Optional
 
 from Common.CEnum import BSP_TYPE, MACD_ALGO

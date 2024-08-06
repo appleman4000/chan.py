@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import baostock as bs
 
 from Common.CEnum import AUTYPE, DATA_FIELD, KL_TYPE

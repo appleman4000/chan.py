@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from Bi.Bi import CBi
 from Combiner.KLine_Combiner import CKLine_Combiner
 from Common.CEnum import BI_DIR, FX_TYPE

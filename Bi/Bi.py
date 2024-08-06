@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from typing import List, Optional
 
 from Common.CEnum import BI_DIR, BI_TYPE, DATA_FIELD, FX_TYPE, MACD_ALGO

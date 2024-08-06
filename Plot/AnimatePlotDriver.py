@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from matplotlib import pyplot as plt
 
 from Chan import CChan

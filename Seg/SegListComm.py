@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import abc
 from typing import Generic, List, TypeVar, Union, overload
 

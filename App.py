@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 import datetime
 import sys
 
@@ -43,24 +44,16 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
 
     lv_list = [time_frame_mapping[time_frame] for time_frame in time_frames]
     config = CChanConfig({
-        "bi_strict": True,
-        "trigger_step": trigger_step,
-        "skip_step": 0,
-        "divergence_rate": float("inf"),
-        "bsp2_follow_1": False,
-        "bsp3_follow_1": False,
-        "min_zs_cnt": 0,
-        "bs1_peak": False,
-        "macd_algo": "peak",
-        "bs_type": '1,2,3a,1p,2s,3b',
-        "print_warning": True,
-        "zs_algo": "normal",
-        "kl_data_check": False
+        "trigger_step": trigger_step,  # 打开开关！
+        "divergence_rate": 0.9,
+        "max_bs2_rate": 0.8,
+        "min_zs_cnt": 1,
+        "kl_data_check": False,
     })
 
     plot_config = {
         "plot_kline": True,
-        "plot_kline_combine": True,
+        "plot_kline_combine": False,
         "plot_bi": True,
         "plot_seg": True,
         "plot_eigen": True,

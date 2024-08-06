@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from Bi.BiList import CBiList
 from Common.CEnum import BI_DIR, SEG_TYPE
 

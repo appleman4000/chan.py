@@ -1,4 +1,5 @@
 # cython: language_level=3
+# encoding:utf-8
 from typing import Dict, Generic, List, Optional, TypeVar, Union
 
 from Bi.Bi import CBi
@@ -9,7 +10,7 @@ from Seg.Seg import CSeg
 LINE_TYPE = TypeVar('LINE_TYPE', CBi, CSeg)
 
 
-# ¬Ú¬Ùµ„∂®“Â
+# ‰π∞ÂçñÁÇπÂÆö‰πâ
 class CBS_Point(Generic[LINE_TYPE]):
     def __init__(self, bi: LINE_TYPE, is_buy, bs_type: BSP_TYPE, relate_bsp1: Optional['CBS_Point'], feature_dict=None):
         self.bi: LINE_TYPE = bi
