@@ -117,7 +117,7 @@ def send_feishu_message(subject, message, image_file):
     client = lark.Client.builder() \
         .app_id(app_id) \
         .app_secret(app_secret) \
-        .log_level(lark.LogLevel.DEBUG) \
+        .log_level(lark.LogLevel.ERROR) \
         .build()
 
     image_key = upload_image(client, image_file)
