@@ -104,7 +104,8 @@ def on_bar(symbol, period, bar, enable_send_mail=False):
         return
 
     if enable_send_mail:
-        subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {bar.close}"
+        price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
+        subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
         send_email(to_emails, subject, message, chan)
 
