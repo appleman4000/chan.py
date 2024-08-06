@@ -133,7 +133,7 @@ def init_chan():
 
     for symbol in symbols:
         for period in periods:
-            bars = mt5.copy_rates_from_pos(symbol, period, 1, 200)
+            bars = mt5.copy_rates_from_pos(symbol, period, 1, 500)
             bars = pd.DataFrame(bars)
             last_bar_time = bars.iloc[-1].time
             bars.dropna(inplace=True)

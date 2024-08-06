@@ -155,7 +155,7 @@ if __name__ == "__main__":
     with st.sidebar:
         st.markdown("<h1 style='font-size: 18px;text-align: center;'>股票/基金/外汇交易缠论分析</h1>",
                     unsafe_allow_html=True)
-        mode = st.radio("模式", ["在线分析", "历史复盘"], index=0)
+        mode = st.radio("模式", ["在线分析"], index=0)
         if mode == "历史复盘":
             cols = st.columns(2)
             with cols[0]:
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                     end_time = datetime.datetime.now()
                     # 计算200天前的日期
                     seconds = timeframe_seconds[time_frames[0]]
-                    begin_time = end_time - datetime.timedelta(seconds=seconds * 300)
+                    begin_time = end_time - datetime.timedelta(seconds=seconds * 500)
                     begin_time = begin_time.strftime("%Y-%m-%d %H:%M:%S")
                     end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
