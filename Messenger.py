@@ -17,6 +17,7 @@ import lark_oapi as lark
 import matplotlib
 import matplotlib.pyplot as plt
 import requests
+from PIL import Image
 from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody, CreateImageResponse
 from pywchat import Sender
 
@@ -52,10 +53,25 @@ plot_config = {
 plot_para = {
     "seg": {
         # "plot_trendline": True,
+        "disp_end": True,
+        "end_fontsize": 15
     },
     "bi": {
         "show_num": True,
         "disp_end": True,
+        "end_fontsize": 15
+    },
+    "zs": {
+        "fontsize": 15
+    },
+    "bsp": {
+        "fontsize": 20
+    },
+    "segseg": {
+        "end_fontsize": 15
+    },
+    "seg_bsp": {
+        "fontsize": 20
     },
     "figure": {
         "x_range": 200,
@@ -136,14 +152,40 @@ def send_wchat_message(subject, message, image_file):
     file_path = './upload_file.png'  # 输出文件的路径
     with open(file_path, 'wb') as f:
         f.write(bytes_data)
-    image_url = app.upload_image(file_path,enable=False)
+    image_url = app.upload_image(file_path, enable=False)
     print(image_url)
     os.remove(file_path)
     app.send_graphic(subject, message, image_url, todept="BornToFly Limited")
 
 
+def combine_images_vertically(image_bytes_list):
+    # 打开所有图像
+    images = [Image.open(io.BytesIO(image_bytes)) for image_bytes in image_bytes_list]
+
+    # 获取每张图像的尺寸
+    width, height = images[0].size
+
+    # 计算合成图像的总高度
+    total_height = height * len(images)
+
+    # 创建一个新的图像，宽度和每张图像一样，高度为所有图像高度之和
+    combined_image = Image.new('RGBA', (width, total_height))
+
+    # 将每张图像粘贴到新图像上
+    y_offset = 0
+    for img in images:
+        combined_image.paste(img, (0, y_offset))
+        y_offset += height
+
+    # 将合成后的图像保存到 io.BytesIO 对象中
+    buffer = io.BytesIO()
+    combined_image.save(buffer, format='PNG')
+    buffer.seek(0)  # 将指针移动到流的开头
+    return buffer
+
+
 @asynchronous
-def send_message(to_emails, subject, message, chan):
+def send_message(to_emails, subject, message, chans):
     try:
         # 发信方的信息：发信邮箱，QQ 邮箱授权码
         from_addr = 'appleman4000@qq.com'
@@ -156,12 +198,16 @@ def send_message(to_emails, subject, message, chan):
         # 登录--发送者账号和口令
         smtpobj.login(from_addr, password)
         matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
-        g = CPlotDriver(chan, plot_config, plot_para)
-        buf = io.BytesIO()
+        image_bytes_list = []
+        for chan in chans:
+            g = CPlotDriver(chan, plot_config, plot_para)
+            buf = io.BytesIO()
 
-        g.figure.savefig(buf, format='png')
-        plt.close(g.figure)
-        buf.seek(0)
+            g.figure.savefig(buf, format='png')
+            plt.close(g.figure)
+            buf.seek(0)
+            image_bytes_list.append(buf.getvalue())
+        buf = combine_images_vertically(image_bytes_list)
         # 发送邮件
         msg = MIMEMultipart('related')
         # 邮件头信息
@@ -198,4 +244,3 @@ def send_message(to_emails, subject, message, chan):
     finally:
         # 关闭服务器
         smtpobj.quit()
-

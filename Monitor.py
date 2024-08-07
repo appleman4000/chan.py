@@ -2,8 +2,9 @@
 # encoding:utf-8
 import builtins
 import datetime
-import time
 import sys
+import time
+
 import MetaTrader5 as mt5
 import pandas as pd
 import pytz
@@ -14,6 +15,7 @@ from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
+
 sys.setrecursionlimit(10000)
 timeframe_seconds = {
     mt5.TIMEFRAME_M1: 60,
@@ -62,7 +64,7 @@ period_name = {
 }
 # 设置交易对
 symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP"]
-periods = [mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1]
+periods = [mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 
@@ -93,6 +95,8 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         f"北京时间:{bar.time} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts)}  on_bar {symbol} {period_name[period]}")
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
+    if period == mt5.TIMEFRAME_M15:
+        return
     bsp_list = chan.get_bsp(0)
     if not bsp_list:
         return
@@ -107,7 +111,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
         subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
-        send_message(to_emails, subject, message, chan)
+        send_message(to_emails, subject, message, [chans[symbol + str(p)] for p in periods])
 
 
 def init_chan():

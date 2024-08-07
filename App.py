@@ -9,7 +9,6 @@ import streamlit as st
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE
-from Plot import PlotDriver
 from Plot.AnimatePlotDriver import CAnimateDriver
 from Plot.PlotDriver import CPlotDriver
 
@@ -80,10 +79,25 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
     plot_para = {
         "seg": {
             # "plot_trendline": True,
+            "disp_end": True,
+            "end_fontsize": 15
         },
         "bi": {
             "show_num": True,
             "disp_end": True,
+            "end_fontsize": 15
+        },
+        "zs": {
+            "fontsize": 15
+        },
+        "bsp":{
+            "fontsize": 20
+        },
+        "segseg":{
+            "end_fontsize": 15
+        },
+        "seg_bsp":{
+            "fontsize": 20
         },
         "figure": {
             "x_range": 200,
