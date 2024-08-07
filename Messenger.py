@@ -143,7 +143,7 @@ def send_wchat_message(subject, message, image_file):
 
 
 @asynchronous
-def send_email(to_emails, subject, message, chan):
+def send_message(to_emails, subject, message, chan):
     try:
         # 发信方的信息：发信邮箱，QQ 邮箱授权码
         from_addr = 'appleman4000@qq.com'
@@ -199,8 +199,3 @@ def send_email(to_emails, subject, message, chan):
         # 关闭服务器
         smtpobj.quit()
 
-
-if __name__ == "__main__":
-    image_file = io.BytesIO()
-    image_file.write(b'Hello, World!')
-    send_wchat_message("hello", "world", image_file)

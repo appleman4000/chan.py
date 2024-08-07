@@ -13,7 +13,7 @@ from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
-from Mail_Tools import send_email
+from Messenger import send_message
 
 timeframe_seconds = {
     mt5.TIMEFRAME_M1: 60,
@@ -88,7 +88,7 @@ def period_seconds(period):
     return timeframe_seconds[period]
 
 
-def on_bar(symbol, period, bar, enable_send_mail=False):
+def on_bar(symbol, period, bar, enable_send_message=False):
     print(
         f"北京时间:{bar.time} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts)}  on_bar {symbol} {period_name[period]}")
     chan = chans[symbol + str(period)]
@@ -103,11 +103,11 @@ def on_bar(symbol, period, bar, enable_send_mail=False):
     if last_bsp.klu.time != bar.time:
         return
 
-    if enable_send_mail:
+    if enable_send_message:
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
         subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
-        send_email(to_emails, subject, message, chan)
+        send_message(to_emails, subject, message, chan)
 
 
 def init_chan():
@@ -154,7 +154,7 @@ def init_chan():
                     bar["tick_volume"],
                 ]
                 bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
-                on_bar(symbol, period, bar, enable_send_mail=False)
+                on_bar(symbol, period, bar, enable_send_message=False)
             next_bar_open[symbol + str(period)] = last_bar_time
             next_bar_open[symbol + str(period)] -= next_bar_open[symbol + str(period)] % period_seconds(period)
             next_bar_open[symbol + str(period)] += period_seconds(period)
@@ -247,7 +247,7 @@ if __name__ == "__main__":
                                 bar["tick_volume"],
                             ]
                             bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
-                            on_bar(symbol, period, bar, enable_send_mail=True)
+                            on_bar(symbol, period, bar, enable_send_message=True)
             time.sleep(1)
             # 检查连接状态，如果连接丢失则尝试重新连接
             if not mt5.terminal_info():
