@@ -3,6 +3,7 @@
 # smtplib 用于邮件的发信动作
 import io
 import json
+import os
 import smtplib
 # 构建邮件头
 from email.header import Header
@@ -17,6 +18,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import requests
 from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody, CreateImageResponse
+from pywchat import Sender
 
 from Plot.PlotDriver import CPlotDriver
 
@@ -124,6 +126,22 @@ def send_feishu_message(subject, message, image_file):
     send_card_message(webhook_url, subject=subject, message=message, image_key=image_key)
 
 
+def send_wchat_message(subject, message, image_file):
+    corpid = "ww3998521650a4cb79"
+    corpsecret = "oUPLyn6uDRnFVJ1RqeMSzISrrN38LMtWWa2x6cwI1Gs"
+    agentid = "1000002"
+    app = Sender(corpid, corpsecret, agentid)
+    bytes_data = image_file.getvalue()
+    # 将字节数据写入到文件中
+    file_path = './upload_file.png'  # 输出文件的路径
+    with open(file_path, 'wb') as f:
+        f.write(bytes_data)
+    image_url = app.upload_image(file_path,enable=False)
+    print(image_url)
+    os.remove(file_path)
+    app.send_graphic(subject, message, image_url, todept="BornToFly Limited")
+
+
 @asynchronous
 def send_email(to_emails, subject, message, chan):
     try:
@@ -140,6 +158,7 @@ def send_email(to_emails, subject, message, chan):
         matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
         g = CPlotDriver(chan, plot_config, plot_para)
         buf = io.BytesIO()
+
         g.figure.savefig(buf, format='png')
         plt.close(g.figure)
         buf.seek(0)
@@ -179,3 +198,9 @@ def send_email(to_emails, subject, message, chan):
     finally:
         # 关闭服务器
         smtpobj.quit()
+
+
+if __name__ == "__main__":
+    image_file = io.BytesIO()
+    image_file.write(b'Hello, World!')
+    send_wchat_message("hello", "world", image_file)
