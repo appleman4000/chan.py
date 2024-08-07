@@ -3,7 +3,7 @@
 import builtins
 import datetime
 import time
-
+import sys
 import MetaTrader5 as mt5
 import pandas as pd
 import pytz
@@ -14,7 +14,7 @@ from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
-
+sys.setrecursionlimit(10000)
 timeframe_seconds = {
     mt5.TIMEFRAME_M1: 60,
     mt5.TIMEFRAME_M2: 120,
