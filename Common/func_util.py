@@ -4,11 +4,12 @@ from .CEnum import BI_DIR, KL_TYPE
 
 
 def kltype_lt_day(_type):
-    return _type in [KL_TYPE.K_1M, KL_TYPE.K_5M, KL_TYPE.K_15M, KL_TYPE.K_30M, KL_TYPE.K_60M]
+    return _type in [KL_TYPE.K_1M, KL_TYPE.K_5M, KL_TYPE.K_15M, KL_TYPE.K_30M, KL_TYPE.K_1H, KL_TYPE.K_4H]
 
 
 def kltype_lte_day(_type):
-    return _type in [KL_TYPE.K_1M, KL_TYPE.K_5M, KL_TYPE.K_15M, KL_TYPE.K_30M, KL_TYPE.K_60M, KL_TYPE.K_DAY]
+    return _type in [KL_TYPE.K_1M, KL_TYPE.K_5M, KL_TYPE.K_15M, KL_TYPE.K_30M, KL_TYPE.K_1H, KL_TYPE.K_4H,
+                     KL_TYPE.K_DAY]
 
 
 def check_kltype_order(type_list: list):
@@ -18,8 +19,8 @@ def check_kltype_order(type_list: list):
         KL_TYPE.K_5M: 3,
         KL_TYPE.K_15M: 4,
         KL_TYPE.K_30M: 5,
-        KL_TYPE.K_60M: 6,
-        KL_TYPE.K_240M: 7,
+        KL_TYPE.K_1H: 6,
+        KL_TYPE.K_4H: 7,
         KL_TYPE.K_DAY: 8,
         KL_TYPE.K_WEEK: 9,
         KL_TYPE.K_MON: 10,
