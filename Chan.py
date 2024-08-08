@@ -29,7 +29,7 @@ class CChan:
             autype: AUTYPE = AUTYPE.QFQ,
     ):
         if lv_list is None:
-            lv_list = [KL_TYPE.K_DAY, KL_TYPE.K_60M]
+            lv_list = [KL_TYPE.K_DAY, KL_TYPE.K_1H]
         check_kltype_order(lv_list)  # lv_list顺序从高到低
         self.code = code
         self.name = code
