@@ -64,7 +64,7 @@ period_name = {
 }
 # 设置交易对
 symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP"]
-periods = [mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
+periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 
@@ -111,7 +111,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
         subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
-        send_message(to_emails, subject, message, [chans[symbol + str(p)] for p in periods])
+        send_message(subject, message, [chans[symbol + str(p)] for p in periods])
 
 
 def init_chan():

@@ -184,8 +184,7 @@ def combine_images_vertically(image_bytes_list):
     return buffer
 
 
-@asynchronous
-def send_message(to_emails, subject, message, chans):
+def send_mail(to_emails, subject, message, chans):
     try:
         # 发信方的信息：发信邮箱，QQ 邮箱授权码
         from_addr = 'appleman4000@qq.com'
@@ -232,9 +231,6 @@ def send_message(to_emails, subject, message, chans):
         try:
             smtpobj.sendmail(from_addr, to_emails, msg.as_string())
             print(f"邮件成功发送到: {', '.join(to_emails)}")
-            buf.seek(0)
-            send_feishu_message(subject, message, buf)
-            print("飞书成功发送")
         except Exception as e:
             print(f"发送到 {', '.join(to_emails)} 时发生错误: {e}")
 
@@ -244,3 +240,23 @@ def send_message(to_emails, subject, message, chans):
     finally:
         # 关闭服务器
         smtpobj.quit()
+
+
+@asynchronous
+def send_message(subject, message, chans):
+    matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
+    image_bytes_list = []
+    for chan in chans:
+        g = CPlotDriver(chan, plot_config, plot_para)
+        buf = io.BytesIO()
+        g.figure.savefig(buf, format='png')
+        plt.close(g.figure)
+        buf.seek(0)
+        image_bytes_list.append(buf.getvalue())
+    buf = combine_images_vertically(image_bytes_list)
+    # 发送邮件
+    try:
+        send_feishu_message(subject, message, buf)
+        print("飞书成功发送")
+    except Exception as e:
+        print(f"发送到飞书时发生错误: {e}")
