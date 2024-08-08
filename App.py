@@ -19,8 +19,8 @@ time_frame_mapping = {
     '5分钟': KL_TYPE.K_5M,
     '15分钟': KL_TYPE.K_15M,
     '30分钟': KL_TYPE.K_30M,
-    '1小时': KL_TYPE.K_60M,
-    '4小时': KL_TYPE.K_240M,
+    '1小时': KL_TYPE.K_1H,
+    '4小时': KL_TYPE.K_4H,
     '1天': KL_TYPE.K_DAY
 }
 time_frame_type = ['1分钟', '5分钟', '15分钟', '30分钟', '1小时', '4小时', '1天']
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         elif market_type == "国内ETF基金":
             code = st.text_input("基金代码", value="513100")
         elif market_type == "外汇/贵金属/CFD":
-            code = st.text_input("交易品种", value="USDCNH")
+            code = st.text_input("交易品种", value="EURUSD")
         time_frames = st.multiselect('时间周期', time_frame_type, default=['1天'])
         time_frames = sorted(time_frames, key=lambda i: time_frame_type[::-1].index(i))
         query = st.button("开始分析", use_container_width=True)
