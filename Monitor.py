@@ -63,7 +63,19 @@ period_name = {
 
 }
 # 设置交易对
-symbols = ["EURUSD", "USDJPY", "USDCNH", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP"]
+symbols = ["EURUSD",
+           "AUDUSD",
+           "EURGBP",
+           "NZDCHF",
+           "USDJPY",
+           "AUDCHF",
+           "GBPUSD",
+           "AUDCAD",
+           "CADCHF",
+           "USDCHF",
+           "NZDUSD",
+           "USDCAD",
+           "USDCNH"]
 periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
@@ -85,7 +97,7 @@ def shanghai_to_zurich_datetime(timestamp):
 
     return formatted_time
 
-
+c
 def period_seconds(period):
     return timeframe_seconds[period]
 

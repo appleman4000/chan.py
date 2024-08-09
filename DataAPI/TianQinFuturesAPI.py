@@ -83,9 +83,8 @@ class CTianQinFuturesAPI(CCommonForexApi):
         elif self.k_type == KL_TYPE.K_30M:
             duration_seconds = 60 * 30
             data_length = base_length * 24 * 2
-        elif self.k_type == KL_TYPE.K_60M:
+        elif self.k_type == KL_TYPE.K_1H:
             duration_seconds = 60 * 60
-            delta = pd.Timedelta(minutes=59, seconds=59)
             data_length = base_length * 24
         elif self.k_type == KL_TYPE.K_DAY:
             duration_seconds = 60 * 60 * 24
@@ -134,6 +133,7 @@ class CTianQinFuturesAPI(CCommonForexApi):
             KL_TYPE.K_5M: '5',
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
-            KL_TYPE.K_60M: '60',
+            KL_TYPE.K_1H: '60',
+            KL_TYPE.K_4H: '240',
         }
         return _dict[self.k_type]

@@ -111,6 +111,7 @@ class CBaoStock(CCommonStockApi):
             KL_TYPE.K_5M: '5',
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
-            KL_TYPE.K_60M: '60',
+            KL_TYPE.K_1H: '60',
+            KL_TYPE.K_4H: '240',
         }
         return _dict[self.k_type]

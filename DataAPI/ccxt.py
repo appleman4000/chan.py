@@ -67,7 +67,8 @@ class CCXT(CCommonStockApi):
             KL_TYPE.K_5M: '5m',
             KL_TYPE.K_15M: '15m',
             KL_TYPE.K_30M: '30m',
-            KL_TYPE.K_60M: '1h',
+            KL_TYPE.K_1H: '1h',
+            KL_TYPE.K_4H: '4h',
         }
         return _dict[self.k_type]
 

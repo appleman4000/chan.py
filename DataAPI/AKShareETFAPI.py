@@ -98,7 +98,7 @@ class CAKShareETFAPI(CCommonStockApi):
         elif self.k_type == KL_TYPE.K_30M:
             bars = ak.fund_etf_hist_min_em(symbol=self.code, period="30", start_date=self.begin_date,
                                            end_date=self.end_date, adjust=autype_dict[self.autype])
-        elif self.k_type == KL_TYPE.K_60M:
+        elif self.k_type == KL_TYPE.K_1H:
             bars = ak.fund_etf_hist_min_em(symbol=self.code, period="60", start_date=self.begin_date,
                                            end_date=self.end_date, adjust=autype_dict[self.autype])
         bars.dropna(inplace=True)
@@ -146,6 +146,7 @@ class CAKShareETFAPI(CCommonStockApi):
             KL_TYPE.K_5M: '5',
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
-            KL_TYPE.K_60M: '60',
+            KL_TYPE.K_1H: '60',
+            KL_TYPE.K_4H: '240',
         }
         return _dict[self.k_type]

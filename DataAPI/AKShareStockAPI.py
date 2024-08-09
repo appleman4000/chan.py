@@ -86,8 +86,11 @@ class CAKShareStockAPI(CCommonStockApi):
         elif self.k_type == KL_TYPE.K_30M:
             bars = ak.stock_zh_a_hist_min_em(symbol=self.code, period="30", start_date=self.begin_date,
                                              end_date=self.end_date, adjust=autype_dict[self.autype])
-        elif self.k_type == KL_TYPE.K_60M:
+        elif self.k_type == KL_TYPE.K_1H:
             bars = ak.stock_zh_a_hist_min_em(symbol=self.code, period="60", start_date=self.begin_date,
+                                             end_date=self.end_date, adjust=autype_dict[self.autype])
+        elif self.k_type == KL_TYPE.K_4H:
+            bars = ak.stock_zh_a_hist_min_em(symbol=self.code, period="240", start_date=self.begin_date,
                                              end_date=self.end_date, adjust=autype_dict[self.autype])
         bars.dropna(inplace=True)
         if self.k_type == KL_TYPE.K_DAY:
@@ -105,7 +108,6 @@ class CAKShareStockAPI(CCommonStockApi):
             fields = "time,open,high,low,close,volume"
             yield CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
 
-
     def SetBasciInfo(self):
         rs = ak.stock_individual_info_em(symbol=self.code)
         code_name = rs["value"][1]
@@ -113,19 +115,16 @@ class CAKShareStockAPI(CCommonStockApi):
         self.name = code_name
         self.is_stock = (stock_type == '1')
 
-
     @classmethod
     def do_init(cls):
         if not cls.is_connect:
             cls.is_connect = bs.login()
-
 
     @classmethod
     def do_close(cls):
         if cls.is_connect:
             bs.logout()
             cls.is_connect = None
-
 
     def __convert_type(self):
         _dict = {
@@ -135,6 +134,7 @@ class CAKShareStockAPI(CCommonStockApi):
             KL_TYPE.K_5M: '5',
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
-            KL_TYPE.K_60M: '60',
+            KL_TYPE.K_1H: '60',
+            KL_TYPE.K_4H: '240',
         }
         return _dict[self.k_type]

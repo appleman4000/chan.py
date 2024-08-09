@@ -29,7 +29,7 @@ if __name__ == "__main__":
     begin_time = "2023-09-10"
     end_time = None
     data_src_type = DATA_SRC.BAO_STOCK
-    lv_list = [KL_TYPE.K_60M, KL_TYPE.K_15M]
+    lv_list = [KL_TYPE.K_1H, KL_TYPE.K_15M]
 
     config = CChanConfig({
         "trigger_step": True,
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         如果是用序列化方式，这里可以采用pickle.load()
         """
         chan: CChan = copy.deepcopy(chan_snapshot)
-        chan.trigger_load({KL_TYPE.K_60M: [klu_60m], KL_TYPE.K_15M: klu_15m_lst_tmp})
+        chan.trigger_load({KL_TYPE.K_1H: [klu_60m], KL_TYPE.K_15M: klu_15m_lst_tmp})
 
         """
         策略开始：
