@@ -75,7 +75,10 @@ symbols = ["EURUSD",
            "USDCHF",
            "NZDUSD",
            "USDCAD",
-           "USDCNH"]
+           "USDCNH",
+           "XAUUSD",
+           "XAGUSD",
+           ]
 periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
@@ -97,7 +100,7 @@ def shanghai_to_zurich_datetime(timestamp):
 
     return formatted_time
 
-c
+
 def period_seconds(period):
     return timeframe_seconds[period]
 
