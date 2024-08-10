@@ -91,7 +91,7 @@ symbols = [
     "XAUUSD",
     "XAGUSD",
 ]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
+periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M5]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -151,6 +151,10 @@ def robot_trade(symbol, lot=0.01, is_buy=None):
         if result is None:
             return
         if result.retcode != mt5.TRADE_RETCODE_REQUOTE and result.retcode != mt5.TRADE_RETCODE_PRICE_OFF:
+            if is_buy:
+                print(f"{symbol} buy order placed successfully")
+            else:
+                print(f"{symbol} sell order placed successfully")
             break
 
 
@@ -160,8 +164,8 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
 
-    if enable_send_message and period == mt5.TIMEFRAME_M15:
-        # 15分钟买卖点,底分型或者顶分型成立
+    if enable_send_message and period == mt5.TIMEFRAME_M5:
+        # 5分钟买卖点,底分型或者顶分型成立
         chan_m15 = chan[0]
         # 确保分型已确认
         if chan_m15[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
@@ -175,7 +179,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type and BSP_TYPE.T2 not in last_bsp_h1.type and \
                 BSP_TYPE.T2S not in last_bsp_h1.type and BSP_TYPE.T3A not in last_bsp_h1.type and BSP_TYPE.T3B not in last_bsp_h1.type:
             return
-        # 1小时和15分钟买卖点方向一致
+        # 1小时和5分钟买卖点方向一致
         if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
                 not last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.TOP):
             return
