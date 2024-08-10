@@ -11,7 +11,7 @@ import pytz
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE
+from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE, FX_TYPE
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
@@ -79,12 +79,10 @@ symbols = ["EURUSD",
            "XAUUSD",
            "XAGUSD",
            ]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
-to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
-             '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
-
-
-# to_emails = ['appleman4000@qq.com']
+periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1]
+# to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
+#              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
+to_emails = ['appleman4000@qq.com']
 
 
 def shanghai_to_zurich_datetime(timestamp):
@@ -110,8 +108,6 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         f"北京时间:{bar.time} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts)}  on_bar {symbol} {period_name[period]}")
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
-    if period == mt5.TIMEFRAME_M15:
-        return
     bsp_list = chan.get_bsp(0)
     if not bsp_list:
         return
@@ -119,9 +115,13 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     if BSP_TYPE.T1 not in last_bsp.type and BSP_TYPE.T1P not in last_bsp.type and BSP_TYPE.T2 not in last_bsp.type and \
             BSP_TYPE.T2S not in last_bsp.type and BSP_TYPE.T3A not in last_bsp.type and BSP_TYPE.T3B not in last_bsp.type:
         return
-    if last_bsp.klu.time != bar.time:
+    # if last_bsp.klu.time != bar.time:
+    #     return
+    cur_lv_chan = chan[0]
+    if last_bsp.klu.klc.idx != cur_lv_chan[-2].idx:
         return
-
+    if cur_lv_chan[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
+        return
     if enable_send_message:
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
         subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
@@ -199,7 +199,7 @@ def reconnect_mt5(retry_interval=5, max_retries=5):
     return False
 
 
-def get_latest_bar(symbol):
+def get_latest_bar(symbol, period):
     try:
         bar = mt5.copy_rates_from_pos(symbol, period, 1, 1)[0]
         if bar is None:
@@ -238,7 +238,7 @@ if __name__ == "__main__":
         while True:
             for symbol in symbols:
                 for period in periods:
-                    bar = get_latest_bar(symbol)
+                    bar = get_latest_bar(symbol, period)
                     if bar is None:
                         continue
                     last_bar_time = bar[0]
