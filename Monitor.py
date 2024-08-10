@@ -63,23 +63,35 @@ period_name = {
 
 }
 # 设置交易对
-symbols = ["EURUSD",
-           "AUDUSD",
-           "EURGBP",
-           "NZDCHF",
-           "USDJPY",
-           "AUDCHF",
-           "GBPUSD",
-           "AUDCAD",
-           "CADCHF",
-           "USDCHF",
-           "NZDUSD",
-           "USDCAD",
-           "USDCNH",
-           "XAUUSD",
-           "XAGUSD",
-           ]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H4, mt5.TIMEFRAME_H1]
+symbols = [
+    # Major
+    "EURUSD",
+    "GBPUSD",
+    "AUDUSD",
+    "NZDUSD",
+    "USDJPY",
+    "USDCAD",
+    "USDCHF",
+    # Crosses
+    "AUDCHF",
+    "AUDJPY",
+    "AUDNZD",
+    "CADCHF",
+    "CADJPY",
+    "CHFJPY",
+    "EURAUD",
+    "EURCAD",
+    "AUDCAD",
+    "EURCHF",
+    "GBPNZD",
+    "GBPCAD",
+    "GBPCHF",
+    "GBPJPY",
+    "USDCNH",
+    "XAUUSD",
+    "XAGUSD",
+]
+periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -103,30 +115,76 @@ def period_seconds(period):
     return timeframe_seconds[period]
 
 
+def robot_trade(symbol, lot=0.01, is_buy=None):
+    symbol_info = mt5.symbol_info(symbol)
+    if symbol_info is None:
+        print(symbol, "not found, can not call order_check()")
+        return
+    # if the symbol is unavailable in MarketWatch, add it
+    if not symbol_info.visible:
+        print(symbol, "is not visible, trying to switch on")
+        if not mt5.symbol_select(symbol, True):
+            print("symbol_select({}}) failed, exit", symbol)
+            return
+    for tries in range(10):
+        point = mt5.symbol_info(symbol).point
+        price = mt5.symbol_info_tick(symbol).ask if is_buy else mt5.symbol_info_tick(symbol).bid
+        tp = round(price * 0.004 / point)
+        sl = round(price * 0.002 / point)
+        deviation = 30
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": lot,
+            "type": mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL,
+            "price": price,
+            "sl": price - sl * point if is_buy else price + sl * point,
+            "tp": price + tp * point if is_buy else price - tp * point,
+            "deviation": deviation,
+            "magic": 234000,
+            "comment": "python script open",
+            "type_time": mt5.ORDER_TIME_DAY,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+        # send a trading request
+        result = mt5.order_send(request)
+        if result is None:
+            return
+        if result.retcode != mt5.TRADE_RETCODE_REQUOTE and result.retcode != mt5.TRADE_RETCODE_PRICE_OFF:
+            break
+
+
 def on_bar(symbol, period, bar, enable_send_message=False):
     print(
         f"北京时间:{bar.time} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts)}  on_bar {symbol} {period_name[period]}")
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
-    bsp_list = chan.get_bsp(0)
-    if not bsp_list:
-        return
-    last_bsp = bsp_list[-1]
-    if BSP_TYPE.T1 not in last_bsp.type and BSP_TYPE.T1P not in last_bsp.type and BSP_TYPE.T2 not in last_bsp.type and \
-            BSP_TYPE.T2S not in last_bsp.type and BSP_TYPE.T3A not in last_bsp.type and BSP_TYPE.T3B not in last_bsp.type:
-        return
-    # if last_bsp.klu.time != bar.time:
-    #     return
-    cur_lv_chan = chan[0]
-    if last_bsp.klu.klc.idx != cur_lv_chan[-2].idx:
-        return
-    if cur_lv_chan[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
-        return
-    if enable_send_message:
+
+    if enable_send_message and period == mt5.TIMEFRAME_M15:
+        # 15分钟买卖点,底分型或者顶分型成立
+        chan_m15 = chan[0]
+        # 确保分型已确认
+        if chan_m15[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
+            return
+        # 1小时买卖点，分型待确认
+        chan_h1 = chans[symbol + str(mt5.TIMEFRAME_H1)]
+        bsp_list = chan_h1.get_bsp(0)
+        if not bsp_list:
+            return
+        last_bsp_h1 = bsp_list[-1]
+        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type and BSP_TYPE.T2 not in last_bsp_h1.type and \
+                BSP_TYPE.T2S not in last_bsp_h1.type and BSP_TYPE.T3A not in last_bsp_h1.type and BSP_TYPE.T3B not in last_bsp_h1.type:
+            return
+        # 1小时和15分钟买卖点方向一致
+        if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
+                not last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.TOP):
+            return
+
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
-        subject = f"外汇- {symbol} {period_name[period]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
+        subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {' '.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
         send_message(subject, message, [chans[symbol + str(p)] for p in periods])
+        robot_trade(symbol, 0.01, last_bsp_h1.is_buy)
 
 
 def init_chan():
