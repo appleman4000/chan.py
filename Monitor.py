@@ -166,22 +166,25 @@ def on_bar(symbol, period, bar, enable_send_message=False):
 
     if enable_send_message and period == mt5.TIMEFRAME_M5:
         # 5分钟买卖点,底分型或者顶分型成立
-        chan_m15 = chan[0]
+        chan_m5 = chan[0]
         # 确保分型已确认
-        if chan_m15[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
+        if chan_m5[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
             return
         # 1小时买卖点，分型待确认
         chan_h1 = chans[symbol + str(mt5.TIMEFRAME_H1)]
         bsp_list = chan_h1.get_bsp(0)
         if not bsp_list:
             return
+        chan_h1 = chan_h1[0]
         last_bsp_h1 = bsp_list[-1]
         if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type and BSP_TYPE.T2 not in last_bsp_h1.type and \
                 BSP_TYPE.T2S not in last_bsp_h1.type and BSP_TYPE.T3A not in last_bsp_h1.type and BSP_TYPE.T3B not in last_bsp_h1.type:
             return
+        if last_bsp_h1.klu.klc.idx != chan_h1[-2].idx:
+            return
         # 1小时和5分钟买卖点方向一致
-        if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
-                not last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.TOP):
+        if (last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.BOTTOM or
+                not last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.TOP):
             return
 
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
