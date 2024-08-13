@@ -149,24 +149,6 @@ def last_zs_mid(chan: CChan):
     return returns
 
 
-# def last_zs_begin(chan: CChan):
-#     last_klu = chan[0][-1][-1]
-#     returns = dict()
-#     for i in range(1, ZS_N):
-#         zs = chan[0].zs_list[-i]
-#         returns[f"last_zs_begin{i}"] = zs.begin / last_klu.close - 1
-#     return returns
-#
-#
-# def last_zs_end(chan: CChan):
-#     last_klu = chan[0][-1][-1]
-#     returns = dict()
-#     for i in range(1, ZS_N):
-#         zs = chan[0].zs_list[-i]
-#         returns[f"last_zs_end{i}"] = zs.end / last_klu.close - 1
-#     return returns
-
-
 def last_zs_peak_high(chan: CChan):
     last_klu = chan[0][-1][-1]
     returns = dict()
