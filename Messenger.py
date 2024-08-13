@@ -74,7 +74,7 @@ plot_para = {
         "fontsize": 20
     },
     "figure": {
-        "x_range": 200,
+        "x_range": 400,
     },
     "marker": {
         # "markers": {  # text, position, color

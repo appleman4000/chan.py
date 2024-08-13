@@ -7,23 +7,18 @@ from matplotlib import pyplot as plt
 from Chan import CChan
 from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
+from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Common.CTime import CTime
 from Plot.PlotDriver import CPlotDriver
 
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
     "bi_strict": True,
-    "skip_step": 0,
-    "divergence_rate": 0.8,
-    "bsp2_follow_1": False,
-    "bsp3_follow_1": False,
+    "gap_as_kl": True,
     "min_zs_cnt": 1,
-    "bs1_peak": True,
+    "divergence_rate": float("inf"),
+    "max_bs2_rate": 0.618,
     "macd_algo": "diff",
-    "bs_type": '1,2,3a,1p,2s,3b',
-    "print_warning": True,
-    "zs_algo": "normal",
 })
 plot_config = {
     "plot_kline": True,
@@ -67,7 +62,7 @@ plot_para = {
         "fontsize": 20
     },
     "figure": {
-        "x_range": 200,
+        "x_range": 400,
     },
     "marker": {
         # "markers": {  # text, position, color
@@ -85,22 +80,7 @@ class T_SAMPLE_INFO(TypedDict):
 
 
 def plot(chan, plot_marker):
-    plot_config = {
-        "plot_kline": True,
-        "plot_bi": True,
-        "plot_seg": True,
-        "plot_zs": True,
-        "plot_bsp": True,
-        "plot_marker": True,
-    }
-    plot_para = {
-        "figure": {
-            "x_range": 400,
-        },
-        "marker": {
-            "markers": plot_marker
-        }
-    }
+    plot_para["marker"] = dict(markers=plot_marker)
     plot_driver = CPlotDriver(
         chan,
         plot_config=plot_config,
@@ -183,8 +163,8 @@ if __name__ == "__main__":
             last_bsp = bsp_list[-1]
 
             cur_lv_chan = chan_snapshot[0]
-            if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
-                # 假如策略是：买卖点分形第三元素出现时交易
+            if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
+                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 str_date = last_klu.time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
                 file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
                 if not os.path.exists(file_path):
