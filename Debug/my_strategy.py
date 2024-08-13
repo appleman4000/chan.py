@@ -1,24 +1,23 @@
 # cython: language_level=3
+import datetime
 import io
 import time
 
 import MetaTrader5 as mt5
 import backtrader as bt
+import keras
 import matplotlib
 import numpy as np
 import pandas as pd
 import pytz
-from backtrader import Observer, num2date
+from backtrader import num2date
 from matplotlib import pyplot as plt
 
 from Chan import CChan
-from ChanConfig import CChanConfig
 from Common.CEnum import KL_TYPE, BSP_TYPE, FX_TYPE, DATA_FIELD
 from Common.CTime import CTime
-from Debug.GenerateTrainData import plot_config, plot_para
+from Debug.GenerateTrainData import plot_config, plot_para, config
 from KLine.KLine_Unit import CKLine_Unit
-import keras
-
 from Plot.PlotDriver import CPlotDriver
 
 
@@ -48,15 +47,6 @@ class CZSCStrategy(bt.Strategy):  # BOLL策略程序
         self.data_close = self.datas[0].close  # 指定价格序列
         # 初始化交易指令、买卖价格和手续费
         code = " "
-        config = CChanConfig({
-            "trigger_step": True,  # 打开开关！
-            "bi_strict": True,
-            "gap_as_kl": True,
-            "min_zs_cnt": 1,
-            "divergence_rate": float("inf"),
-            "max_bs2_rate": 0.618,
-            "macd_algo": "diff",
-        })
         self.kl_type = KL_TYPE.K_1H
         # 快照
         self.chan = CChan(
@@ -242,12 +232,16 @@ if __name__ == "__main__":
     local_tz = pytz.timezone('Asia/Shanghai')
     reconnect_mt5()
     cerebro = bt.Cerebro()
-    bars = mt5.copy_rates_from_pos("USDJPY", mt5.TIMEFRAME_H1, 1, 100000)
+    begin_time = "2021-01-02 00:00:00"
+    end_time = "2024-08-01 00:00:00"
+    bars = mt5.copy_rates_range("EURUSD", mt5.TIMEFRAME_H1,
+                                datetime.datetime.strptime(begin_time, "%Y-%m-%d %H:%M:%S"),
+                                datetime.datetime.strptime(begin_time, "%Y-%m-%d %H:%M:%S"))
     bars = pd.DataFrame(bars)
     bars.dropna(inplace=True)
     bars['time'] = pd.to_datetime(bars['time'], unit='s')
     bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
-    bars['time'] = bars['time'].dt.tz_convert(local_tz)
+    bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
     bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
     bars.rename(columns={'time': 'datetime', 'tick_volume': 'volume'}, inplace=True)
     del bars["real_volume"]

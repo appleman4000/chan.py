@@ -88,8 +88,8 @@ symbols = [
     "GBPCHF",
     "GBPJPY",
     "USDCNH",
-    "XAUUSD",
-    "XAGUSD",
+    # "XAUUSD",
+    # "XAGUSD",
 ]
 periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
@@ -116,6 +116,10 @@ def period_seconds(period):
 
 
 def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
+    positions = mt5.positions_get(symbol=symbol)
+    if positions:
+        print(f"Currency pair {symbol} has open positions.")
+        return
     symbol_info = mt5.symbol_info(symbol)
     if symbol_info is None:
         print(symbol, "not found, can not call order_check()")

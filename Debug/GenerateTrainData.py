@@ -1,3 +1,4 @@
+# cython: language_level=3
 import os.path
 import shutil
 from typing import Dict, TypedDict

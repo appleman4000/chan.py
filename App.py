@@ -60,7 +60,6 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
         "divergence_rate": 0.8,
         "max_bs2_rate": 0.618,
         "macd_algo": "diff",
-        "kl_data_check": False,
     })
 
     plot_config = {
