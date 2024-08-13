@@ -223,16 +223,11 @@ def init_chan():
             config = CChanConfig({
                 "trigger_step": True,  # 打开开关！
                 "bi_strict": True,
-                "skip_step": 0,
+                "gap_as_kl": True,
+                "min_zs_cnt": 1,
                 "divergence_rate": float("inf"),
-                "bsp2_follow_1": False,
-                "bsp3_follow_1": False,
-                "min_zs_cnt": 0,
-                "bs1_peak": False,
-                "macd_algo": "peak",
-                "bs_type": '1,2,3a,1p,2s,3b',
-                "print_warning": True,
-                "zs_algo": "normal",
+                "max_bs2_rate": 0.618,
+                "macd_algo": "diff",
             })
             chan = CChan(
                 code=symbol,
@@ -247,7 +242,7 @@ def init_chan():
 
     for symbol in symbols:
         for period in periods:
-            bars = mt5.copy_rates_from_pos(symbol, period, 1, 500)
+            bars = mt5.copy_rates_from_pos(symbol, period, 1, 1000)
             bars = pd.DataFrame(bars)
             last_bar_time = bars.iloc[-1].time
             bars.dropna(inplace=True)
