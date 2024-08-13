@@ -1,19 +1,53 @@
 # cython: language_level=3
-import datetime
 import sys
 from typing import List
 
+import MetaTrader5 as mt5
 import numpy as np
 from empyrical import max_drawdown
 from matplotlib import pyplot as plt
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import AUTYPE, DATA_FIELD, DATA_SRC, KL_TYPE, BSP_TYPE
+from Common.CEnum import DATA_FIELD, DATA_SRC, KL_TYPE
 from DataAPI.MT5ForexAPI import CMT5ForexAPI
 from KLine.KLine_Unit import CKLine_Unit
 
 sys.setrecursionlimit(1000000)
+period_map = {
+    mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
+    mt5.TIMEFRAME_M3: KL_TYPE.K_3M,
+    mt5.TIMEFRAME_M5: KL_TYPE.K_15M,
+    mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
+    mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
+    mt5.TIMEFRAME_H1: KL_TYPE.K_1H,
+    mt5.TIMEFRAME_H4: KL_TYPE.K_4H,
+    mt5.TIMEFRAME_D1: KL_TYPE.K_DAY,
+
+}
+timeframe_seconds = {
+    mt5.TIMEFRAME_M1: 60,
+    mt5.TIMEFRAME_M2: 120,
+    mt5.TIMEFRAME_M3: 180,
+    mt5.TIMEFRAME_M4: 240,
+    mt5.TIMEFRAME_M5: 300,
+    mt5.TIMEFRAME_M6: 360,
+    mt5.TIMEFRAME_M10: 600,
+    mt5.TIMEFRAME_M12: 720,
+    mt5.TIMEFRAME_M15: 900,
+    mt5.TIMEFRAME_M20: 1200,
+    mt5.TIMEFRAME_M30: 1800,
+    mt5.TIMEFRAME_H1: 3600,
+    mt5.TIMEFRAME_H2: 7200,
+    mt5.TIMEFRAME_H3: 10800,
+    mt5.TIMEFRAME_H4: 14400,
+    mt5.TIMEFRAME_H6: 21600,
+    mt5.TIMEFRAME_H8: 28800,
+    mt5.TIMEFRAME_H12: 43200,
+    mt5.TIMEFRAME_D1: 86400,
+    mt5.TIMEFRAME_W1: 604800,
+    mt5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
+}
 
 
 def combine_higher_klu_from_lower(klu_lower_lst: List[CKLine_Unit]) -> CKLine_Unit:
@@ -32,37 +66,31 @@ def main():
     """
     代码不能直接跑，仅用于展示如何实现小级别K线更新直接刷新CChan结果
     """
-    code = "EURGBP"
-    begin_time = "2021-01-01 00:00:00"
+    code = "EURUSD"
+    begin_time = "2020-01-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
     data_src_type = DATA_SRC.FOREX
-    lower_kl_type = KL_TYPE.K_1M
-    higher_kl_type = KL_TYPE.K_5M
-    config = CChanConfig({
+    lower_kl_type = mt5.TIMEFRAME_M15
+    higher_kl_type = mt5.TIMEFRAME_H1
+    lower_config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "divergence_rate": 0.8,
         "min_zs_cnt": 1,
+        # "macd_algo": "diff",
         "kl_data_check": False,
+        # "bs_type": "1,1p",
     })
 
     # 快照
-    chan_lower = CChan(
+    chan = CChan(
         code=code,
         data_src=data_src_type,
-        lv_list=[lower_kl_type],
-        config=config,
-    )
-    chan_higher = CChan(
-        code=code,
-        data_src=data_src_type,
-        lv_list=[higher_kl_type],
-        config=config,
-    )
+        lv_list=[period_map[higher_kl_type], period_map[lower_kl_type]],
+        config=lower_config,
+        begin_time=begin_time,
+        end_time=end_time,
 
-    lower_data_src = CMT5ForexAPI(code, k_type=lower_kl_type, begin_date=begin_time, end_date=end_time,
-                                  autype=AUTYPE.NONE)  # 获取最小级别
-    higher_data_src = CMT5ForexAPI(code, k_type=higher_kl_type, begin_date=begin_time, end_date=end_time,
-                                   autype=AUTYPE.NONE)  # 获取最小级别
+    )
 
     capital = 10000
     lots = 0.1
@@ -74,97 +102,65 @@ def main():
     short_orders = []
     history_long_orders = 0
     history_short_orders = 0
-    lower_last_bsp = None
-    higher_last_bsp = None
-    higher_data = higher_data_src.get_kl_data()
-    klu_higher = next(higher_data)
-    for klu_lower in lower_data_src.get_kl_data():  # 获取单根1分钟K线
-        now = datetime.datetime.now()
-        chan_lower.trigger_load({lower_kl_type: [klu_lower]})
-        lower_lv_chan = chan_lower[0]  # 低级别K线
-
-        while klu_lower.time.ts >= klu_higher.time.ts:
-            chan_higher.trigger_load({higher_kl_type: [klu_higher]})
-            klu_higher = next(higher_data)
-        higher_lv_chan = chan_higher[0]  # 高级别K线
+    for id, chan_snapshot in enumerate(chan.step_load()):
+        # if id < 100:
+        #     continue
+        higher_lv_chan = chan_snapshot[0]  # 低级别K线
+        lower_lv_chan = chan_snapshot[1]  # 高级别K线
 
         """
         策略开始：
         这里基于chan实现你的策略
         """
         profit = 0
-        higher_bsp_list = chan_higher.get_bsp(0)  # 获取买卖点列表
-        lower_bsp_list = chan_lower.get_bsp(0)  # 获取买卖点列表
-        if higher_bsp_list:
-            higher_last_bsp = higher_bsp_list[-1]
-        if lower_bsp_list:
-            lower_last_bsp = lower_bsp_list[-1]
+        higher_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not higher_bsp_list:
+            continue
+        higher_last_bsp = higher_bsp_list[-1]
 
-        higher_bsp_rule = higher_last_bsp and (
-                BSP_TYPE.T1 in higher_last_bsp.type or BSP_TYPE.T1P in higher_last_bsp.type)
-
-        lower_bsp_rule = lower_last_bsp and (
-                BSP_TYPE.T1 in lower_last_bsp.type or BSP_TYPE.T1P in lower_last_bsp.type)
+        lower_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
+        if not lower_bsp_list:
+            continue
+        lower_last_bsp = lower_bsp_list[-1]
+        entry_rule = higher_lv_chan[-1].idx - higher_last_bsp.klu.klc.idx == 0
+        entry_rule = entry_rule and lower_lv_chan[-1].idx - lower_last_bsp.klu.klc.idx == 0
 
         if len(long_orders) > 0:
-
-            rule = higher_bsp_rule and not higher_last_bsp.is_buy
-            if rule:
-                close_price = round(lower_lv_chan[-1][-1].close / fee, 5)
-                for order in long_orders:
-                    long_profit = close_price / order - 1
+            # 止盈
+            close_price = round(lower_lv_chan[-1][-1].close / fee, 5)
+            long_orders_copy = long_orders.copy()
+            for order in long_orders_copy:
+                long_profit = close_price / order - 1
+                tp = long_profit >= 0.003
+                sl = long_profit <= -0.003
+                if tp or sl:
+                    long_orders.remove(order)
+                    profit += round(long_profit * money, 2)
                     print(
                         f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
-                    profit += round(long_profit * money, 2)
                     history_long_orders += 1
-                long_orders.clear()
-            else:
-                # 止盈
-                close_price = round(lower_lv_chan[-1][-1].close / fee, 5)
-                long_orders_copy = long_orders.copy()
-                for order in long_orders_copy:
-                    long_profit = close_price / order - 1
-                    tp = long_profit >= 0.01
-                    sl = long_profit <= -0.01
-                    if tp or sl:
-                        long_orders.remove(order)
-                        profit += round(long_profit * money, 2)
-                        print(
-                            f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
-                        history_long_orders += 1
 
         if len(short_orders) > 0:
-            rule = higher_bsp_rule and higher_last_bsp.is_buy
-            if rule:
-                close_price = round(lower_lv_chan[-1][-1].close * fee, 5)
-                for order in short_orders:
-                    short_profit = order / close_price - 1
+            close_price = round(lower_lv_chan[-1][-1].close * fee, 5)
+            short_orders_copy = short_orders.copy()
+            for order in short_orders_copy:
+                short_profit = order / close_price - 1
+                tp = short_profit >= 0.003
+                sl = short_profit <= -0.003
+                if tp or sl:
+                    short_orders.remove(order)
                     profit += round(short_profit * money, 2)
                     print(
                         f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
                     history_short_orders += 1
-                short_orders.clear()
-            else:
-                close_price = round(lower_lv_chan[-1][-1].close * fee, 5)
-                short_orders_copy = short_orders.copy()
-                for order in short_orders_copy:
-                    short_profit = order / close_price - 1
-                    tp = short_profit >= 0.01
-                    sl = short_profit <= -0.01
-                    if tp or sl:
-                        short_orders.remove(order)
-                        profit += round(short_profit * money, 2)
-                        print(
-                            f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
-                        history_short_orders += 1
 
-        if len(long_orders) == 0:
-            if lower_bsp_rule and higher_bsp_rule and lower_last_bsp.is_buy and higher_last_bsp.is_buy:
+        if len(long_orders) == 0 and len(short_orders) == 0:
+            if entry_rule and higher_last_bsp.is_buy and lower_last_bsp.is_buy:
                 long_orders.append(round(lower_lv_chan[-1][-1].close * fee, 5))
                 print(f'{lower_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-        if len(short_orders) == 0:
-            if lower_bsp_rule and higher_bsp_rule and not lower_last_bsp.is_buy and not higher_last_bsp.is_buy:
+        if len(short_orders) == 0 and len(long_orders) == 0:
+            if entry_rule and not higher_last_bsp.is_buy and not lower_last_bsp.is_buy:
                 short_orders.append(round(lower_lv_chan[-1][-1].close / fee, 5))
                 print(f'{lower_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
         capital += profit
@@ -174,9 +170,6 @@ def main():
             print(f"capital:{capital}")
             win_rate = len(profits[profits > 0]) / len(profits) * 100
             print(f"胜率: {win_rate}")
-
-        # print(f"{klu_lower.time}:{datetime.datetime.now() - now}")
-
     CMT5ForexAPI.do_close()
     # 最后显示总盈利历史图表
     plt.rcParams['font.sans-serif'] = ['simhei']

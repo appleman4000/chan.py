@@ -56,11 +56,11 @@ if __name__ == "__main__":
 
     请注意，demo训练预测都用的是同一份数据，这是不合理的，仅仅是为了演示
     """
-    code = "sz.000001"
-    begin_time = "2018-01-01"
-    end_time = None
-    data_src = DATA_SRC.BAO_STOCK
-    lv_list = [KL_TYPE.K_DAY]
+    code = "EURUSD"
+    begin_time = "2020-01-01 00:00:00"
+    end_time = "2024-07-10 00:00:00"
+    data_src = DATA_SRC.FOREX
+    lv_list = [KL_TYPE.K_1H]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         data_src=data_src,
         lv_list=lv_list,
         config=config,
-        autype=AUTYPE.QFQ,
+        autype=AUTYPE.NONE,
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征

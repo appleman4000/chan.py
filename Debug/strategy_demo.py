@@ -8,11 +8,11 @@ if __name__ == "__main__":
     一个极其弱智的策略，只交易一类买卖点，底分型形成后就开仓，直到一类卖点顶分型形成后平仓
     只用做展示如何自己实现策略，做回测用~
     """
-    code = "sz.000001"
-    begin_time = "2021-01-01"
-    end_time = None
-    data_src = DATA_SRC.BAO_STOCK
-    lv_list = [KL_TYPE.K_DAY]
+    code = "EURUSD"
+    begin_time = "2021-01-01 00:00:00"
+    end_time = "2024-01-01 00:00:00"
+    data_src = DATA_SRC.FOREX
+    lv_list = [KL_TYPE.K_1H]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -32,6 +32,7 @@ if __name__ == "__main__":
 
     is_hold = False
     last_buy_price = None
+    profit = 0
     for chan_snapshot in chan.step_load():  # 每增加一根K线，返回当前静态精算结果
         bsp_list = chan_snapshot.get_bsp()  # 获取买卖点列表
         if not bsp_list:  # 为空
@@ -48,5 +49,6 @@ if __name__ == "__main__":
             is_hold = True
         elif cur_lv_chan[-2].fx == FX_TYPE.TOP and not last_bsp.is_buy and is_hold:  # 顶分型形成后平仓
             sell_price = cur_lv_chan[-1][-1].close
-            print(f'{cur_lv_chan[-1][-1].time}:sell price = {sell_price}, profit rate = {(sell_price-last_buy_price)/last_buy_price*100:.2f}%')
+            profit += (sell_price - last_buy_price) / last_buy_price * 100
+            print(f'{cur_lv_chan[-1][-1].time}:sell price = {sell_price}, profit rate = {profit:.2f}%')
             is_hold = False

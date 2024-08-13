@@ -2,10 +2,9 @@
 # encoding:utf-8
 import datetime
 
-import MetaTrader5 as MT5
+import MetaTrader5 as mt5
 import baostock as bs
 import pandas as pd
-import pytz
 
 from Common.CEnum import DATA_FIELD, KL_TYPE
 from Common.CTime import CTime
@@ -57,6 +56,31 @@ def GetColumnNameFromFieldList(fileds: str):
     return [_dict[x] for x in fileds.split(",")]
 
 
+timeframe_seconds = {
+    mt5.TIMEFRAME_M1: 60,
+    mt5.TIMEFRAME_M2: 120,
+    mt5.TIMEFRAME_M3: 180,
+    mt5.TIMEFRAME_M4: 240,
+    mt5.TIMEFRAME_M5: 300,
+    mt5.TIMEFRAME_M6: 360,
+    mt5.TIMEFRAME_M10: 600,
+    mt5.TIMEFRAME_M12: 720,
+    mt5.TIMEFRAME_M15: 900,
+    mt5.TIMEFRAME_M20: 1200,
+    mt5.TIMEFRAME_M30: 1800,
+    mt5.TIMEFRAME_H1: 3600,
+    mt5.TIMEFRAME_H2: 7200,
+    mt5.TIMEFRAME_H3: 10800,
+    mt5.TIMEFRAME_H4: 14400,
+    mt5.TIMEFRAME_H6: 21600,
+    mt5.TIMEFRAME_H8: 28800,
+    mt5.TIMEFRAME_H12: 43200,
+    mt5.TIMEFRAME_D1: 86400,
+    mt5.TIMEFRAME_W1: 604800,
+    mt5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
+}
+
+
 class CMT5ForexAPI(CCommonForexApi):
     is_connect = None
 
@@ -64,33 +88,33 @@ class CMT5ForexAPI(CCommonForexApi):
         super(CMT5ForexAPI, self).__init__(code, k_type, begin_date, end_date)
         # 建立MetaTrader 5到指定交易账户的连接
         # connect to MetaTrader 5
-        if not MT5.initialize(server="Swissquote-Server", login=6150644, password="Sj!i2zHy"):
+        if not mt5.initialize(server="Swissquote-Server", login=6150644, password="Sj!i2zHy"):
             print("initialize() failed")
-            MT5.shutdown()
+            mt5.shutdown()
             exit(0)
 
         # request connection status and parameters
-        print(MT5.terminal_info())
+        print(mt5.terminal_info())
         # get data on MetaTrader 5 version
-        print(MT5.version())
+        print(mt5.version())
 
     def get_kl_data(self):
         if self.k_type == KL_TYPE.K_1M:
-            timeframe = MT5.TIMEFRAME_M1
+            timeframe = mt5.TIMEFRAME_M1
         elif self.k_type == KL_TYPE.K_3M:
-            timeframe = MT5.TIMEFRAME_M3
+            timeframe = mt5.TIMEFRAME_M3
         elif self.k_type == KL_TYPE.K_5M:
-            timeframe = MT5.TIMEFRAME_M5
+            timeframe = mt5.TIMEFRAME_M5
         elif self.k_type == KL_TYPE.K_15M:
-            timeframe = MT5.TIMEFRAME_M15
+            timeframe = mt5.TIMEFRAME_M15
         elif self.k_type == KL_TYPE.K_30M:
-            timeframe = MT5.TIMEFRAME_M30
+            timeframe = mt5.TIMEFRAME_M30
         elif self.k_type == KL_TYPE.K_1H:
-            timeframe = MT5.TIMEFRAME_H1
+            timeframe = mt5.TIMEFRAME_H1
         elif self.k_type == KL_TYPE.K_4H:
-            timeframe = MT5.TIMEFRAME_H4
+            timeframe = mt5.TIMEFRAME_H4
         elif self.k_type == KL_TYPE.K_DAY:
-            timeframe = MT5.TIMEFRAME_D1
+            timeframe = mt5.TIMEFRAME_D1
         else:
             raise Exception("不支持的时间框")
         local_time_format = '%Y-%m-%d %H:%M:%S'
@@ -100,10 +124,11 @@ class CMT5ForexAPI(CCommonForexApi):
         end_date = datetime.datetime.strptime(self.end_date, local_time_format)
         end_date = end_date + datetime.timedelta(hours=2)
 
-        bars = MT5.copy_rates_range(self.code, timeframe, begin_date, end_date)
+        bars = mt5.copy_rates_range(self.code, timeframe, begin_date, end_date)
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
+        bars['time'] = bars['time'] + datetime.timedelta(seconds=timeframe_seconds[timeframe])
         bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
         bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
