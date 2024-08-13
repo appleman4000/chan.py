@@ -1,13 +1,11 @@
 # cython: language_level=3
 import importlib.util
 import inspect
-import json
 import os
 import pickle
-from typing import Dict, TypedDict, Callable
+from typing import Dict, TypedDict
 
 import numpy as np
-import xgboost as xgb
 
 from Chan import CChan
 from ChanConfig import CChanConfig
@@ -65,7 +63,6 @@ def calculate_functions(functions, *args, **kwargs):
 
 def get_lightgbm_model(train_data, train_label, param_grid):
     from lightgbm import LGBMClassifier
-    from lightgbm.callback import CallbackEnv, EarlyStopException
     param_grid["random_state"] = param_grid["seed"]
     param_grid["bagging_seed"] = param_grid["seed"]
     param_grid["feature_fraction_seed"] = param_grid["seed"]
@@ -139,6 +136,8 @@ if __name__ == "__main__":
         os.remove("feature.meta")
     if os.path.exists("model.json"):
         os.remove("model.json")
+    train_data = []
+    train_label = []
     for code in symbols:
         begin_time = "2010-01-01 00:00:00"
         end_time = "2021-07-10 00:00:00"
@@ -188,10 +187,8 @@ if __name__ == "__main__":
                     "is_buy": last_bsp.is_buy,
                     "open_time": last_klu.time,
                 }
-
                 module_path = './FeatureEngineering.py'
                 functions = get_functions_from_module(module_path)
-                # 假设函数不需要参数，可以提供空参数
                 results = calculate_functions(functions, chan)
                 for key in results.keys():
                     bsp_dict[last_bsp.klu.idx]['feature'].add_feat({key: results[key]})
@@ -199,36 +196,15 @@ if __name__ == "__main__":
 
         # 生成libsvm样本特征
         bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp()]
-        feature_meta = {}  # 特征meta
-        cur_feature_idx = 0
-        plot_marker = {}
-        fid = open("feature.libsvm", "a")
         for bsp_klu_idx, feature_info in bsp_dict.items():
             label = int(bsp_klu_idx in bsp_academy)  # 以买卖点识别是否准确为label
             features = []  # List[(idx, value)]
             for feature_name, value in feature_info['feature'].items():
-                if feature_name not in feature_meta:
-                    feature_meta[feature_name] = cur_feature_idx
-                    cur_feature_idx += 1
-                features.append((feature_meta[feature_name], value))
-            features.sort(key=lambda x: x[0])
-            feature_str = " ".join([f"{idx}:{value}" for idx, value in features])
-            fid.write(f"{label} {feature_str}\n")
-            plot_marker[feature_info["open_time"].to_str()] = (
-                "√" if label else "×", "down" if feature_info["is_buy"] else "up")
-        fid.close()
-        with open("feature.meta", "w") as fid:
-            # meta保存下来，实盘预测时特征对齐用
-            fid.write(json.dumps(feature_meta))
-
-    # 画图检查label是否正确
-    # plot(chan, plot_marker)
-
-    # load sample file & train model
-    dtrain = xgb.DMatrix("feature.libsvm?format=libsvm")  # load sample
-    from scipy.sparse import csr_matrix
-    train_data = csr_matrix(dtrain.get_data()).toarray()
-    train_label = np.array(dtrain.get_label())
+                features.append(value)
+            train_data.append(features)
+            train_label.append(label)
+    train_data = np.array(train_data)
+    train_label = np.array(train_label)
     print(train_data.shape)
     print(train_label.shape)
     param_grid = {
@@ -247,7 +223,7 @@ if __name__ == "__main__":
         'subsample_freq': 1,
         'colsample_bytree': 0.9,
         'reg_alpha': 0,
-        'reg_lambda': 100,
+        'reg_lambda': 150,
         'verbose': -1,
         'num_threads': 1,
     }

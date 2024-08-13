@@ -45,6 +45,7 @@ class CBS_Point(Generic[LINE_TYPE]):
 
     def init_common_feature(self):
         # 用于配置适用所有买卖点的特征
-        self.add_feat({
-            'bsp_bi_amp': self.bi.amp(),
-        })
+        # self.add_feat({
+        #     'bsp_bi_amp': self.bi.amp(),
+        # })
+        pass

@@ -1,14 +1,11 @@
 # cython: language_level=3
-import json
 import pickle
 from typing import Dict, TypedDict
 
 import numpy as np
-import xgboost as xgb
 from empyrical import max_drawdown
 from matplotlib import pyplot as plt
 
-from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
@@ -22,17 +19,6 @@ class T_SAMPLE_INFO(TypedDict):
     feature: CFeatures
     is_buy: bool
     open_time: CTime
-
-
-def predict_bsp(model, last_bsp: CBS_Point, meta: Dict[str, int]):
-    missing = -9999999
-    feature_arr = [missing] * len(meta)
-    for feat_name, feat_value in last_bsp.features.items():
-        if feat_name in meta:
-            feature_arr[meta[feat_name]] = feat_value
-    feature_arr = [feature_arr]
-    dtest = xgb.DMatrix(feature_arr, missing=missing)
-    return model.predict_proba(dtest.get_data())
 
 
 if __name__ == "__main__":
@@ -76,7 +62,6 @@ if __name__ == "__main__":
     with open("model.hdf5", 'rb') as file:
         # 使用 pickle.load 加载对象
         model = pickle.load(file)
-    meta = json.load(open("feature.meta", "r"))
     capital = 10000
     lots = 0.1
     money = 100000 * lots
@@ -88,6 +73,7 @@ if __name__ == "__main__":
     history_long_orders = 0
     history_short_orders = 0
     treated_bsp_idx = set()
+    bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
     for chan_snapshot in chan.step_load():
         # 策略逻辑要对齐demo5
         last_klu = chan_snapshot[0][-1][-1]
@@ -130,14 +116,20 @@ if __name__ == "__main__":
         if len(long_orders) == 0 and len(short_orders) == 0:
             if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
                     (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
+                bsp_dict[last_bsp.klu.idx] = {
+                    "feature": last_bsp.features,
+                    "is_buy": last_bsp.is_buy,
+                    "open_time": last_klu.time,
+                }
                 module_path = './FeatureEngineering.py'
                 functions = get_functions_from_module(module_path)
                 results = calculate_functions(functions, chan)
                 for key in results.keys():
-                    last_bsp.features.add_feat({key: results[key]})
-                    # 买卖点打分，应该和demo5最后的predict结果完全一致才对
-                # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
-                value = predict_bsp(model, last_bsp, meta)[0][1]
+                    last_bsp.features.add_feat(key, results[key])
+                features = []
+                for feature_name, value in last_bsp.features.items():
+                    features.append(value)
+                value = model.predict_proba([features])[0][1]
                 treated_bsp_idx.add(last_bsp.klu.idx)
                 if last_bsp.is_buy and value > 0.6:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
