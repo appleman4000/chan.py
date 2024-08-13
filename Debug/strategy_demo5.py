@@ -3,8 +3,10 @@ import importlib.util
 import inspect
 import json
 import os
-from typing import Dict, TypedDict
+import pickle
+from typing import Dict, TypedDict, Callable
 
+import numpy as np
 import xgboost as xgb
 
 from Chan import CChan
@@ -61,6 +63,41 @@ def calculate_functions(functions, *args, **kwargs):
     return results
 
 
+def get_lightgbm_model(train_data, train_label, param_grid):
+    from lightgbm import LGBMClassifier
+    from lightgbm.callback import CallbackEnv, EarlyStopException
+    param_grid["random_state"] = param_grid["seed"]
+    param_grid["bagging_seed"] = param_grid["seed"]
+    param_grid["feature_fraction_seed"] = param_grid["seed"]
+    param_grid["gpu_device_id"] = 0
+    param_grid["gpu_platform_id"] = 0
+
+    print("train lightgbm model")
+    # 平衡数据集权重（注意：LGBMClassifier不支持 class_weight："balanced",需要自己计算权重）
+    from sklearn.utils import class_weight
+
+    class_weights = class_weight.compute_class_weight(
+        "balanced", classes=np.unique(train_label), y=train_label
+    )
+    param_grid.update(
+        {
+            "class_weight": {
+                0: class_weights[0],
+                1: class_weights[1],
+            }
+        }
+    )
+    model = LGBMClassifier(**param_grid)
+    model.fit(
+        train_data,
+        train_label,
+        eval_set=[(train_data, train_label)],
+    )
+    print("train lightgbm model completely!")
+    with open("model.hdf5", "wb") as f:
+        pickle.dump(model, f)
+
+
 if __name__ == "__main__":
     """
     本demo主要演示如何记录策略产出的买卖点的特征
@@ -72,34 +109,36 @@ if __name__ == "__main__":
     symbols = [
         # Major
         "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
+        # "GBPUSD",
+        # "AUDUSD",
+        # "NZDUSD",
+        # "USDJPY",
+        # "USDCAD",
+        # "USDCHF",
         # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
+        # "AUDCHF",
+        # "AUDJPY",
+        # "AUDNZD",
+        # "CADCHF",
+        # "CADJPY",
+        # "CHFJPY",
+        # "EURAUD",
+        # "EURCAD",
+        # "AUDCAD",
+        # "EURCHF",
+        # "GBPNZD",
+        # "GBPCAD",
+        # "GBPCHF",
+        # "GBPJPY",
         # "USDCNH",
-        # "XAUUSD",
-        # "XAGUSD",
+
     ]
-    os.remove("feature.libsvm")
-    os.remove("feature.meta")
-    os.remove("model.json")
+    if os.path.exists("feature.libsvm"):
+        os.remove("feature.libsvm")
+    if os.path.exists("feature.meta"):
+        os.remove("feature.meta")
+    if os.path.exists("model.json"):
+        os.remove("model.json")
     for code in symbols:
         begin_time = "2010-01-01 00:00:00"
         end_time = "2021-07-10 00:00:00"
@@ -115,8 +154,8 @@ if __name__ == "__main__":
             "bsp3_follow_1": False,
             "min_zs_cnt": 0,
             "bs1_peak": False,
-            "macd_algo": "diff",
-            "bs_type": '1,1p',
+            "macd_algo": "peak",
+            "bs_type": '1,2,3a,1p,2s,3b',
             "print_warning": True,
             "zs_algo": "normal",
         })
@@ -187,20 +226,29 @@ if __name__ == "__main__":
 
     # load sample file & train model
     dtrain = xgb.DMatrix("feature.libsvm?format=libsvm")  # load sample
-    param = {'max_depth': 2, 'eta': 0.3, 'objective': 'binary:logistic', 'eval_metric': 'auc'}
-    evals_result = {}
-    bst = xgb.train(
-        param,
-        dtrain=dtrain,
-        num_boost_round=200,
-        evals=[(dtrain, "train")],
-        evals_result=evals_result,
-        verbose_eval=True,
-    )
-    bst.save_model("model.json")
-
-    # load model
-    # model = xgb.Booster()
-    # model.load_model("model.json")
-    # # predict
-    # print(model.predict(dtrain))
+    from scipy.sparse import csr_matrix
+    train_data = csr_matrix(dtrain.get_data()).toarray()
+    train_label = np.array(dtrain.get_label())
+    print(train_data.shape)
+    print(train_label.shape)
+    param_grid = {
+        'seed': 42,
+        # 'num_class': 1,
+        'device': 'cpu',
+        'objective': 'binary',
+        'boosting_type': 'gbdt',
+        'num_leaves': 31,
+        'max_depth': 3,
+        'learning_rate': 0.1,
+        'n_estimators': 200,
+        'min_split_gain': 0,
+        'min_child_weight': 1e-3,
+        'subsample': 0.9,
+        'subsample_freq': 1,
+        'colsample_bytree': 0.9,
+        'reg_alpha': 0,
+        'reg_lambda': 100,
+        'verbose': -1,
+        'num_threads': 1,
+    }
+    get_lightgbm_model(train_data=train_data, train_label=train_label, param_grid=param_grid)

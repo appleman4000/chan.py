@@ -1,5 +1,6 @@
 # cython: language_level=3
 import json
+import pickle
 from typing import Dict, TypedDict
 
 import numpy as np
@@ -23,7 +24,7 @@ class T_SAMPLE_INFO(TypedDict):
     open_time: CTime
 
 
-def predict_bsp(model: xgb.Booster, last_bsp: CBS_Point, meta: Dict[str, int]):
+def predict_bsp(model, last_bsp: CBS_Point, meta: Dict[str, int]):
     missing = -9999999
     feature_arr = [missing] * len(meta)
     for feat_name, feat_value in last_bsp.features.items():
@@ -31,14 +32,14 @@ def predict_bsp(model: xgb.Booster, last_bsp: CBS_Point, meta: Dict[str, int]):
             feature_arr[meta[feat_name]] = feat_value
     feature_arr = [feature_arr]
     dtest = xgb.DMatrix(feature_arr, missing=missing)
-    return model.predict(dtest)
+    return model.predict_proba(dtest.get_data())
 
 
 if __name__ == "__main__":
     """
     本demo主要演示如何在实盘中把策略产出的买卖点，对接到demo5中训练好的离线模型上
     """
-    code = "AUDUSD"
+    code = "EURUSD"
     begin_time = "2021-07-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
     data_src = DATA_SRC.FOREX
@@ -53,8 +54,8 @@ if __name__ == "__main__":
         "bsp3_follow_1": False,
         "min_zs_cnt": 0,
         "bs1_peak": False,
-        "macd_algo": "diff",
-        "bs_type": '1,1p',
+        "macd_algo": "peak",
+        "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
     })
@@ -69,8 +70,12 @@ if __name__ == "__main__":
         autype=AUTYPE.QFQ,
     )
 
-    model = xgb.Booster()
-    model.load_model("model.json")
+    # model = xgb.Booster()
+    # model.load_model("model.json")
+    # 打开文件以二进制读模式
+    with open("model.hdf5", 'rb') as file:
+        # 使用 pickle.load 加载对象
+        model = pickle.load(file)
     meta = json.load(open("feature.meta", "r"))
     capital = 10000
     lots = 0.1
@@ -132,13 +137,13 @@ if __name__ == "__main__":
                     last_bsp.features.add_feat({key: results[key]})
                     # 买卖点打分，应该和demo5最后的predict结果完全一致才对
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
-                value = predict_bsp(model, last_bsp, meta)[0]
+                value = predict_bsp(model, last_bsp, meta)[0][1]
                 treated_bsp_idx.add(last_bsp.klu.idx)
-                if last_bsp.is_buy and value > 0.2:
+                if last_bsp.is_buy and value > 0.6:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-                if not last_bsp.is_buy and value > 0.2:
+                if not last_bsp.is_buy and value > 0.6:
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 
