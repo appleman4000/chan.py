@@ -2,19 +2,26 @@
 # encoding:utf-8
 import builtins
 import datetime
+import io
 import sys
 import time
 
 import MetaTrader5 as mt5
+import keras
+import matplotlib
+import numpy as np
 import pandas as pd
 import pytz
+from matplotlib import pyplot as plt
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE, BSP_TYPE, FX_TYPE
+from Common.CEnum import DATA_SRC, AUTYPE, KL_TYPE
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
+from Debug.GenerateTrainData import plot_config, plot_para
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
+from Plot.PlotDriver import CPlotDriver
 
 sys.setrecursionlimit(10000)
 timeframe_seconds = {
@@ -88,10 +95,10 @@ symbols = [
     "GBPCHF",
     "GBPJPY",
     "USDCNH",
-    # "XAUUSD",
-    # "XAGUSD",
+    "XAUUSD",
+    "XAGUSD",
 ]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
+periods = [mt5.TIMEFRAME_H1]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -116,10 +123,6 @@ def period_seconds(period):
 
 
 def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
-    positions = mt5.positions_get(symbol=symbol)
-    if positions:
-        print(f"Currency pair {symbol} has open positions.")
-        return
     symbol_info = mt5.symbol_info(symbol)
     if symbol_info is None:
         print(symbol, "not found, can not call order_check()")
@@ -168,36 +171,47 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     chan = chans[symbol + str(period)]
     chan.trigger_load({period_map[period]: [bar]})
 
-    if enable_send_message and period == mt5.TIMEFRAME_M15:
-        # 5分钟买卖点,底分型或者顶分型成立
-        chan_m15 = chan[0]
-        # 确保分型已确认
-        if chan_m15[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
-            return
-        # 1小时买卖点，分型待确认
-        chan_h1 = chans[symbol + str(mt5.TIMEFRAME_H1)]
-        bsp_list = chan_h1.get_bsp(0)
+    if enable_send_message and period == mt5.TIMEFRAME_H1:
+        # 1小时买卖点,底分型或者顶分型成立
+        last_klu = chan[0][-1][-1]
+        bsp_list = chan.get_bsp()
         if not bsp_list:
             return
-        chan_h1 = chan_h1[0]
-        last_bsp_h1 = bsp_list[-1]
-        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type:
-            return
-        # if chan_h1[-1].idx - last_bsp_h1.klu.klc.idx != 0:
-        #     return
-        if last_bsp_h1.klu.time != chan_h1[-1][-1].time:
-            return
-        # 1小时买卖点和15分钟方向一致
-        if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
-                not last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.TOP):
-            return
+        last_bsp = bsp_list[-1]
 
-        price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
-        subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
-        message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
-        send_message(subject, message, [chans[symbol + str(p)] for p in periods])
-        comment = f"{last_bsp_h1.klu.time.to_str()} {','.join([t.name for t in last_bsp_h1.type])}"
-        robot_trade(symbol, 0.01, last_bsp_h1.is_buy, comment)
+        cur_lv_chan = chan[0]
+        if cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
+            matplotlib.use('Agg')
+            g = CPlotDriver(chan, plot_config, plot_para)
+            # 移除标题
+            for ax in g.figure.axes:
+                ax.set_title("", loc="left")
+                # 移除 x 轴和 y 轴标签
+                ax.set_xlabel('')
+                ax.set_ylabel('')
+
+                # 移除 x 轴和 y 轴的刻度标签
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+                # 移除 x 轴和 y 轴的刻度线
+                ax.tick_params(axis='both', which='both', length=0)
+
+                # 移除网格线
+                ax.grid(False)
+            g.figure.tight_layout()
+            buf = io.BytesIO()
+            g.figure.savefig(buf, format='png')
+            plt.close(g.figure)
+            buf.seek(0)
+            outputs = model.predict(np.expand_dims(buf.getvalue(), axis=0))[0]
+            if outputs > 0.7:
+                price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
+                subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
+                message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
+                send_message(subject, message, [chans[symbol + str(p)] for p in periods])
+                comment = f"{last_bsp.klu.time.to_str()} {' '.join([t.name for t in last_bsp.type])}"
+                robot_trade(symbol, 0.01, last_bsp.is_buy, comment)
 
 
 def init_chan():
@@ -211,7 +225,7 @@ def init_chan():
                 "bi_strict": True,
                 "gap_as_kl": True,
                 "min_zs_cnt": 1,
-                "divergence_rate": 0.8,
+                "divergence_rate": float("inf"),
                 "max_bs2_rate": 0.618,
                 "macd_algo": "diff",
             })
@@ -302,6 +316,7 @@ if __name__ == "__main__":
 
     # 替换内置 print 函数
     builtins.print = custom_print
+    model = keras.models.load_model("./model.h5")
     # 连接到MetaTrader 5
     if not reconnect_mt5():
         exit(0)
