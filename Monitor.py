@@ -196,7 +196,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
         send_message(subject, message, [chans[symbol + str(p)] for p in periods])
-        comment = f"{last_bsp_h1.klu.time.to_str()} {','.join([t.name for t in last_bsp_h1.type])}"
+        comment = f"{','.join([t.name for t in last_bsp_h1.type])}"
         robot_trade(symbol, 0.01, last_bsp_h1.is_buy, comment)
 
 

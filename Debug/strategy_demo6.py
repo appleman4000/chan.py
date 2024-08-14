@@ -41,7 +41,7 @@ if __name__ == "__main__":
     """
     本demo主要演示如何在实盘中把策略产出的买卖点，对接到demo5中训练好的离线模型上
     """
-    code = "AUDUSD"
+    code = "EURUSD"
     begin_time = "2021-07-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
     data_src = DATA_SRC.FOREX
@@ -130,14 +130,14 @@ if __name__ == "__main__":
                         f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
                     history_short_orders += 1
 
-        if len(long_orders) <= 2 and len(short_orders) <= 2:
-            if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
+        if len(long_orders) <= 0 and len(short_orders) <= 0:
+            if last_bsp.klu.idx not in treated_bsp_idx and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
                     (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 module_path = './FeatureEngineering.py'
                 functions = get_functions_from_module(module_path)
                 results = calculate_functions(functions, chan)
                 for key in results.keys():
-                    last_bsp.features.add_feat({key: results[key]})
+                    last_bsp.features.add_feat(key, results[key])
                     # 买卖点打分，应该和demo5最后的predict结果完全一致才对
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
                 value = predict_bsp(model, last_bsp, meta)

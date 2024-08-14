@@ -14,9 +14,7 @@ from lightgbm import early_stopping, LGBMClassifier
 from optuna_dashboard import run_server
 from scipy.sparse import csr_matrix
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import StratifiedKFold
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
 from Chan import CChan
@@ -123,35 +121,21 @@ def objective(trial):
     param_grid["gpu_platform_id"] = 0
     X, y = train_data, train_label
 
-    # 定义 StratifiedKFold 交叉验证
-    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=42)
+    # 定义模型
+    # 创建管道，先归一化再训练 LGBMClassifier
+    model = LGBMClassifier(**param_grid)
 
-    f1_scores = []
+    # 使用早停机制训练模型
+    model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)], eval_metric=['roc_auc'],
+              callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
 
-    # 对每个折叠进行训练和验证
-    for train_index, valid_index in folds.split(X, y):
-        X_train, X_valid = X[train_index], X[valid_index]
-        y_train, y_valid = y[train_index], y[valid_index]
-        # 定义模型
-        # 创建管道，先归一化再训练 LGBMClassifier
-        model = Pipeline([
-            ('scaler', StandardScaler()),
-            ('classifier', LGBMClassifier(**param_grid))
-        ])
+    # 在验证集上预测
+    y_pred = model.predict(X_valid)
 
-        # 使用早停机制训练模型
-        model.fit(X_train, y_train, classifier__eval_set=[(X_valid, y_valid)], classifier__eval_metric=['roc_auc'],
-                  classifier__callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
-
-        # 在验证集上预测
-        y_pred = model.predict(X_valid)
-
-        # 计算 F1 分数（适用于二分类）
-        f1 = roc_auc_score(y_valid, y_pred)
-        f1_scores.append(f1)
-
-    # 返回平均 F1 分数
-    return sum(f1_scores) / len(f1_scores)
+    auc = roc_auc_score(y_valid, y_pred)
+    # 返回auc分数
+    return auc
 
 
 if __name__ == "__main__":
@@ -164,9 +148,9 @@ if __name__ == "__main__":
     """
     symbols = [
         # Major
-        # "EURUSD",
+        "EURUSD",
         # "GBPUSD",
-        "AUDUSD",
+        # "AUDUSD",
         # "NZDUSD",
         # "USDJPY",
         # "USDCAD",
@@ -209,7 +193,7 @@ if __name__ == "__main__":
             "divergence_rate": float("inf"),
             "bsp2_follow_1": False,
             "bsp3_follow_1": False,
-            "min_zs_cnt": 1,
+            "min_zs_cnt": 0,
             "bs1_peak": False,
             "macd_algo": "peak",
             "bs_type": '1,2,3a,1p,2s,3b',
@@ -251,7 +235,7 @@ if __name__ == "__main__":
                 # 假设函数不需要参数，可以提供空参数
                 results = calculate_functions(functions, chan)
                 for key in results.keys():
-                    bsp_dict[last_bsp.klu.idx]['feature'].add_feat({key: results[key]})
+                    bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, results[key])
                 print(last_bsp.klu.time, last_bsp.is_buy)
 
         # 生成libsvm样本特征
@@ -299,7 +283,7 @@ if __name__ == "__main__":
     # 启动一个后台线程来运行 Optuna Dashboard
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=200, n_jobs=-1)
+    study.optimize(objective, n_trials=1000, n_jobs=-1)
 
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)
@@ -307,14 +291,11 @@ if __name__ == "__main__":
     # 使用最佳参数训练最终模型
     best_params = study.best_trial.params
     param_grid.update(best_params)
-    model = Pipeline([
-        ('scaler', StandardScaler()),
-        ('classifier', LGBMClassifier(**param_grid))
-    ])
+    model = LGBMClassifier(**param_grid)
     # 训练 Pipeline
-    model.fit(train_data, train_label, classifier__eval_set=[(train_data, train_label)],
-              classifier__eval_metric=['roc_auc'],
-              classifier__callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+    model.fit(train_data, train_label, eval_set=[(train_data, train_label)],
+              eval_metric=['roc_auc'],
+              callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
     # param_grid["seed"] = 42
     # classifier1 = LGBMClassifier(**param_grid)
     # param_grid["seed"] = 3407
@@ -336,7 +317,7 @@ if __name__ == "__main__":
     print("train lightgbm model completely!")
     with open("model.hdf5", "wb") as f:
         pickle.dump(model, f)
-    feature_importances = model[-1].feature_importances_
+    feature_importances = model.feature_importances_
     # 特征名称
     feature_names = feature_meta.keys()
 

@@ -2,8 +2,8 @@
 from Chan import CChan
 from Common.CEnum import MACD_ALGO, BI_DIR, BSP_TYPE, FX_TYPE
 
-N_BI = 5
-N_ZS = 2
+N_BI = 6
+N_ZS = 1
 N_SEG = 1
 
 
@@ -22,26 +22,26 @@ def bsp_type(chan: CChan):
     return {"bsp_type": list(BSP_TYPE).index(bsp.type[0])}
 
 
-def fx(chan: CChan):
-    fx = chan[0][-1].fx
-    return {"fx": list(FX_TYPE).index(fx)}
+# def fx(chan: CChan):
+#     fx = chan[0][-1].fx
+#     return {"fx": list(FX_TYPE).index(fx)}
 
 
 ############################### 笔 ####################################################
-def bi_dir(chan: CChan):
-    returns = dict()
-    for i in range(1, N_BI + 1):
-        bi = chan[0].bi_list[-i]
-        returns[f"bi_dir{i}"] = list(BI_DIR).index(bi.dir)
-    return returns
+# def bi_dir(chan: CChan):
+#     returns = dict()
+#     for i in range(1, N_BI + 1):
+#         bi = chan[0].bi_list[-i]
+#         returns[f"bi_dir{i}"] = list(BI_DIR).index(bi.dir)
+#     return returns
 
 
-def bi_is_sure(chan: CChan):
-    returns = dict()
-    for i in range(1, N_BI + 1):
-        bi = chan[0].bi_list[-i]
-        returns[f"bi_is_sure{i}"] = int(bi.is_sure)
-    return returns
+# def bi_is_sure(chan: CChan):
+#     returns = dict()
+#     for i in range(1, N_BI + 1):
+#         bi = chan[0].bi_list[-i]
+#         returns[f"bi_is_sure{i}"] = int(bi.is_sure)
+#     return returns
 
 
 def bi_high(chan: CChan):
