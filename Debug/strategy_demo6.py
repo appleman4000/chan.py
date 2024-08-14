@@ -7,6 +7,7 @@ import numpy as np
 import xgboost as xgb
 from empyrical import max_drawdown
 from matplotlib import pyplot as plt
+from scipy.sparse import csr_matrix
 
 from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
@@ -32,7 +33,7 @@ def predict_bsp(model, last_bsp: CBS_Point, meta: Dict[str, int]):
             feature_arr[meta[feat_name]] = feat_value
     feature_arr = [feature_arr]
     dtest = xgb.DMatrix(feature_arr, missing=missing)
-    return model.predict_proba(dtest.get_data())[0][1]
+    return model.predict_proba(csr_matrix(dtest.get_data()).toarray())[0][1]
     # return model.predict(dtest)
 
 
@@ -141,11 +142,11 @@ if __name__ == "__main__":
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
                 value = predict_bsp(model, last_bsp, meta)
                 treated_bsp_idx.add(last_bsp.klu.idx)
-                if last_bsp.is_buy and value > 0.7:
+                if last_bsp.is_buy and value > 0.6:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-                if not last_bsp.is_buy and value > 0.7:
+                if not last_bsp.is_buy and value > 0.6:
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 

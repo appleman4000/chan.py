@@ -140,8 +140,8 @@ def objective(trial):
         ])
 
         # 使用早停机制训练模型
-        model.fit(X_train, y_train, classifier_eval_set=[(X_valid, y_valid)], classifier_eval_metric=['roc_auc'],
-                  classifier_callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+        model.fit(X_train, y_train, classifier__eval_set=[(X_valid, y_valid)], classifier__eval_metric=['roc_auc'],
+                  classifier__callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
 
         # 在验证集上预测
         y_pred = model.predict(X_valid)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     if os.path.exists("model.json"):
         os.remove("model.json")
     for code in symbols:
-        begin_time = "2005-01-01 00:00:00"
+        begin_time = "2010-01-01 00:00:00"
         end_time = "2021-07-10 00:00:00"
         data_src = DATA_SRC.FOREX
         lv_list = [KL_TYPE.K_1H]
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     # 启动一个后台线程来运行 Optuna Dashboard
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=1000, n_jobs=-1)
+    study.optimize(objective, n_trials=200, n_jobs=-1)
 
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)
@@ -311,8 +311,28 @@ if __name__ == "__main__":
         ('scaler', StandardScaler()),
         ('classifier', LGBMClassifier(**param_grid))
     ])
-    model.fit(train_data, train_label, classifier_eval_set=[(train_data, train_label)], classifier_eval_metric=['roc_auc'],
-              classifier_callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+    # 训练 Pipeline
+    model.fit(train_data, train_label, classifier__eval_set=[(train_data, train_label)],
+              classifier__eval_metric=['roc_auc'],
+              classifier__callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+    # param_grid["seed"] = 42
+    # classifier1 = LGBMClassifier(**param_grid)
+    # param_grid["seed"] = 3407
+    # classifier2 = LGBMClassifier(**param_grid)
+    # param_grid["seed"] = 1024
+    # classifier3 = LGBMClassifier(**param_grid)
+    #
+    # voting_clf = VotingClassifier(estimators=[
+    #     ('classifier1', classifier1),
+    #     ('classifier2', classifier2),
+    #     ('classifier3', classifier3)
+    # ], voting='soft')
+    #
+    # # 将 StandardScaler 作为 Pipeline 的第一步，然后集成 VotingClassifier
+    # model = Pipeline([
+    #     ('scaler', StandardScaler()),  # 共享的 StandardScaler
+    #     ('voting', voting_clf)
+    # ])
     print("train lightgbm model completely!")
     with open("model.hdf5", "wb") as f:
         pickle.dump(model, f)
@@ -325,5 +345,5 @@ if __name__ == "__main__":
 
     importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': feature_importances})
     importance_df = importance_df.sort_values(by='Importance', ascending=False)
-
+    pd.set_option('display.max_rows', None)
     print(importance_df)
