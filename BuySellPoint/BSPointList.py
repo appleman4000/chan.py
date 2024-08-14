@@ -147,7 +147,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
         feature_dict = {
             'divergence_rate': divergence_rate,
-            # 'bsp1_bi_amp': last_bi.amp(),
+            'bsp1_bi_amp': last_bi.amp(),
         }
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp, feature_dict=feature_dict)
 

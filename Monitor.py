@@ -213,7 +213,7 @@ def init_chan():
                 "min_zs_cnt": 1,
                 "divergence_rate": 0.8,
                 "max_bs2_rate": 0.618,
-                "macd_algo": "diff",
+                "macd_algo": "peak",
             })
             chan = CChan(
                 code=symbol,

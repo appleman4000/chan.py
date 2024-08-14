@@ -1,167 +1,291 @@
 # encoding:utf-8
 from Chan import CChan
-from Common.CEnum import FX_TYPE, BI_DIR, MACD_ALGO
+from Common.CEnum import MACD_ALGO, BI_DIR, BSP_TYPE, FX_TYPE
 
-BI_N = 6
-ZS_N = 2
+N_BI = 5
+N_ZS = 2
+N_SEG = 1
 
 
 def open_klu_rate(chan: CChan):
-    last_klu = chan[0][-1][-1]
+    klu = chan[0][-1][-1]
     return {
-        "open_klu_rate": (last_klu.close - last_klu.open) / last_klu.open,
+        "open_klu_rate": klu.close/ klu.open,
     }
 
 
-# def last_bsp_type(chan: CChan):
-#     bsp_list = chan.get_bsp()
-#     if not bsp_list:
-#         return {"last_bsp_type": None}
-#     last_bsp = bsp_list[-1]
-#     return {"last_bsp_type": list(BSP_TYPE).index(last_bsp.type[0])}
+def bsp_type(chan: CChan):
+    bsp_list = chan.get_bsp()
+    if not bsp_list:
+        return {"bsp_type": None}
+    bsp = bsp_list[-1]
+    return {"bsp_type": list(BSP_TYPE).index(bsp.type[0])}
 
-# 笔
-def last_fx(chan: CChan):
+
+def fx(chan: CChan):
     fx = chan[0][-1].fx
-    return {"last_fx": list(FX_TYPE).index(fx)}
+    return {"fx": list(FX_TYPE).index(fx)}
 
 
-def last_bi_dir(chan: CChan):
+############################### 笔 ####################################################
+def bi_dir(chan: CChan):
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_dir{i}"] = list(BI_DIR).index(bi.dir)
+        returns[f"bi_dir{i}"] = list(BI_DIR).index(bi.dir)
     return returns
 
 
-def last_bi_is_sure(chan: CChan):
+def bi_is_sure(chan: CChan):
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_is_sure{i}"] = int(bi.is_sure)
+        returns[f"bi_is_sure{i}"] = int(bi.is_sure)
     return returns
 
 
-def last_bi_high(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def bi_high(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_high{i}"] = bi._high() / last_klu.close - 1
+        returns[f"bi_high{i}"] = bi._high() / klu.close
     return returns
 
 
-def last_bi_low(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def bi_low(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_low{i}"] = bi._low() / last_klu.close - 1
+        returns[f"bi_low{i}"] = bi._low() / klu.close
     return returns
 
 
-def last_bi_mid(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def bi_mid(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_mid{i}"] = bi._mid() / last_klu.close - 1
+        returns[f"bi_mid{i}"] = bi._mid() / klu.close
     return returns
 
 
-def last_bi_begin(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def bi_begin(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_begin{i}"] = bi.get_begin_val() / last_klu.close - 1
+        returns[f"bi_begin{i}"] = bi.get_begin_val() / klu.close
     return returns
 
 
-def last_bi_end(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def bi_end(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        returns[f"last_bi_end{i}"] = bi.get_end_val() / last_klu.close - 1
+        returns[f"bi_end{i}"] = bi.get_end_val() / klu.close
     return returns
 
 
-def last_bi_slope(chan: CChan):
+def bi_slope(chan: CChan):
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        slope = (bi.get_begin_val() - bi.get_end_val()) / bi.get_end_val()
-        returns[f"last_bi_slope{i}"] = slope
+        slope = bi.get_end_val() / bi.get_begin_val()
+        returns[f"bi_slope{i}"] = slope
     return returns
 
 
-def last_bi_macd_metric(chan: CChan):
+def bi_klu_cnt(chan: CChan):
     returns = dict()
-    for i in range(1, BI_N):
+    for i in range(1, N_BI + 1):
         bi = chan[0].bi_list[-i]
-        metric = bi.cal_macd_metric(MACD_ALGO.PEAK, is_reverse=False)
-        returns[f"last_bi_macd_metric{i}"] = metric
+        returns[f"bi_klu_cnt{i}"] = bi.get_klu_cnt()
     return returns
 
 
-# 中枢
-def last_zs_is_sure(chan: CChan):
+def bi_klc_cnt(chan: CChan):
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_BI + 1):
+        bi = chan[0].bi_list[-i]
+        returns[f"bi_klc_cnt{i}"] = bi.get_klc_cnt()
+    return returns
+
+
+def divergence_macd_metric(chan: CChan):
+    returns = dict()
+    for macd_algo in [MACD_ALGO.AREA,
+                      MACD_ALGO.PEAK,
+                      MACD_ALGO.FULL_AREA,
+                      MACD_ALGO.DIFF,
+                      MACD_ALGO.SLOPE,
+                      MACD_ALGO.AMP]:
+        bi_in_metric = chan[0].zs_list[-1].bi_in.cal_macd_metric(macd_algo, is_reverse=False)
+        bi_out_metric = chan[0].zs_list[-1].bi_out.cal_macd_metric(macd_algo, is_reverse=True)
+        returns[f"bi_in_divergence_macd_metric{macd_algo.name}"] = bi_in_metric
+        returns[f"bi_out_divergence_macd_metric{macd_algo.name}"] = bi_out_metric
+        returns[f"divergence_macd_metric{macd_algo.name}"] = bi_out_metric / bi_in_metric
+    return returns
+
+
+############################### 中枢 ####################################################
+def zs_high(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_is_sure{i}"] = int(zs.is_sure)
+        returns[f"zs_high{i}"] = zs.high / klu.close
     return returns
 
 
-def last_zs_is_one_bi_zs(chan: CChan):
+def zs_low(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_is_one_bi_zs{i}"] = int(zs.is_one_bi_zs())
+        returns[f"zs_low{i}"] = zs.low / klu.close
     return returns
 
 
-def last_zs_high(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def zs_mid(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_high{i}"] = zs.high / last_klu.close - 1
+        returns[f"zs_mid{i}"] = zs.mid / klu.close
     return returns
 
 
-def last_zs_low(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def zs_peak_high(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_low{i}"] = zs.low / last_klu.close - 1
+        returns[f"zs_peak_high{i}"] = zs.peak_high / klu.close
     return returns
 
 
-def last_zs_mid(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def zs_peak_low(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_mid{i}"] = zs.mid / last_klu.close - 1
+        returns[f"zs_peak_low{i}"] = zs.peak_low / klu.close
     return returns
 
 
-def last_zs_peak_high(chan: CChan):
-    last_klu = chan[0][-1][-1]
+def zs_is_inside(chan: CChan):
     returns = dict()
-    for i in range(1, ZS_N):
+    for i in range(1, N_ZS + 1):
         zs = chan[0].zs_list[-i]
-        returns[f"last_zs_peak_high{i}"] = zs.peak_high / last_klu.close - 1
+        for j in range(1, N_SEG + 1):
+            seg = chan[0].seg_list[-j]
+            returns[f"zs_is_inside{i} {j}"] = int(zs.is_inside(seg))
     return returns
 
 
-def last_zs_peak_low(chan: CChan):
-    last_klu = chan[0][-1][-1]
+############################### 线段 ####################################################
+def seg_cal_klu_slope(chan: CChan):
+    klu = chan[0][-1][-1]
     returns = dict()
-    for i in range(1, ZS_N):
-        zs = chan[0].zs_list[-i]
-        returns[f"last_zs_peak_low{i}"] = zs.peak_low / last_klu.close - 1
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_cal_klu_slope{i}"] = seg.cal_klu_slope()
+    return returns
+
+
+def seg_cal_amp(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_cal_amp{i}"] = seg.cal_amp()
+    return returns
+
+
+def seg_cal_bi_cnt(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_cal_bi_cnt{i}"] = seg.cal_bi_cnt()
+    return returns
+
+
+def seg_low(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_low{i}"] = seg._low() / klu.close
+    return returns
+
+
+def seg_high(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_high{i}"] = seg._high() / klu.close
+    return returns
+
+
+def seg_is_down(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_is_down{i}"] = int(seg.is_down())
+    return returns
+
+
+def seg_begin_val(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_begin_val{i}"] = seg.get_begin_val() / klu.close
+    return returns
+
+
+def seg_end_val(chan: CChan):
+    klu = chan[0][-1][-1]
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_begin_val{i}"] = seg.get_end_val() / klu.close
+    return returns
+
+
+def seg_amp(chan: CChan):
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_amp{i}"] = seg.get_end_val() / seg.get_begin_val()
+    return returns
+
+
+def seg_klu_cnt(chan: CChan):
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_klu_cnt{i}"] = seg.get_klu_cnt()
+    return returns
+
+
+def seg_macd_slope(chan: CChan):
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_macd_slope{i}"] = seg.Cal_MACD_slope()
+    return returns
+
+
+def seg_macd_amp(chan: CChan):
+    returns = dict()
+    for i in range(1, N_SEG + 1):
+        seg = chan[0].seg_list[-i]
+        returns[f"seg_macd_amp{i}"] = seg.Cal_MACD_amp()
     return returns

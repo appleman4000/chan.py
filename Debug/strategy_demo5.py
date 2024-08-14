@@ -4,10 +4,20 @@ import inspect
 import json
 import os
 import pickle
-from typing import Dict, TypedDict, Callable
+import threading
+from typing import Dict, TypedDict
 
 import numpy as np
+import optuna
 import xgboost as xgb
+from lightgbm import early_stopping, LGBMClassifier
+from optuna_dashboard import run_server
+from scipy.sparse import csr_matrix
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import class_weight
 
 from Chan import CChan
 from ChanConfig import CChanConfig
@@ -63,19 +73,38 @@ def calculate_functions(functions, *args, **kwargs):
     return results
 
 
-def get_lightgbm_model(train_data, train_label, param_grid):
-    from lightgbm import LGBMClassifier
-    from lightgbm.callback import CallbackEnv, EarlyStopException
-    param_grid["random_state"] = param_grid["seed"]
-    param_grid["bagging_seed"] = param_grid["seed"]
-    param_grid["feature_fraction_seed"] = param_grid["seed"]
-    param_grid["gpu_device_id"] = 0
-    param_grid["gpu_platform_id"] = 0
+alpha = 0.25
+gamma = 1
 
-    print("train lightgbm model")
-    # 平衡数据集权重（注意：LGBMClassifier不支持 class_weight："balanced",需要自己计算权重）
-    from sklearn.utils import class_weight
+param_grid = {
+    'seed': 42,
+    'device': 'cpu',
+    'objective': 'binary',
+    'metric': 'binary_logloss',
+    'min_split_gain': 0,
+    'min_child_weight': 1e-3,
+    'verbose': -1,
+    'boosting_type': 'gbdt',
+    'feature_fraction': 0.8,
+    'bagging_fraction': 0.8,
+}
 
+
+def objective(trial):
+    # 使用 Optuna 定义超参数的搜索空间
+
+    param_grid.update({
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
+        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 50.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 1000.0)
+    })
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(train_label), y=train_label
     )
@@ -87,15 +116,42 @@ def get_lightgbm_model(train_data, train_label, param_grid):
             }
         }
     )
-    model = LGBMClassifier(**param_grid)
-    model.fit(
-        train_data,
-        train_label,
-        eval_set=[(train_data, train_label)],
-    )
-    print("train lightgbm model completely!")
-    with open("model.hdf5", "wb") as f:
-        pickle.dump(model, f)
+    param_grid["random_state"] = param_grid["seed"]
+    param_grid["bagging_seed"] = param_grid["seed"]
+    param_grid["feature_fraction_seed"] = param_grid["seed"]
+    param_grid["gpu_device_id"] = 0
+    param_grid["gpu_platform_id"] = 0
+    X, y = train_data, train_label
+
+    # 定义 StratifiedKFold 交叉验证
+    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    f1_scores = []
+
+    # 对每个折叠进行训练和验证
+    for train_index, valid_index in folds.split(X, y):
+        X_train, X_valid = X[train_index], X[valid_index]
+        y_train, y_valid = y[train_index], y[valid_index]
+        # 定义模型
+        # 创建管道，先归一化再训练 LGBMClassifier
+        model = Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', LGBMClassifier(**param_grid))
+        ])
+
+        # 使用早停机制训练模型
+        model.fit(X_train, y_train, classifier_eval_set=[(X_valid, y_valid)], classifier_eval_metric=['roc_auc'],
+                  classifier_callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+
+        # 在验证集上预测
+        y_pred = model.predict(X_valid)
+
+        # 计算 F1 分数（适用于二分类）
+        f1 = roc_auc_score(y_valid, y_pred)
+        f1_scores.append(f1)
+
+    # 返回平均 F1 分数
+    return sum(f1_scores) / len(f1_scores)
 
 
 if __name__ == "__main__":
@@ -108,11 +164,11 @@ if __name__ == "__main__":
     """
     symbols = [
         # Major
-        "EURUSD",
+        # "EURUSD",
         # "GBPUSD",
         "AUDUSD",
         # "NZDUSD",
-        "USDJPY",
+        # "USDJPY",
         # "USDCAD",
         # "USDCHF",
         # Crosses
@@ -141,7 +197,7 @@ if __name__ == "__main__":
     if os.path.exists("model.json"):
         os.remove("model.json")
     for code in symbols:
-        begin_time = "2010-01-01 00:00:00"
+        begin_time = "2005-01-01 00:00:00"
         end_time = "2021-07-10 00:00:00"
         data_src = DATA_SRC.FOREX
         lv_list = [KL_TYPE.K_1H]
@@ -153,7 +209,7 @@ if __name__ == "__main__":
             "divergence_rate": float("inf"),
             "bsp2_follow_1": False,
             "bsp3_follow_1": False,
-            "min_zs_cnt": 0,
+            "min_zs_cnt": 1,
             "bs1_peak": False,
             "macd_algo": "peak",
             "bs_type": '1,2,3a,1p,2s,3b',
@@ -182,7 +238,7 @@ if __name__ == "__main__":
             last_bsp = bsp_list[-1]
 
             cur_lv_chan = chan_snapshot[0]
-            if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
+            if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
                     (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 bsp_dict[last_bsp.klu.idx] = {
                     "feature": last_bsp.features,
@@ -227,29 +283,47 @@ if __name__ == "__main__":
 
     # load sample file & train model
     dtrain = xgb.DMatrix("feature.libsvm?format=libsvm")  # load sample
-    from scipy.sparse import csr_matrix
     train_data = csr_matrix(dtrain.get_data()).toarray()
     train_label = np.array(dtrain.get_label())
     print(train_data.shape)
     print(train_label.shape)
-    param_grid = {
-        'seed': 42,
-        # 'num_class': 1,
-        'device': 'cpu',
-        'objective': 'binary',
-        'boosting_type': 'gbdt',
-        'num_leaves': 31,
-        'max_depth': 3,
-        'learning_rate': 0.1,
-        'n_estimators': 200,
-        'min_split_gain': 0,
-        'min_child_weight': 1e-3,
-        'subsample': 0.9,
-        'subsample_freq': 1,
-        'colsample_bytree': 0.9,
-        'reg_alpha': 0,
-        'reg_lambda': 100,
-        'verbose': -1,
-        'num_threads': 1,
-    }
-    get_lightgbm_model(train_data=train_data, train_label=train_label, param_grid=param_grid)
+    # 创建 Optuna 优化器
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+
+
+    def start_dashboard():
+        run_server(storage, host="127.0.0.1", port=8080)
+
+
+    # 启动一个后台线程来运行 Optuna Dashboard
+    dashboard_thread = threading.Thread(target=start_dashboard)
+    dashboard_thread.start()
+    study.optimize(objective, n_trials=1000, n_jobs=-1)
+
+    # 输出最佳结果
+    print('Best trial:', study.best_trial.params)
+
+    # 使用最佳参数训练最终模型
+    best_params = study.best_trial.params
+    param_grid.update(best_params)
+    model = Pipeline([
+        ('scaler', StandardScaler()),
+        ('classifier', LGBMClassifier(**param_grid))
+    ])
+    model.fit(train_data, train_label, classifier_eval_set=[(train_data, train_label)], classifier_eval_metric=['roc_auc'],
+              classifier_callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+    print("train lightgbm model completely!")
+    with open("model.hdf5", "wb") as f:
+        pickle.dump(model, f)
+    feature_importances = model[-1].feature_importances_
+    # 特征名称
+    feature_names = feature_meta.keys()
+
+    # 创建特征重要性数据框
+    import pandas as pd
+
+    importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': feature_importances})
+    importance_df = importance_df.sort_values(by='Importance', ascending=False)
+
+    print(importance_df)
