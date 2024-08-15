@@ -141,11 +141,11 @@ if __name__ == "__main__":
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
                 value = predict_bsp(model, last_bsp, meta)
                 treated_bsp_idx.add(last_bsp.klu.idx)
-                if last_bsp.is_buy and value > 0.63:
+                if last_bsp.is_buy and value > 0.61:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-                if not last_bsp.is_buy and value > 0.63:
+                if not last_bsp.is_buy and value > 0.61:
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 

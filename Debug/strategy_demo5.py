@@ -205,7 +205,7 @@ def objective(trial):
     param_grid.update({
         "max_depth": trial.suggest_int('max_depth', 2, 32),
         "min_samples_split": trial.suggest_int('min_samples_split', 2, 16),
-        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 16),
+        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 120),
         "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
     })
     class_weights = class_weight.compute_class_weight(
