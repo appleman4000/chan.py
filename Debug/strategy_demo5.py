@@ -8,12 +8,11 @@ from typing import Dict, TypedDict
 import numpy as np
 import optuna
 import xgboost as xgb
-from lightgbm import LGBMClassifier
 from optuna_dashboard import run_server
 from scipy.sparse import csr_matrix
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import class_weight
 
 from Chan import CChan
@@ -184,13 +183,61 @@ param_grid = {
 #     # 返回平均 F1 分数
 #     return sum(scores) / len(scores)
 
+# def objective(trial):
+#     # 使用 Optuna 定义超参数的搜索空间
+#     param_grid.update({
+#         "max_depth": trial.suggest_int('max_depth', 1, 20),
+#         "min_samples_split": trial.suggest_int('min_samples_split', 2, 20),
+#         "min_samples_leaf": trial.suggest_int('min_samples_leaf', 2, 20),
+#         "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
+#     })
+#     class_weights = class_weight.compute_class_weight(
+#         "balanced", classes=np.unique(train_label), y=train_label
+#     )
+#     param_grid.update(
+#         {
+#             "class_weight": {
+#                 0: class_weights[0],
+#                 1: class_weights[1],
+#             }
+#         }
+#     )
+#     X, y = train_data, train_label
+#     # 数据标准化
+#     # 定义 StratifiedKFold 交叉验证
+#     folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+#
+#     scores = []
+#
+#     # 对每个折叠进行训练和验证
+#     for train_index, valid_index in folds.split(X, y):
+#         X_train, X_valid = X[train_index], X[valid_index]
+#         y_train, y_valid = y[train_index], y[valid_index]
+#
+#         model = DecisionTreeClassifier(**param_grid)
+#
+#         model.fit(X_train, y_train)
+#
+#         # 在验证集上预测
+#         y_pred = model.predict(X_valid)
+#
+#         # 计算 F1 分数（适用于二分类）
+#         score = roc_auc_score(y_valid, y_pred)
+#         scores.append(score)
+#
+#     # 返回平均 F1 分数
+#     return sum(scores) / len(scores)
 def objective(trial):
     # 使用 Optuna 定义超参数的搜索空间
     param_grid.update({
-        "max_depth": trial.suggest_int('max_depth', 1, 20),
-        "min_samples_split": trial.suggest_int('min_samples_split', 2, 20),
-        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 2, 20),
-        "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
+        "n_estimators": trial.suggest_int('n_estimators', 10, 500),
+        "max_depth": trial.suggest_int('max_depth', 1, 50),
+        "min_samples_split": trial.suggest_int('min_samples_split', 2, 50),
+        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 50),
+        "max_features": trial.suggest_categorical('max_features', ['sqrt', 'log2']),
+        "criterion": trial.suggest_categorical('criterion', ["gini", "entropy", "log_loss"]),
+        "min_weight_fraction_leaf": trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5),  # 最小加权样本比例
+        "max_leaf_nodes": trial.suggest_int('max_leaf_nodes', 10, 1000),  # 最大叶节点数
     })
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(train_label), y=train_label
@@ -206,7 +253,7 @@ def objective(trial):
     X, y = train_data, train_label
     # 数据标准化
     # 定义 StratifiedKFold 交叉验证
-    folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    folds = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     scores = []
 
@@ -215,7 +262,7 @@ def objective(trial):
         X_train, X_valid = X[train_index], X[valid_index]
         y_train, y_valid = y[train_index], y[valid_index]
 
-        model = DecisionTreeClassifier(**param_grid)
+        model = RandomForestClassifier(**param_grid)
 
         model.fit(X_train, y_train)
 
@@ -398,7 +445,8 @@ if __name__ == "__main__":
     # scaler = StandardScaler()
     # train_data = scaler.fit_transform(train_data)
     # classifier1 = LGBMClassifier(**param_grid)
-    classifier1 = DecisionTreeClassifier(**param_grid)
+    # classifier1 = DecisionTreeClassifier(**param_grid)
+    classifier1 = RandomForestClassifier(**param_grid)
     # 训练 Pipeline
     classifier1.fit(train_data, train_label)
     feature_names = feature_meta.keys()
