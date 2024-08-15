@@ -3,8 +3,8 @@ from Chan import CChan
 from Common.CEnum import MACD_ALGO, BSP_TYPE
 
 N_BI = 2
-N_ZS = 1
-N_SEG = 1
+N_ZS = 2
+N_SEG = 2
 
 
 class FeatureFactors:
