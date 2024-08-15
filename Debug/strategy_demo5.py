@@ -297,7 +297,7 @@ if __name__ == "__main__":
     # 启动一个后台线程来运行 Optuna Dashboard
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=2000, n_jobs=-1)
+    study.optimize(objective, n_trials=1000, n_jobs=-1)
 
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)

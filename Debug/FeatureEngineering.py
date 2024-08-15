@@ -78,7 +78,7 @@ class FeatureFactors:
             bi = self.chan[0].bi_list[-i]
             returns[f"bi_begin_amp{i}"] = bi.get_begin_val() - klu.close
             returns[f"bi_begin_rate{i}"] = bi.get_begin_val() / klu.close
-            returns[f"bi_begin_klu_cnt{i}"] = klu.idx - bi.get_begin_klu().idx + 1
+            returns[f"bi_begin_slope{i}"] = (bi.get_begin_val() - klu.close) / (klu.idx - bi.get_begin_klu().idx + 1)
         return returns
 
     def bi_end(self):
@@ -88,7 +88,7 @@ class FeatureFactors:
             bi = self.chan[0].bi_list[-i]
             returns[f"bi_end_amp{i}"] = bi.get_end_val() - klu.close
             returns[f"bi_end_rate{i}"] = bi.get_end_val() / klu.close
-            returns[f"bi_end_klu_cnt{i}"] = klu.idx - bi.get_end_klu().idx + 1
+            returns[f"bi_end_slope{i}"] = (bi.get_end_val() - klu.close) / (klu.idx - bi.get_end_klu().idx + 1)
         return returns
 
     def bi_amp_rate_slope(self):
@@ -173,6 +173,7 @@ class FeatureFactors:
             zs = self.chan[0].zs_list[-i]
             returns[f"zs_peak_low_amp{i}"] = zs.peak_low - klu.close
             returns[f"zs_peak_low_rate{i}"] = zs.peak_low / klu.close
+
         return returns
 
     ############################### 线段 ####################################################
@@ -227,7 +228,8 @@ class FeatureFactors:
             seg = self.chan[0].seg_list[-i]
             returns[f"seg_begin_val_amp{i}"] = seg.get_begin_val() - klu.close
             returns[f"seg_begin_val_rate{i}"] = seg.get_begin_val() / klu.close
-            returns[f"seg_begin_val_klu_cnt{i}"] = klu.idx - seg.get_begin_klu().idx + 1
+            returns[f"seg_begin_val_slope{i}"] = (seg.get_begin_val() - klu.close) / (
+                    klu.idx - seg.get_begin_klu().idx + 1)
         return returns
 
     def seg_end_val(self):
@@ -237,7 +239,7 @@ class FeatureFactors:
             seg = self.chan[0].seg_list[-i]
             returns[f"seg_end_val_amp{i}"] = seg.get_end_val() - klu.close
             returns[f"seg_end_val_rate{i}"] = seg.get_end_val() / klu.close
-            returns[f"seg_end_val_klu_cnt{i}"] = klu.idx - seg.get_end_klu().idx + 1
+            returns[f"seg_end_val_slope{i}"] = (seg.get_end_val() - klu.close) / (klu.idx - seg.get_end_klu().idx + 1)
         return returns
 
     def seg_klu_cnt(self):
