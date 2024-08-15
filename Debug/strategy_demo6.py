@@ -46,18 +46,18 @@ if __name__ == "__main__":
     begin_time = "2021-07-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
     data_src = DATA_SRC.FOREX
-    lv_list = [KL_TYPE.K_1H]
+    lv_list = [KL_TYPE.K_15M]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "bi_strict": True,
-        "skip_step": 500,
-        "divergence_rate": float("inf"),
-        "bsp2_follow_1": False,
-        "bsp3_follow_1": False,
-        "min_zs_cnt": 0,
+        "skip_step": 1000,
+        "divergence_rate": 0.8,
+        # "bsp2_follow_1": False,
+        # "bsp3_follow_1": False,
+        "min_zs_cnt": 1,
         "bs1_peak": False,
-        "macd_algo": "peak",
+        "macd_algo": "slope",
         "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
@@ -108,8 +108,8 @@ if __name__ == "__main__":
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.003
-                sl = long_profit <= -0.003
+                tp = long_profit >= 0.002
+                sl = long_profit <= -0.002
                 if tp or sl:
                     long_orders.remove(order)
                     profit = round(long_profit * money, 2)
@@ -122,8 +122,8 @@ if __name__ == "__main__":
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.003
-                sl = short_profit <= -0.003
+                tp = short_profit >= 0.002
+                sl = short_profit <= -0.002
                 if tp or sl:
                     short_orders.remove(order)
                     profit = round(short_profit * money, 2)
@@ -132,7 +132,7 @@ if __name__ == "__main__":
                     history_short_orders += 1
 
         if len(long_orders) <= 0 and len(short_orders) <= 0:
-            if last_bsp.klu.idx not in treated_bsp_idx and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
+            if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
                     (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 factors = get_factors(FeatureFactors(chan))
                 for key in factors.keys():
@@ -141,11 +141,11 @@ if __name__ == "__main__":
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
                 value = predict_bsp(model, last_bsp, meta)
                 treated_bsp_idx.add(last_bsp.klu.idx)
-                if last_bsp.is_buy and value > 0.56:
+                if last_bsp.is_buy and value > 0.7:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-                if not last_bsp.is_buy and value > 0.56:
+                if not last_bsp.is_buy and value > 0.7:
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 

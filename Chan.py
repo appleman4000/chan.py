@@ -185,6 +185,9 @@ class CChan:
         elif self.data_src == DATA_SRC.FOREX:
             from DataAPI.MT5ForexAPI import CMT5ForexAPI
             _dict[DATA_SRC.FOREX] = CMT5ForexAPI
+        elif self.data_src == DATA_SRC.FOREX_ONLINE:
+            from DataAPI.MT5ForexOnlineAPI import CMT5ForexOnlineAPI
+            _dict[DATA_SRC.FOREX_ONLINE] = CMT5ForexOnlineAPI
         elif self.data_src == DATA_SRC.AKSHARE_STOCK:
             from DataAPI.AKShareStockAPI import CAKShareStockAPI
             _dict[DATA_SRC.AKSHARE_STOCK] = CAKShareStockAPI

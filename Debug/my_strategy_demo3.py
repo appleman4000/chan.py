@@ -17,7 +17,7 @@ sys.setrecursionlimit(1000000)
 period_map = {
     mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
     mt5.TIMEFRAME_M3: KL_TYPE.K_3M,
-    mt5.TIMEFRAME_M5: KL_TYPE.K_15M,
+    mt5.TIMEFRAME_M5: KL_TYPE.K_5M,
     mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
     mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
     mt5.TIMEFRAME_H1: KL_TYPE.K_1H,
@@ -50,14 +50,14 @@ timeframe_seconds = {
 }
 
 
-def combine_higher_klu_from_lower(klu_lower_lst: List[CKLine_Unit]) -> CKLine_Unit:
+def combine_middle_klu_from_bottom(klu_bottom_lst: List[CKLine_Unit]) -> CKLine_Unit:
     return CKLine_Unit(
         {
-            DATA_FIELD.FIELD_TIME: klu_lower_lst[-1].time,
-            DATA_FIELD.FIELD_OPEN: klu_lower_lst[0].open,
-            DATA_FIELD.FIELD_CLOSE: klu_lower_lst[-1].close,
-            DATA_FIELD.FIELD_HIGH: max(klu.high for klu in klu_lower_lst),
-            DATA_FIELD.FIELD_LOW: min(klu.low for klu in klu_lower_lst),
+            DATA_FIELD.FIELD_TIME: klu_bottom_lst[-1].time,
+            DATA_FIELD.FIELD_OPEN: klu_bottom_lst[0].open,
+            DATA_FIELD.FIELD_CLOSE: klu_bottom_lst[-1].close,
+            DATA_FIELD.FIELD_HIGH: max(klu.high for klu in klu_bottom_lst),
+            DATA_FIELD.FIELD_LOW: min(klu.low for klu in klu_bottom_lst),
         }
     )
 
@@ -67,26 +67,30 @@ def main():
     代码不能直接跑，仅用于展示如何实现小级别K线更新直接刷新CChan结果
     """
     code = "EURUSD"
-    begin_time = "2020-01-01 00:00:00"
+    begin_time = "2024-01-01 00:00:00"
     end_time = "2024-07-10 00:00:00"
-    data_src_type = DATA_SRC.FOREX
-    lower_kl_type = mt5.TIMEFRAME_M15
-    higher_kl_type = mt5.TIMEFRAME_H1
-    lower_config = CChanConfig({
+    data_src_type = DATA_SRC.FOREX_ONLINE
+    bottom_kl_type = mt5.TIMEFRAME_M1
+    middle_kl_type = mt5.TIMEFRAME_M5
+    top_kl_type = mt5.TIMEFRAME_M15
+    config = CChanConfig({
         "trigger_step": True,  # 打开开关！
-        "divergence_rate": 0.8,
-        "min_zs_cnt": 1,
-        # "macd_algo": "diff",
+        "divergence_rate": 1.0,
+        "min_zs_cnt": 0,
+        "macd_algo": "slope",
         "kl_data_check": False,
-        # "bs_type": "1,1p",
+        "bi_end_is_peak": False,
+        "bsp2_follow_1": True,
+        "bsp3_follow_1": True,
+        "bs_type": '1,1p,2,2s,3a,3b',
     })
 
     # 快照
     chan = CChan(
         code=code,
         data_src=data_src_type,
-        lv_list=[period_map[higher_kl_type], period_map[lower_kl_type]],
-        config=lower_config,
+        lv_list=[period_map[top_kl_type], period_map[middle_kl_type], period_map[bottom_kl_type]],
+        config=config,
         begin_time=begin_time,
         end_time=end_time,
 
@@ -105,64 +109,69 @@ def main():
     for id, chan_snapshot in enumerate(chan.step_load()):
         # if id < 100:
         #     continue
-        higher_lv_chan = chan_snapshot[0]  # 低级别K线
-        lower_lv_chan = chan_snapshot[1]  # 高级别K线
+        top_lv_chan = chan_snapshot[0]
+        middle_lv_chan = chan_snapshot[1]
+        bottom_lv_chan = chan_snapshot[2]
 
         """
         策略开始：
         这里基于chan实现你的策略
         """
         profit = 0
-        higher_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
-        if not higher_bsp_list:
+        top_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not top_bsp_list:
             continue
-        higher_last_bsp = higher_bsp_list[-1]
-
-        lower_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
-        if not lower_bsp_list:
+        top_last_bsp = top_bsp_list[-1]
+        middle_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
+        if not middle_bsp_list:
             continue
-        lower_last_bsp = lower_bsp_list[-1]
-        entry_rule = higher_lv_chan[-1].idx - higher_last_bsp.klu.klc.idx == 0
-        entry_rule = entry_rule and lower_lv_chan[-1].idx - lower_last_bsp.klu.klc.idx == 0
+        middle_last_bsp = middle_bsp_list[-1]
+        bottom_bsp_list = chan.get_bsp(2)  # 获取买卖点列表
+        if not bottom_bsp_list:
+            continue
+        bottom_last_bsp = bottom_bsp_list[-1]
+        entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
+        entry_rule = entry_rule and middle_lv_chan[-1].idx == middle_last_bsp.klu.klc.idx
+        entry_rule = entry_rule and bottom_lv_chan[-1].idx == bottom_last_bsp.klu.klc.idx
 
         if len(long_orders) > 0:
             # 止盈
-            close_price = round(lower_lv_chan[-1][-1].close / fee, 5)
+            close_price = round(bottom_lv_chan[-1][-1].close / fee, 5)
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.003
-                sl = long_profit <= -0.003
+                tp = long_profit >= 0.002
+                sl = long_profit <= -0.002
                 if tp or sl:
                     long_orders.remove(order)
                     profit += round(long_profit * money, 2)
                     print(
-                        f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
+                        f'{bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
                     history_long_orders += 1
 
         if len(short_orders) > 0:
-            close_price = round(lower_lv_chan[-1][-1].close * fee, 5)
+            close_price = round(bottom_lv_chan[-1][-1].close * fee, 5)
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.003
-                sl = short_profit <= -0.003
+                tp = short_profit >= 0.002
+                sl = short_profit <= -0.002
                 if tp or sl:
                     short_orders.remove(order)
                     profit += round(short_profit * money, 2)
                     print(
-                        f'{lower_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
+                        f'{bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
                     history_short_orders += 1
 
         if len(long_orders) == 0 and len(short_orders) == 0:
-            if entry_rule and higher_last_bsp.is_buy and lower_last_bsp.is_buy:
-                long_orders.append(round(lower_lv_chan[-1][-1].close * fee, 5))
-                print(f'{lower_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
+            if entry_rule and top_last_bsp.is_buy and middle_last_bsp.is_buy and bottom_last_bsp.is_buy:
+                long_orders.append(round(bottom_lv_chan[-1][-1].close * fee, 5))
+                print(f'{bottom_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
         if len(short_orders) == 0 and len(long_orders) == 0:
-            if entry_rule and not higher_last_bsp.is_buy and not lower_last_bsp.is_buy:
-                short_orders.append(round(lower_lv_chan[-1][-1].close / fee, 5))
-                print(f'{lower_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
+            if entry_rule and not top_last_bsp.is_buy and not middle_last_bsp.is_buy and not bottom_last_bsp.is_buy:
+                short_orders.append(round(bottom_lv_chan[-1][-1].close / fee, 5))
+                print(f'{bottom_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
         capital += profit
         if profit != 0:
             profits = np.append(profits, profit)

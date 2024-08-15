@@ -54,12 +54,9 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
     lv_list = [time_frame_mapping[time_frame] for time_frame in time_frames]
     config = CChanConfig({
         "trigger_step": trigger_step,  # 打开开关！
-        "bi_strict": True,
-        "gap_as_kl": True,
         "min_zs_cnt": 1,
         "divergence_rate": 0.8,
-        "max_bs2_rate": 0.618,
-        "macd_algo": "peak",
+        "kl_data_check": False
     })
 
     plot_config = {
@@ -104,7 +101,7 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
             "fontsize": 20
         },
         "figure": {
-            "x_range": 200,
+            "x_range": 500,
         },
         "marker": {
             # "markers": {  # text, position, color

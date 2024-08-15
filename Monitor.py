@@ -179,13 +179,12 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         bsp_list = chan_h1.get_bsp(0)
         if not bsp_list:
             return
-        chan_h1 = chan_h1[0]
         last_bsp_h1 = bsp_list[-1]
         if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type:
             return
         # if chan_h1[-1].idx - last_bsp_h1.klu.klc.idx != 0:
         #     return
-        if last_bsp_h1.klu.time != chan_h1[-1][-1].time:
+        if last_bsp_h1.klu.time != bar.time:
             return
         # 1小时买卖点和15分钟方向一致
         if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
@@ -208,12 +207,8 @@ def init_chan():
             lv_list = [period_map[period]]
             config = CChanConfig({
                 "trigger_step": True,  # 打开开关！
-                "bi_strict": True,
-                "gap_as_kl": True,
                 "min_zs_cnt": 1,
                 "divergence_rate": 0.8,
-                "max_bs2_rate": 0.618,
-                "macd_algo": "peak",
             })
             chan = CChan(
                 code=symbol,

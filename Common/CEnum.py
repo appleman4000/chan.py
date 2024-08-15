@@ -9,6 +9,7 @@ class DATA_SRC(Enum):
     CCXT = auto()
     CSV = auto()
     FOREX = auto()
+    FOREX_ONLINE = auto()
     AKSHARE_STOCK = auto()
     AKSHARE_ETF = auto()
 

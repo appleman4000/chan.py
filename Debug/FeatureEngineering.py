@@ -2,7 +2,7 @@
 from Chan import CChan
 from Common.CEnum import MACD_ALGO, BSP_TYPE
 
-N_BI = 1
+N_BI = 3
 N_ZS = 1
 N_SEG = 1
 
@@ -29,7 +29,7 @@ class FeatureFactors:
     #     fx = self.chan[0][-1].fx
     #     return {"fx": list(FX_TYPE).index(fx)}
 
-    ############################### 笔 ####################################################
+    ############################### 笔 ########################################
     # def bi_dir(self,chan: CChan):
     #     returns = dict()
     #     for i in range(1, N_BI + 1):
@@ -124,12 +124,12 @@ class FeatureFactors:
                           MACD_ALGO.AMP]:
             bi_in_metric = self.chan[0].zs_list[-1].bi_in.cal_macd_metric(macd_algo, is_reverse=False)
             bi_out_metric = self.chan[0].zs_list[-1].bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-            # returns[f"bi_in_divergence_macd_metric_{macd_algo.name}"] = bi_in_metric
-            # returns[f"bi_out_divergence_macd_metric_{macd_algo.name}"] = bi_out_metric
+            returns[f"bi_in_divergence_macd_metric_{macd_algo.name}"] = bi_in_metric
+            returns[f"bi_out_divergence_macd_metric_{macd_algo.name}"] = bi_out_metric
             returns[f"divergence_macd_metric_{macd_algo.name}"] = bi_out_metric / bi_in_metric - 1
         return returns
 
-    ############################### 中枢 ####################################################
+    ############################### 中枢 ####################################
     def zs_high(self):
         klu = self.chan[0][-1][-1]
         returns = dict()
@@ -176,7 +176,7 @@ class FeatureFactors:
 
         return returns
 
-    ############################### 线段 ####################################################
+    ############################### 线段 ######################################
     def seg_amp_slope(self):
         klu = self.chan[0][-1][-1]
         returns = dict()
