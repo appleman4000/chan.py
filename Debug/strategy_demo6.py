@@ -16,7 +16,8 @@ from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Common.CTime import CTime
 from DataAPI.MT5ForexAPI import CMT5ForexAPI
-from strategy_demo5 import get_functions_from_module, calculate_functions
+from Debug.FeatureEngineering import FeatureFactors
+from strategy_demo5 import get_factors
 
 
 class T_SAMPLE_INFO(TypedDict):
@@ -54,7 +55,7 @@ if __name__ == "__main__":
         "divergence_rate": float("inf"),
         "bsp2_follow_1": False,
         "bsp3_follow_1": False,
-        "min_zs_cnt": 1,
+        "min_zs_cnt": 0,
         "bs1_peak": False,
         "macd_algo": "peak",
         "bs_type": '1,2,3a,1p,2s,3b',
@@ -133,11 +134,9 @@ if __name__ == "__main__":
         if len(long_orders) <= 0 and len(short_orders) <= 0:
             if last_bsp.klu.idx not in treated_bsp_idx and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
                     (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-                module_path = './FeatureEngineering.py'
-                functions = get_functions_from_module(module_path)
-                results = calculate_functions(functions, chan)
-                for key in results.keys():
-                    last_bsp.features.add_feat(key, results[key])
+                factors = get_factors(FeatureFactors(chan))
+                for key in factors.keys():
+                    last_bsp.features.add_feat(key, factors[key])
                     # 买卖点打分，应该和demo5最后的predict结果完全一致才对
                 # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
                 value = predict_bsp(model, last_bsp, meta)

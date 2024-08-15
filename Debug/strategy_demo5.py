@@ -10,11 +10,11 @@ from typing import Dict, TypedDict
 import numpy as np
 import optuna
 import xgboost as xgb
-from lightgbm import early_stopping, LGBMClassifier
+from lightgbm import LGBMClassifier
 from optuna_dashboard import run_server
 from scipy.sparse import csr_matrix
-from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import class_weight
 
 from Chan import CChan
@@ -22,6 +22,7 @@ from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Common.CTime import CTime
+from Debug.FeatureEngineering import FeatureFactors
 from Plot.PlotDriver import CPlotDriver
 
 
@@ -121,21 +122,38 @@ def objective(trial):
     param_grid["gpu_platform_id"] = 0
     X, y = train_data, train_label
 
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=42)
-    # 定义模型
-    # 创建管道，先归一化再训练 LGBMClassifier
-    model = LGBMClassifier(**param_grid)
+    # 定义 StratifiedKFold 交叉验证
+    folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
-    # 使用早停机制训练模型
-    model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)], eval_metric=['roc_auc'],
-              callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
+    f1_scores = []
 
-    # 在验证集上预测
-    y_pred = model.predict(X_valid)
+    # 对每个折叠进行训练和验证
+    for train_index, valid_index in folds.split(X, y):
+        X_train, X_valid = X[train_index], X[valid_index]
+        y_train, y_valid = y[train_index], y[valid_index]
+        # 定义模型
+        # 创建管道，先归一化再训练 LGBMClassifier
+        model = LGBMClassifier(**param_grid)
 
-    auc = roc_auc_score(y_valid, y_pred)
-    # 返回auc分数
-    return auc
+        model.fit(X_train, y_train)
+
+        # 在验证集上预测
+        y_pred = model.predict(X_valid)
+
+        # 计算 F1 分数（适用于二分类）
+        f1 = f1_score(y_valid, y_pred)
+        f1_scores.append(f1)
+
+    # 返回平均 F1 分数
+    return sum(f1_scores) / len(f1_scores)
+
+
+def get_factors(obj):
+    results = {}
+    for attr_name, attr_value in obj.__class__.__dict__.items():
+        if callable(attr_value) and attr_name != '__init__':
+            results.update(attr_value(obj))
+    return results
 
 
 if __name__ == "__main__":
@@ -229,13 +247,9 @@ if __name__ == "__main__":
                     "is_buy": last_bsp.is_buy,
                     "open_time": last_klu.time,
                 }
-
-                module_path = './FeatureEngineering.py'
-                functions = get_functions_from_module(module_path)
-                # 假设函数不需要参数，可以提供空参数
-                results = calculate_functions(functions, chan)
-                for key in results.keys():
-                    bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, results[key])
+                factors = get_factors(FeatureFactors(chan))
+                for key in factors.keys():
+                    bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, factors[key])
                 print(last_bsp.klu.time, last_bsp.is_buy)
 
         # 生成libsvm样本特征
@@ -283,7 +297,7 @@ if __name__ == "__main__":
     # 启动一个后台线程来运行 Optuna Dashboard
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=1000, n_jobs=-1)
+    study.optimize(objective, n_trials=2000, n_jobs=-1)
 
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)
@@ -291,33 +305,11 @@ if __name__ == "__main__":
     # 使用最佳参数训练最终模型
     best_params = study.best_trial.params
     param_grid.update(best_params)
-    model = LGBMClassifier(**param_grid)
+    classifier1 = LGBMClassifier(**param_grid)
     # 训练 Pipeline
-    model.fit(train_data, train_label, eval_set=[(train_data, train_label)],
-              eval_metric=['roc_auc'],
-              callbacks=[early_stopping(stopping_rounds=100, first_metric_only=True, verbose=False)])
-    # param_grid["seed"] = 42
-    # classifier1 = LGBMClassifier(**param_grid)
-    # param_grid["seed"] = 3407
-    # classifier2 = LGBMClassifier(**param_grid)
-    # param_grid["seed"] = 1024
-    # classifier3 = LGBMClassifier(**param_grid)
-    #
-    # voting_clf = VotingClassifier(estimators=[
-    #     ('classifier1', classifier1),
-    #     ('classifier2', classifier2),
-    #     ('classifier3', classifier3)
-    # ], voting='soft')
-    #
-    # # 将 StandardScaler 作为 Pipeline 的第一步，然后集成 VotingClassifier
-    # model = Pipeline([
-    #     ('scaler', StandardScaler()),  # 共享的 StandardScaler
-    #     ('voting', voting_clf)
-    # ])
-    print("train lightgbm model completely!")
-    with open("model.hdf5", "wb") as f:
-        pickle.dump(model, f)
-    feature_importances = model.feature_importances_
+    classifier1.fit(train_data, train_label)
+
+    feature_importances = classifier1.feature_importances_
     # 特征名称
     feature_names = feature_meta.keys()
 
@@ -328,3 +320,12 @@ if __name__ == "__main__":
     importance_df = importance_df.sort_values(by='Importance', ascending=False)
     pd.set_option('display.max_rows', None)
     print(importance_df)
+    #
+    # # 将 StandardScaler 作为 Pipeline 的第一步，然后集成 VotingClassifier
+    # model = Pipeline([
+    #     ('scaler', StandardScaler()),  # 共享的 StandardScaler
+    #     ('voting', voting_clf)
+    # ])
+    print("train lightgbm model completely!")
+    with open("model.hdf5", "wb") as f:
+        pickle.dump(classifier1, f)
