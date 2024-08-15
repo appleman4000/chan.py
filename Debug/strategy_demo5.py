@@ -1,6 +1,4 @@
 # cython: language_level=3
-import importlib.util
-import inspect
 import json
 import os
 import pickle
@@ -57,21 +55,6 @@ def plot(chan, plot_marker):
     plot_driver.save2img("label.png")
 
 
-def get_functions_from_module(module_path):
-    spec = importlib.util.spec_from_file_location("module_name", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    functions = {name: obj for name, obj in inspect.getmembers(module, inspect.isfunction)}
-    return functions
-
-
-def calculate_functions(functions, *args, **kwargs):
-    results = {}
-    for name, func in functions.items():
-        results.update(func(*args, **kwargs))
-    return results
-
-
 alpha = 0.25
 gamma = 1
 
@@ -86,14 +69,8 @@ param_grid = {
     'boosting_type': 'gbdt',
     'feature_fraction': 0.8,
     'bagging_fraction': 0.8,
+    'reg_alpha': 0.0,
 }
-
-
-# param_grid = {
-#     "random_state": 42,
-#     # "max_iter": 10000,
-#     # "solver": "sag"
-# }
 
 
 def objective(trial):
@@ -108,7 +85,7 @@ def objective(trial):
         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
+        # 'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
     })
     class_weights = class_weight.compute_class_weight(
