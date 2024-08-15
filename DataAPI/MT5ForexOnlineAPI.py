@@ -154,7 +154,11 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
             raise Exception("不支持的时间框")
         next_bar_open = {}
         # 解析时间字符串为datetime对象
-        bars = mt5.copy_rates_from_pos(self.code, timeframe, 1, 1000)
+        end_date = datetime.datetime.now()
+        # 计算200天前的日期
+        begin_date = end_date - datetime.timedelta(days=10)
+        end_date = end_date + datetime.timedelta(hours=2)
+        bars = mt5.copy_rates_range(self.code, timeframe, begin_date, end_date)
 
         bars = pd.DataFrame(bars)
         last_bar_time = bars.iloc[-1].time
