@@ -2,8 +2,8 @@
 from Chan import CChan
 from Common.CEnum import MACD_ALGO, BSP_TYPE
 
-N_BI = 2
-N_ZS = 2
+N_BI = 10
+N_ZS = 3
 N_SEG = 2
 
 

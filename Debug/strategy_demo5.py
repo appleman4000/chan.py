@@ -10,11 +10,11 @@ from typing import Dict, TypedDict
 import numpy as np
 import optuna
 import xgboost as xgb
+from lightgbm import LGBMClassifier
 from optuna_dashboard import run_server
 from scipy.sparse import csr_matrix
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import class_weight
 
 from Chan import CChan
@@ -75,81 +75,84 @@ def calculate_functions(functions, *args, **kwargs):
 alpha = 0.25
 gamma = 1
 
-# param_grid = {
-#     'seed': 42,
-#     'device': 'cpu',
-#     'objective': 'binary',
-#     'metric': 'binary_logloss',
-#     'min_split_gain': 0,
-#     'min_child_weight': 1e-3,
-#     'verbose': -1,
-#     'boosting_type': 'gbdt',
-#     'feature_fraction': 0.8,
-#     'bagging_fraction': 0.8,
-# }
-
 param_grid = {
-    "random_state": 42,
-    # "max_iter": 10000,
-    # "solver": "sag"
+    'seed': 42,
+    'device': 'cpu',
+    'objective': 'binary',
+    'metric': 'binary_logloss',
+    'min_split_gain': 0,
+    'min_child_weight': 1e-3,
+    'verbose': -1,
+    'boosting_type': 'gbdt',
+    'feature_fraction': 0.8,
+    'bagging_fraction': 0.8,
 }
 
 
-# def objective(trial):
-#     # 使用 Optuna 定义超参数的搜索空间
-#
-#     param_grid.update({
-#         'max_depth': trial.suggest_int('max_depth', 3, 5),
-#         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-#         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-#         'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
-#         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
-#         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-#         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-#         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-#         'reg_alpha': trial.suggest_float('reg_alpha', 0, 50.0),
-#         'reg_lambda': trial.suggest_float('reg_lambda', 0, 2000.0)
-#     })
-#     class_weights = class_weight.compute_class_weight(
-#         "balanced", classes=np.unique(train_label), y=train_label
-#     )
-#     param_grid.update(
-#         {
-#             "class_weight": {
-#                 0: class_weights[0],
-#                 1: class_weights[1],
-#             }
-#         }
-#     )
-#     param_grid["random_state"] = param_grid["seed"]
-#     param_grid["bagging_seed"] = param_grid["seed"]
-#     param_grid["feature_fraction_seed"] = param_grid["seed"]
-#     param_grid["gpu_device_id"] = 0
-#     param_grid["gpu_platform_id"] = 0
-#     X, y = train_data, train_label
-#
-#     # 定义 StratifiedKFold 交叉验证
-#     folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-#
-#     f1_scores = []
-#
-#     # 对每个折叠进行训练和验证
-#     for train_index, valid_index in folds.split(X, y):
-#         X_train, X_valid = X[train_index], X[valid_index]
-#         y_train, y_valid = y[train_index], y[valid_index]
-#         model = LGBMClassifier(**param_grid)
-#
-#         model.fit(X_train, y_train)
-#
-#         # 在验证集上预测
-#         y_pred = model.predict(X_valid)
-#
-#         # 计算 F1 分数（适用于二分类）
-#         f1 = roc_auc_score(y_valid, y_pred)
-#         f1_scores.append(f1)
-#
-#     # 返回平均 F1 分数
-#     return sum(f1_scores) / len(f1_scores)
+# param_grid = {
+#     "random_state": 42,
+#     # "max_iter": 10000,
+#     # "solver": "sag"
+# }
+
+
+def objective(trial):
+    # 使用 Optuna 定义超参数的搜索空间
+
+    param_grid.update({
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
+        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
+    })
+    class_weights = class_weight.compute_class_weight(
+        "balanced", classes=np.unique(train_label), y=train_label
+    )
+    param_grid.update(
+        {
+            "class_weight": {
+                0: class_weights[0],
+                1: class_weights[1],
+            }
+        }
+    )
+    param_grid["random_state"] = param_grid["seed"]
+    param_grid["bagging_seed"] = param_grid["seed"]
+    param_grid["feature_fraction_seed"] = param_grid["seed"]
+    param_grid["gpu_device_id"] = 0
+    param_grid["gpu_platform_id"] = 0
+    X, y = train_data, train_label
+
+    # 定义 StratifiedKFold 交叉验证
+    folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+
+    scores = []
+
+    # 对每个折叠进行训练和验证
+    for train_index, valid_index in folds.split(X, y):
+        X_train, X_valid = X[train_index], X[valid_index]
+        y_train, y_valid = y[train_index], y[valid_index]
+        model = LGBMClassifier(**param_grid)
+
+        model.fit(X_train, y_train)
+
+        # 在验证集上预测
+        y_pred = model.predict(X_valid)
+
+        # 计算 F1 分数（适用于二分类）
+        score = roc_auc_score(y_valid, y_pred)
+        scores.append(score)
+
+    # 返回平均 F1 分数
+    return sum(scores) / len(scores)
+
+
 #
 
 # def objective(trial):
@@ -200,52 +203,50 @@ param_grid = {
 #     # 返回平均 F1 分数
 #     return sum(scores) / len(scores)
 
-def objective(trial):
-    # 使用 Optuna 定义超参数的搜索空间
-    param_grid.update({
-        "max_depth": trial.suggest_int('max_depth', 2, 32),
-        "min_samples_split": trial.suggest_int('min_samples_split', 2, 16),
-        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 1, 120),
-        "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
-    })
-    class_weights = class_weight.compute_class_weight(
-        "balanced", classes=np.unique(train_label), y=train_label
-    )
-    param_grid.update(
-        {
-            "class_weight": {
-                0: class_weights[0],
-                1: class_weights[1],
-            }
-        }
-    )
-    X, y = train_data, train_label
-    # 数据标准化
-    # scaler = StandardScaler()
-    # X = scaler.fit_transform(X)
-    # 定义 StratifiedKFold 交叉验证
-    folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-
-    scores = []
-
-    # 对每个折叠进行训练和验证
-    for train_index, valid_index in folds.split(X, y):
-        X_train, X_valid = X[train_index], X[valid_index]
-        y_train, y_valid = y[train_index], y[valid_index]
-
-        model = DecisionTreeClassifier(**param_grid)
-
-        model.fit(X_train, y_train)
-
-        # 在验证集上预测
-        y_pred = model.predict(X_valid)
-
-        # 计算 F1 分数（适用于二分类）
-        score = roc_auc_score(y_valid, y_pred)
-        scores.append(score)
-
-    # 返回平均 F1 分数
-    return sum(scores) / len(scores)
+# def objective(trial):
+#     # 使用 Optuna 定义超参数的搜索空间
+#     param_grid.update({
+#         "max_depth": trial.suggest_int('max_depth', 2, 32),
+#         "min_samples_split": trial.suggest_int('min_samples_split', 2, 120),
+#         "min_samples_leaf": trial.suggest_int('min_samples_leaf', 2, 120),
+#         "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
+#     })
+#     class_weights = class_weight.compute_class_weight(
+#         "balanced", classes=np.unique(train_label), y=train_label
+#     )
+#     param_grid.update(
+#         {
+#             "class_weight": {
+#                 0: class_weights[0],
+#                 1: class_weights[1],
+#             }
+#         }
+#     )
+#     X, y = train_data, train_label
+#     # 数据标准化
+#     # 定义 StratifiedKFold 交叉验证
+#     folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+#
+#     scores = []
+#
+#     # 对每个折叠进行训练和验证
+#     for train_index, valid_index in folds.split(X, y):
+#         X_train, X_valid = X[train_index], X[valid_index]
+#         y_train, y_valid = y[train_index], y[valid_index]
+#
+#         model = DecisionTreeClassifier(**param_grid)
+#
+#         model.fit(X_train, y_train)
+#
+#         # 在验证集上预测
+#         y_pred = model.predict(X_valid)
+#
+#         # 计算 F1 分数（适用于二分类）
+#         score = roc_auc_score(y_valid, y_pred)
+#         scores.append(score)
+#
+#     # 返回平均 F1 分数
+#     return sum(scores) / len(scores)
 
 
 def get_factors(obj):
@@ -307,7 +308,7 @@ if __name__ == "__main__":
         config = CChanConfig({
             "trigger_step": True,  # 打开开关！
             "bi_strict": True,
-            "skip_step": 500,
+            "skip_step": 1000,
             "divergence_rate": float("inf"),
             "bsp2_follow_1": False,
             "bsp3_follow_1": False,
@@ -415,8 +416,8 @@ if __name__ == "__main__":
     )
     # scaler = StandardScaler()
     # train_data = scaler.fit_transform(train_data)
-    # classifier1 = LGBMClassifier(**param_grid)
-    classifier1 = DecisionTreeClassifier(**param_grid)
+    classifier1 = LGBMClassifier(**param_grid)
+    # classifier1 = DecisionTreeClassifier(**param_grid)
     # 训练 Pipeline
     classifier1.fit(train_data, train_label)
     feature_names = feature_meta.keys()
