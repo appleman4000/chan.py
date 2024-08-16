@@ -16,8 +16,15 @@ if __name__ == "__main__":
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
-        "divergence_rate": 0.8,
-        "min_zs_cnt": 1,
+        "skip_step": 500,
+        "divergence_rate": 1.0,
+        "min_zs_cnt": 0,
+        "macd_algo": "slope",
+        "kl_data_check": False,
+        "bi_end_is_peak": True,
+        "bsp2_follow_1": True,
+        "bsp3_follow_1": True,
+        "bs_type": '1,1p,2,2s,3a,3b',
     })
 
     chan = CChan(

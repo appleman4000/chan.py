@@ -160,7 +160,6 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
     def __init__(self, code, k_type, begin_date=None, end_date=None, autype=None):
         super(CMT5ForexOnlineAPI, self).__init__(code, k_type, begin_date, end_date)
         # 建立MetaTrader 5到指定交易账户的连接
-        # connect to MetaTrader 5
         if not reconnect_mt5():
             print("initialize() failed")
             mt5.shutdown()
@@ -171,19 +170,23 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         # get data on MetaTrader 5 version
         print(mt5.version())
         end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
-        start_date = end_date - datetime.timedelta(days=100)
+        start_date = end_date - datetime.timedelta(days=365)
         if k_type == KL_TYPE.K_1M:
             period = mt5.TIMEFRAME_M1
         elif k_type == KL_TYPE.K_3M:
             period = mt5.TIMEFRAME_M3
         elif k_type == KL_TYPE.K_5M:
             period = mt5.TIMEFRAME_M5
+        elif k_type == KL_TYPE.K_10M:
+            period = mt5.TIMEFRAME_M10
         elif k_type == KL_TYPE.K_15M:
             period = mt5.TIMEFRAME_M15
         elif k_type == KL_TYPE.K_30M:
             period = mt5.TIMEFRAME_M30
         elif k_type == KL_TYPE.K_1H:
             period = mt5.TIMEFRAME_H1
+        elif k_type == KL_TYPE.K_2H:
+            period = mt5.TIMEFRAME_H2
         elif k_type == KL_TYPE.K_4H:
             period = mt5.TIMEFRAME_H4
         elif k_type == KL_TYPE.K_DAY:

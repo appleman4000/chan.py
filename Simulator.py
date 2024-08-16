@@ -1,6 +1,8 @@
 # cython: language_level=3
 import datetime
 import sys
+from multiprocessing import Process
+from threading import Thread
 from typing import List
 
 import MetaTrader5 as mt5
@@ -12,6 +14,7 @@ from ChanConfig import CChanConfig
 from Common.CEnum import DATA_FIELD, DATA_SRC, KL_TYPE
 from KLine.KLine_Unit import CKLine_Unit
 
+global_profit = 0
 sys.setrecursionlimit(1000000)
 symbols = [
     # Major
@@ -83,18 +86,6 @@ def period_seconds(period):
     return timeframe_seconds[period]
 
 
-def combine_middle_klu_from_bottom(klu_bottom_lst: List[CKLine_Unit]) -> CKLine_Unit:
-    return CKLine_Unit(
-        {
-            DATA_FIELD.FIELD_TIME: klu_bottom_lst[-1].time,
-            DATA_FIELD.FIELD_OPEN: klu_bottom_lst[0].open,
-            DATA_FIELD.FIELD_CLOSE: klu_bottom_lst[-1].close,
-            DATA_FIELD.FIELD_HIGH: max(klu.high for klu in klu_bottom_lst),
-            DATA_FIELD.FIELD_LOW: min(klu.low for klu in klu_bottom_lst),
-        }
-    )
-
-
 def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
     positions = mt5.positions_get(symbol=symbol)
     if positions:
@@ -163,15 +154,15 @@ def strategy(code):
     top_kl_type = mt5.TIMEFRAME_M15
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
-        "skip_step": 200,
+        "skip_step": 500,
         "divergence_rate": 1.0,
-        "min_zs_cnt": 1,
+        "min_zs_cnt": 0,
         "macd_algo": "slope",
         "kl_data_check": False,
-        "bi_end_is_peak": False,
-        "bsp2_follow_1": False,
-        "bsp3_follow_1": False,
-        "bs_type": '1,1p,2,2s,3a,3b',
+        "bi_end_is_peak": True,
+        "bsp2_follow_1": True,
+        "bsp3_follow_1": True,
+        "bs_type": '1,1p,2,2s',
     })
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
@@ -193,7 +184,7 @@ def strategy(code):
     money = 100000 * lots
     capitals = np.array([])
     profits = np.array([])
-    fee = 1.0002
+    fee = 1.0004
     long_orders = []
     short_orders = []
     history_long_orders = 0
@@ -272,18 +263,22 @@ def strategy(code):
         capital += profit
         if profit != 0:
             profits = np.append(profits, profit)
+            global global_profit
+            global_profit += profit
+
             capitals = np.append(capitals, capital)
-            print(f"capital:{capital}")
+            print(f"{code} capital:{capital}")
             win_rate = len(profits[profits > 0]) / len(profits) * 100
-            print(f"胜率: {win_rate}")
+            print(f"{code} 胜率: {win_rate}")
+            print(f"global_profit:{global_profit}")
 
 
 if __name__ == "__main__":
-    # threads = []
-    # for symbol in symbols:
-    #     thread = Thread(target=strategy, args=(symbol,))
-    #     threads.append(thread)
-    #     thread.start()
-    # for thread in threads:
-    #     thread.join()
-    strategy("EURUSD")
+
+    processes = []
+    for symbol in symbols:
+        process = Process(target=strategy, args=(symbol,))
+        processes.append(process)
+        process.start()
+    for process in processes:
+        process.join()
