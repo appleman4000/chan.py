@@ -153,19 +153,18 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         else:
             raise Exception("不支持的时间框")
         next_bar_open = {}
-        # 解析时间字符串为datetime对象
-        bar = mt5.copy_rates_from_pos(self.code, period, 1, 1)[0]
-        end_date = datetime.datetime.fromtimestamp(bar[0])
-        # end_date = datetime.datetime.now()
-        # end_date = end_date + datetime.timedelta(hours=2)
-        # end_date = end_date.replace(second=0, microsecond=0)
+        end_date = datetime.datetime.now()
+        end_date = end_date.timestamp()
+        end_date -= end_date % timeframe_seconds[period]
+        end_date -= timeframe_seconds[period]
+        end_date = datetime.datetime.fromtimestamp(end_date)
         # 计算10天前的日期
         begin_date = end_date - datetime.timedelta(days=10)
         bars = mt5.copy_rates_range(self.code, period, begin_date, end_date)
         bars = pd.DataFrame(bars)
         last_bar_time = bars.iloc[-1].time
-        bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
+
         bars['time'] += datetime.timedelta(seconds=timeframe_seconds[period])
         bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
         bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
@@ -180,7 +179,9 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                 row["close"],
                 row["tick_volume"],
             ]
-            yield CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
+            bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
+            print(f"{period} {bar}")
+            yield bar
         next_bar_open[str(period)] = last_bar_time
         next_bar_open[str(period)] -= next_bar_open[str(period)] % period_seconds(period)
         next_bar_open[str(period)] += period_seconds(period)
@@ -190,6 +191,7 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                 continue
             last_bar_time = bar[0]
             if last_bar_time >= next_bar_open[str(period)]:
+
                 bars = mt5.copy_rates_range(self.code, period, datetime.datetime.fromtimestamp(
                     next_bar_open[str(period)]), datetime.datetime.fromtimestamp(last_bar_time))
                 next_bar_open[str(period)] = last_bar_time
@@ -214,8 +216,8 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                     ]
                     bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
                     print(f"{period} {bar}")
-
                     yield bar
+
             time.sleep(1)
             # 检查连接状态，如果连接丢失则尝试重新连接
             if not mt5.terminal_info():

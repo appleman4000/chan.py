@@ -75,6 +75,7 @@ def main():
     top_kl_type = mt5.TIMEFRAME_M15
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
+        "skip_step": 200,
         "divergence_rate": 1.0,
         "min_zs_cnt": 0,
         "macd_algo": "slope",
@@ -106,9 +107,7 @@ def main():
     short_orders = []
     history_long_orders = 0
     history_short_orders = 0
-    for id, chan_snapshot in enumerate(chan.step_load()):
-        # if id < 100:
-        #     continue
+    for chan_snapshot in chan.step_load():
         top_lv_chan = chan_snapshot[0]
         middle_lv_chan = chan_snapshot[1]
         bottom_lv_chan = chan_snapshot[2]

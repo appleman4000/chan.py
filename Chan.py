@@ -1,7 +1,6 @@
 # cython: language_level=3
 # encoding:utf-8
 import copy
-import datetime
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -33,8 +32,8 @@ class CChan:
         check_kltype_order(lv_list)  # lv_list顺序从高到低
         self.code = code
         self.name = code
-        self.begin_time = str(begin_time) if isinstance(begin_time, datetime.date) else begin_time
-        self.end_time = str(end_time) if isinstance(end_time, datetime.date) else end_time
+        self.begin_time = begin_time
+        self.end_time = end_time
         self.autype = autype
         self.data_src = data_src
         self.lv_list: List[KL_TYPE] = lv_list

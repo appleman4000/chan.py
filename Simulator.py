@@ -77,6 +77,10 @@ timeframe_seconds = {
 }
 
 
+def period_seconds(period):
+    return timeframe_seconds[period]
+
+
 def combine_middle_klu_from_bottom(klu_bottom_lst: List[CKLine_Unit]) -> CKLine_Unit:
     return CKLine_Unit(
         {
@@ -157,7 +161,7 @@ def strategy(code):
     top_kl_type = mt5.TIMEFRAME_M15
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
-        "skip_step": 100,
+        "skip_step": 200,
         "divergence_rate": 1.0,
         "min_zs_cnt": 0,
         "macd_algo": "slope",
@@ -194,6 +198,7 @@ def strategy(code):
         top_lv_chan = chan_snapshot[0]
         middle_lv_chan = chan_snapshot[1]
         bottom_lv_chan = chan_snapshot[2]
+        print(datetime.datetime.now())
         print(
             f"北京时间:{top_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(top_lv_chan[-1][-1].time.ts)}  on_bar {code}")
         print(
@@ -227,8 +232,8 @@ def strategy(code):
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.002
-                sl = long_profit <= -0.002
+                tp = long_profit >= 0.004
+                sl = long_profit <= -0.004
                 if tp or sl:
                     long_orders.remove(order)
                     profit += round(long_profit * money, 2)
@@ -241,8 +246,8 @@ def strategy(code):
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.002
-                sl = short_profit <= -0.002
+                tp = short_profit >= 0.004
+                sl = short_profit <= -0.004
                 if tp or sl:
                     short_orders.remove(order)
                     profit += round(short_profit * money, 2)
