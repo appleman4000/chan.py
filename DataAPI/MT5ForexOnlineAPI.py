@@ -135,40 +135,41 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
 
     def get_kl_data(self):
         if self.k_type == KL_TYPE.K_1M:
-            timeframe = mt5.TIMEFRAME_M1
+            period = mt5.TIMEFRAME_M1
         elif self.k_type == KL_TYPE.K_3M:
-            timeframe = mt5.TIMEFRAME_M3
+            period = mt5.TIMEFRAME_M3
         elif self.k_type == KL_TYPE.K_5M:
-            timeframe = mt5.TIMEFRAME_M5
+            period = mt5.TIMEFRAME_M5
         elif self.k_type == KL_TYPE.K_15M:
-            timeframe = mt5.TIMEFRAME_M15
+            period = mt5.TIMEFRAME_M15
         elif self.k_type == KL_TYPE.K_30M:
-            timeframe = mt5.TIMEFRAME_M30
+            period = mt5.TIMEFRAME_M30
         elif self.k_type == KL_TYPE.K_1H:
-            timeframe = mt5.TIMEFRAME_H1
+            period = mt5.TIMEFRAME_H1
         elif self.k_type == KL_TYPE.K_4H:
-            timeframe = mt5.TIMEFRAME_H4
+            period = mt5.TIMEFRAME_H4
         elif self.k_type == KL_TYPE.K_DAY:
-            timeframe = mt5.TIMEFRAME_D1
+            period = mt5.TIMEFRAME_D1
         else:
             raise Exception("不支持的时间框")
         next_bar_open = {}
         # 解析时间字符串为datetime对象
-        end_date = datetime.datetime.now()
-        # 计算200天前的日期
+        bar = mt5.copy_rates_from_pos(self.code, period, 1, 1)[0]
+        end_date = datetime.datetime.fromtimestamp(bar[0])
+        # end_date = datetime.datetime.now()
+        # end_date = end_date + datetime.timedelta(hours=2)
+        # end_date = end_date.replace(second=0, microsecond=0)
+        # 计算10天前的日期
         begin_date = end_date - datetime.timedelta(days=10)
-        end_date = end_date + datetime.timedelta(hours=2)
-        bars = mt5.copy_rates_range(self.code, timeframe, begin_date, end_date)
-
+        bars = mt5.copy_rates_range(self.code, period, begin_date, end_date)
         bars = pd.DataFrame(bars)
         last_bar_time = bars.iloc[-1].time
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
-        bars['time'] = bars['time'] + datetime.timedelta(seconds=timeframe_seconds[timeframe])
+        bars['time'] += datetime.timedelta(seconds=timeframe_seconds[period])
         bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
         bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"
         for index, row in bars.iterrows():
             data = [
@@ -180,23 +181,24 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                 row["tick_volume"],
             ]
             yield CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
-        next_bar_open[str(timeframe)] = last_bar_time
-        next_bar_open[str(timeframe)] -= next_bar_open[str(timeframe)] % period_seconds(timeframe)
-        next_bar_open[str(timeframe)] += period_seconds(timeframe)
+        next_bar_open[str(period)] = last_bar_time
+        next_bar_open[str(period)] -= next_bar_open[str(period)] % period_seconds(period)
+        next_bar_open[str(period)] += period_seconds(period)
         while True:
-            bar = self.get_latest_bar(timeframe)
+            bar = self.get_latest_bar(period)
             if bar is None:
                 continue
             last_bar_time = bar[0]
-            if last_bar_time >= next_bar_open[str(timeframe)]:
-                bars = mt5.copy_rates_range(self.code, timeframe, datetime.datetime.fromtimestamp(
-                    next_bar_open[str(timeframe)]), datetime.datetime.fromtimestamp(last_bar_time))
-                next_bar_open[str(timeframe)] = last_bar_time
-                next_bar_open[str(timeframe)] -= next_bar_open[str(timeframe)] % period_seconds(timeframe)
-                next_bar_open[str(timeframe)] += period_seconds(timeframe)
+            if last_bar_time >= next_bar_open[str(period)]:
+                bars = mt5.copy_rates_range(self.code, period, datetime.datetime.fromtimestamp(
+                    next_bar_open[str(period)]), datetime.datetime.fromtimestamp(last_bar_time))
+                next_bar_open[str(period)] = last_bar_time
+                next_bar_open[str(period)] -= next_bar_open[str(period)] % period_seconds(period)
+                next_bar_open[str(period)] += period_seconds(period)
                 bars = pd.DataFrame(bars)
                 bars.dropna(inplace=True)
                 bars['time'] = pd.to_datetime(bars['time'], unit='s')
+                bars['time'] += datetime.timedelta(seconds=timeframe_seconds[period])
                 bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
                 bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
                 bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -211,6 +213,8 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                         bar["tick_volume"],
                     ]
                     bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
+                    print(f"{period} {bar}")
+
                     yield bar
             time.sleep(1)
             # 检查连接状态，如果连接丢失则尝试重新连接
