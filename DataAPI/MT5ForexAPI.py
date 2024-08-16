@@ -105,12 +105,16 @@ class CMT5ForexAPI(CCommonForexApi):
             timeframe = mt5.TIMEFRAME_M3
         elif self.k_type == KL_TYPE.K_5M:
             timeframe = mt5.TIMEFRAME_M5
+        elif self.k_type == KL_TYPE.K_10M:
+            timeframe = mt5.TIMEFRAME_M10
         elif self.k_type == KL_TYPE.K_15M:
             timeframe = mt5.TIMEFRAME_M15
         elif self.k_type == KL_TYPE.K_30M:
             timeframe = mt5.TIMEFRAME_M30
         elif self.k_type == KL_TYPE.K_1H:
             timeframe = mt5.TIMEFRAME_H1
+        elif self.k_type == KL_TYPE.K_2H:
+            timeframe = mt5.TIMEFRAME_H2
         elif self.k_type == KL_TYPE.K_4H:
             timeframe = mt5.TIMEFRAME_H4
         elif self.k_type == KL_TYPE.K_DAY:
@@ -167,9 +171,11 @@ class CMT5ForexAPI(CCommonForexApi):
             KL_TYPE.K_MON: 'm',
             KL_TYPE.K_1M: '1',
             KL_TYPE.K_5M: '5',
+            KL_TYPE.K_10M: '10',
             KL_TYPE.K_15M: '15',
             KL_TYPE.K_30M: '30',
             KL_TYPE.K_1H: '60',
+            KL_TYPE.K_2H: '120',
             KL_TYPE.K_4H: '240',
         }
         return _dict[self.k_type]

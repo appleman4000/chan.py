@@ -127,7 +127,7 @@ class CandleIterator:
             return None
         bars = pd.DataFrame(bars)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
-        # bars['time'] += datetime.timedelta(seconds=timeframe_seconds[self.period])
+        bars['time'] += datetime.timedelta(seconds=timeframe_seconds[self.period])
         bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
         bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -171,7 +171,7 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         # get data on MetaTrader 5 version
         print(mt5.version())
         end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
-        start_date = end_date - datetime.timedelta(days=5)
+        start_date = end_date - datetime.timedelta(days=100)
         if k_type == KL_TYPE.K_1M:
             period = mt5.TIMEFRAME_M1
         elif k_type == KL_TYPE.K_3M:

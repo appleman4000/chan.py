@@ -45,9 +45,11 @@ period_map = {
     mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
     mt5.TIMEFRAME_M3: KL_TYPE.K_3M,
     mt5.TIMEFRAME_M5: KL_TYPE.K_5M,
+    mt5.TIMEFRAME_M10: KL_TYPE.K_10M,
     mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
     mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
     mt5.TIMEFRAME_H1: KL_TYPE.K_1H,
+    mt5.TIMEFRAME_H2: KL_TYPE.K_2H,
     mt5.TIMEFRAME_H4: KL_TYPE.K_4H,
     mt5.TIMEFRAME_D1: KL_TYPE.K_DAY,
 
@@ -112,7 +114,7 @@ def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
         point = mt5.symbol_info(symbol).point
         price = mt5.symbol_info_tick(symbol).ask if is_buy else mt5.symbol_info_tick(symbol).bid
         tp = round(price * 0.003 / point)
-        sl = round(price * 0.01 / point)
+        sl = round(price * 0.003 / point)
         deviation = 30
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -163,18 +165,18 @@ def strategy(code):
         "trigger_step": True,  # 打开开关！
         "skip_step": 200,
         "divergence_rate": 1.0,
-        "min_zs_cnt": 0,
+        "min_zs_cnt": 1,
         "macd_algo": "slope",
         "kl_data_check": False,
         "bi_end_is_peak": False,
-        "bsp2_follow_1": True,
-        "bsp3_follow_1": True,
+        "bsp2_follow_1": False,
+        "bsp3_follow_1": False,
         "bs_type": '1,1p,2,2s,3a,3b',
     })
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
-    end_date -= end_date % timeframe_seconds[mt5.TIMEFRAME_D1]
-    end_date -= timeframe_seconds[mt5.TIMEFRAME_D1]
+    end_date -= end_date % timeframe_seconds[top_kl_type]
+    end_date -= timeframe_seconds[top_kl_type]
     end_date = datetime.datetime.fromtimestamp(end_date)
     # 快照
     chan = CChan(
@@ -201,13 +203,13 @@ def strategy(code):
         top_lv_chan = chan_snapshot[0]
         middle_lv_chan = chan_snapshot[1]
         bottom_lv_chan = chan_snapshot[2]
-        print(datetime.datetime.now())
-        print(
-            f"北京时间:{top_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(top_lv_chan[-1][-1].time.ts)}  on_bar {code}")
-        print(
-            f"北京时间:{middle_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(middle_lv_chan[-1][-1].time.ts)}  on_bar {code}")
-        print(
-            f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}  on_bar {code}")
+        # print(datetime.datetime.now())
+        # print(
+        #     f"北京时间:{top_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(top_lv_chan[-1][-1].time.ts)}  on_bar {code}")
+        # print(
+        #     f"北京时间:{middle_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(middle_lv_chan[-1][-1].time.ts)}  on_bar {code}")
+        # print(
+        #     f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}  on_bar {code}")
         """
         策略开始：
         这里基于chan实现你的策略
@@ -235,8 +237,8 @@ def strategy(code):
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.004
-                sl = long_profit <= -0.004
+                tp = long_profit >= 0.002
+                sl = long_profit <= -0.002
                 if tp or sl:
                     long_orders.remove(order)
                     profit += round(long_profit * money, 2)
@@ -249,8 +251,8 @@ def strategy(code):
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.004
-                sl = short_profit <= -0.004
+                tp = short_profit >= 0.002
+                sl = short_profit <= -0.002
                 if tp or sl:
                     short_orders.remove(order)
                     profit += round(short_profit * money, 2)
