@@ -171,7 +171,11 @@ def strategy(code):
         "bsp3_follow_1": True,
         "bs_type": '1,1p,2,2s,3a,3b',
     })
-
+    end_date = datetime.datetime.now()
+    end_date = end_date.timestamp()
+    end_date -= end_date % timeframe_seconds[mt5.TIMEFRAME_D1]
+    end_date -= timeframe_seconds[mt5.TIMEFRAME_D1]
+    end_date = datetime.datetime.fromtimestamp(end_date)
     # 快照
     chan = CChan(
         code=code,
@@ -179,8 +183,7 @@ def strategy(code):
         lv_list=[period_map[top_kl_type], period_map[middle_kl_type], period_map[bottom_kl_type]],
         config=config,
         begin_time=None,
-        end_time=None,
-
+        end_time=end_date
     )
 
     capital = 10000

@@ -106,6 +106,54 @@ def reconnect_mt5(retry_interval=5, max_retries=5):
     return False
 
 
+class CandleIterator:
+    def __init__(self, symbol, period, start_date):
+        self.symbol = symbol
+        self.period = period
+        self.start_date = start_date
+        self.last_time = start_date
+        self.data = self._fetch_candles(self.start_date)
+        self.index = 0
+        self.next_bar_open = start_date
+        self.next_bar_open -= datetime.timedelta(seconds=self.next_bar_open.timestamp() % period_seconds(self.period))
+        self.next_bar_open += datetime.timedelta(seconds=period_seconds(self.period))
+
+    def _fetch_candles(self, start_date):
+        # 获取从 start_date 开始的K线数据
+        bars = mt5.copy_rates_range(self.symbol, self.period, start_date,
+                                    datetime.datetime.now() + datetime.timedelta(hours=2))
+        if bars is None:
+            print(f"获取数据失败: {mt5.last_error()}")
+            return None
+        bars = pd.DataFrame(bars)
+        bars['time'] = pd.to_datetime(bars['time'], unit='s')
+        # bars['time'] += datetime.timedelta(seconds=timeframe_seconds[self.period])
+        bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
+        bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
+        bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        return bars
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.index >= len(self.data):
+            # 如果已经到达数据末尾，则获取新的数据
+            self.data = self._fetch_candles(self.last_time)
+            if self.data is None or self.data.empty:
+                raise StopIteration
+            self.index = 0
+
+        candle = self.data.iloc[self.index]
+        self.index += 1
+        self.last_time = datetime.datetime.strptime(candle['time'], "%Y-%m-%d %H:%M:%S") + datetime.timedelta(hours=2)
+        self.next_bar_open = self.last_time
+        self.next_bar_open -= datetime.timedelta(
+            seconds=self.next_bar_open.timestamp() % period_seconds(self.period))
+        self.next_bar_open += datetime.timedelta(seconds=period_seconds(self.period))
+        return candle
+
+
 class CMT5ForexOnlineAPI(CCommonForexApi):
     is_connect = None
 
@@ -122,104 +170,49 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         print(mt5.terminal_info())
         # get data on MetaTrader 5 version
         print(mt5.version())
-
-    def get_latest_bar(self, period):
-        try:
-            bar = mt5.copy_rates_from_pos(self.code, period, 1, 1)[0]
-            if bar is None:
-                raise ValueError(f"无法获取 {self.code} 的价格信息")
-            return bar
-        except Exception as e:
-            print(f"获取 {self.code} 的价格信息时发生异常: {e}")
-            return None
-
-    def get_kl_data(self):
-        if self.k_type == KL_TYPE.K_1M:
+        end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
+        start_date = end_date - datetime.timedelta(days=5)
+        if k_type == KL_TYPE.K_1M:
             period = mt5.TIMEFRAME_M1
-        elif self.k_type == KL_TYPE.K_3M:
+        elif k_type == KL_TYPE.K_3M:
             period = mt5.TIMEFRAME_M3
-        elif self.k_type == KL_TYPE.K_5M:
+        elif k_type == KL_TYPE.K_5M:
             period = mt5.TIMEFRAME_M5
-        elif self.k_type == KL_TYPE.K_15M:
+        elif k_type == KL_TYPE.K_15M:
             period = mt5.TIMEFRAME_M15
-        elif self.k_type == KL_TYPE.K_30M:
+        elif k_type == KL_TYPE.K_30M:
             period = mt5.TIMEFRAME_M30
-        elif self.k_type == KL_TYPE.K_1H:
+        elif k_type == KL_TYPE.K_1H:
             period = mt5.TIMEFRAME_H1
-        elif self.k_type == KL_TYPE.K_4H:
+        elif k_type == KL_TYPE.K_4H:
             period = mt5.TIMEFRAME_H4
-        elif self.k_type == KL_TYPE.K_DAY:
+        elif k_type == KL_TYPE.K_DAY:
             period = mt5.TIMEFRAME_D1
         else:
             raise Exception("不支持的时间框")
-        next_bar_open = {}
-        end_date = datetime.datetime.now()
-        end_date = end_date.timestamp()
-        end_date -= end_date % timeframe_seconds[period]
-        end_date -= timeframe_seconds[period]
-        end_date = datetime.datetime.fromtimestamp(end_date)
-        # 计算10天前的日期
-        begin_date = end_date - datetime.timedelta(days=10)
-        bars = mt5.copy_rates_range(self.code, period, begin_date, end_date)
-        bars = pd.DataFrame(bars)
-        last_bar_time = bars.iloc[-1].time
-        bars['time'] = pd.to_datetime(bars['time'], unit='s')
+        self.period = period
+        self.iterator = CandleIterator(code, period, start_date)
 
-        bars['time'] += datetime.timedelta(seconds=timeframe_seconds[period])
-        bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
-        bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
-        bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    def get_kl_data(self):
         fields = "time,open,high,low,close,volume"
-        for index, row in bars.iterrows():
-            data = [
-                row["time"],
-                row["open"],
-                row["high"],
-                row["low"],
-                row["close"],
-                row["tick_volume"],
-            ]
-            bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
-            print(f"{period} {bar}")
-            yield bar
-        next_bar_open[str(period)] = last_bar_time
-        next_bar_open[str(period)] -= next_bar_open[str(period)] % period_seconds(period)
-        next_bar_open[str(period)] += period_seconds(period)
+        interval = 1
         while True:
-            bar = self.get_latest_bar(period)
-            if bar is None:
-                continue
-            last_bar_time = bar[0]
-            if last_bar_time >= next_bar_open[str(period)]:
-
-                bars = mt5.copy_rates_range(self.code, period, datetime.datetime.fromtimestamp(
-                    next_bar_open[str(period)]), datetime.datetime.fromtimestamp(last_bar_time))
-                next_bar_open[str(period)] = last_bar_time
-                next_bar_open[str(period)] -= next_bar_open[str(period)] % period_seconds(period)
-                next_bar_open[str(period)] += period_seconds(period)
-                bars = pd.DataFrame(bars)
-                bars.dropna(inplace=True)
-                bars['time'] = pd.to_datetime(bars['time'], unit='s')
-                bars['time'] += datetime.timedelta(seconds=timeframe_seconds[period])
-                bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
-                bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
-                bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                fields = "time,open,high,low,close,volume"
-                for index, bar in bars.iterrows():
-                    data = [
-                        bar["time"],
-                        bar["open"],
-                        bar["high"],
-                        bar["low"],
-                        bar["close"],
-                        bar["tick_volume"],
-                    ]
-                    bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
-                    print(f"{period} {bar}")
-                    yield bar
-
-            time.sleep(1)
-            # 检查连接状态，如果连接丢失则尝试重新连接
+            if (datetime.datetime.now() + datetime.timedelta(
+                    hours=2)).timestamp() >= self.iterator.next_bar_open.timestamp():
+                candle = self.iterator.__next__()
+                # print(candle)  # 打印每根K线的数据
+                data = [
+                    candle["time"],
+                    candle["open"],
+                    candle["high"],
+                    candle["low"],
+                    candle["close"],
+                    candle["tick_volume"],
+                ]
+                bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
+                yield bar
+            else:
+                time.sleep(interval)  # 等待指定的时间间隔再获取数据
             if not mt5.terminal_info():
                 print("连接丢失，尝试重新连接...")
                 mt5.shutdown()
