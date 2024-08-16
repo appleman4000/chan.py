@@ -43,7 +43,7 @@ timeframe_seconds = {
 period_map = {
     mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
     mt5.TIMEFRAME_M3: KL_TYPE.K_3M,
-    mt5.TIMEFRAME_M5: KL_TYPE.K_15M,
+    mt5.TIMEFRAME_M5: KL_TYPE.K_5M,
     mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
     mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
     mt5.TIMEFRAME_H1: KL_TYPE.K_1H,
