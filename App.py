@@ -33,19 +33,23 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", lv_l
         data_src = None
 
     config = CChanConfig({
-        "trigger_step": True,  # 打开开关！
-        "kl_data_check": False,
-        "bi_strict": True,
+        "trigger_step": False,  # 打开开关！
         "skip_step": 500,
-        "divergence_rate": 1.0,
-        "bsp2_follow_1": False,
-        "bsp3_follow_1": False,
-        "min_zs_cnt": 0,
-        "bs1_peak": False,
+        "divergence_rate": float("inf"),
+        "min_zs_cnt": 1,
         "macd_algo": "slope",
-        "bs_type": '1,1p',
-        "print_warning": True,
-        "zs_algo": "normal",
+        "kl_data_check": False,
+        "bi_end_is_peak": True,
+        "bsp1_only_multibi_zs": True,
+        "max_bs2_rate": 0.999,
+        "bs1_peak": True,
+        "bs_type": "1,1p,2,2s,3a,3b",
+        "bsp2_follow_1": True,
+        "bsp3_follow_1": True,
+        "bsp3_peak": True,
+        "bsp2s_follow_2": True,
+        "max_bsp2s_lv": None,
+        "strict_bsp3": True,
     })
 
     plot_config = {
@@ -189,7 +193,7 @@ if __name__ == "__main__":
                     end_time = datetime.datetime.now()
                     # 计算200天前的日期
                     seconds = period_seconds[lv_list[0]]
-                    begin_time = end_time - datetime.timedelta(seconds=seconds * 500)
+                    begin_time = end_time - datetime.timedelta(seconds=seconds * 2000)
                     begin_time = begin_time.strftime("%Y-%m-%d %H:%M:%S")
                     end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
