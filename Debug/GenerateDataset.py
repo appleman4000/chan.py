@@ -51,30 +51,34 @@ plot_config = {
 }
 
 plot_para = {
+    "figure": {
+        "w": 224 / 100,
+        "h": 224 / 100,
+        "x_range": 400,
+    },
     "seg": {
         # "plot_trendline": True,
         "disp_end": False,
-        "end_fontsize": 15
+        "end_fontsize": 15,
+        "width": 1
     },
     "bi": {
         "show_num": False,
         "disp_end": False,
-        "end_fontsize": 15
+        "end_fontsize": 15,
     },
     "zs": {
-        "fontsize": 15
+        "fontsize": 15,
     },
     "bsp": {
         "fontsize": 20
     },
     "segseg": {
-        "end_fontsize": 15
+        "end_fontsize": 15,
+        "width": 1
     },
     "seg_bsp": {
         "fontsize": 20
-    },
-    "figure": {
-        "x_range": 400,
     },
     "marker": {
         # "markers": {  # text, position, color
@@ -129,11 +133,11 @@ if __name__ == "__main__":
     ]
     for code in symbols:
         begin_time = "2010-01-01 00:00:00"
-        end_time = "2011-01-10 00:00:00"
+        end_time = "2021-01-01 00:00:00"
         data_src = DATA_SRC.FOREX
-        bottom_kl_type = KL_TYPE.K_3M
+        # bottom_kl_type = KL_TYPE.K_3M
         top_kl_type = KL_TYPE.K_30M
-        lv_list = [top_kl_type, bottom_kl_type]
+        lv_list = [top_kl_type]
 
         chan = CChan(
             code=code,
@@ -152,21 +156,13 @@ if __name__ == "__main__":
         for chan_snapshot in chan.step_load():
 
             top_lv_chan = chan_snapshot[0]
-            bottom_lv_chan = chan_snapshot[1]
             top_bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
             if not top_bsp_list:
                 continue
             top_last_bsp = top_bsp_list[-1]
-            bottom_bsp_list = chan.get_bsp(1)  # 获取低级别买卖点列表
-            if not bottom_bsp_list:
-                continue
-            bottom_last_bsp = bottom_bsp_list[-1]
             top_entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
-            botton_entry_rule = bottom_lv_chan[-1].idx == bottom_last_bsp.klu.klc.idx
-
-            if top_entry_rule and botton_entry_rule and (top_last_bsp.is_buy and bottom_last_bsp.is_buy or (
-                    not top_last_bsp.is_buy and not bottom_last_bsp.is_buy)):
-                str_date = bottom_lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+            if top_entry_rule and (top_last_bsp.is_buy or not top_last_bsp.is_buy):
+                str_date = top_lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
                 file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
 
                 if not os.path.exists(file_path):

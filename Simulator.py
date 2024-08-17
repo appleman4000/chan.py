@@ -49,7 +49,7 @@ symbols = [
 
 def strategy(code, global_profit):
     data_src_type = DATA_SRC.FOREX_ONLINE
-    bottom_kl_type = KL_TYPE.K_1M
+    bottom_kl_type = KL_TYPE.K_3M
     top_kl_type = KL_TYPE.K_30M
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -70,6 +70,7 @@ def strategy(code, global_profit):
         "max_bsp2s_lv": None,
         "strict_bsp3": True,
     })
+    begin_date = datetime.datetime(year=2021, month=1, day=1, hour=1, minute=0, second=0)
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
     end_date -= end_date % period_seconds[top_kl_type]
@@ -81,7 +82,7 @@ def strategy(code, global_profit):
         data_src=data_src_type,
         lv_list=[top_kl_type, bottom_kl_type],
         config=config,
-        begin_time=None,
+        begin_time=begin_date,
         end_time=end_date
     )
 

@@ -65,7 +65,7 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
     is_connect = None
 
     def __init__(self, code, k_type, begin_date=None, end_date=None, autype=None):
-        super(CMT5ForexOnlineAPI, self).__init__(code, k_type, begin_date, end_date)
+
         # 建立MetaTrader 5到指定交易账户的连接
         if not reconnect_mt5():
             print("initialize() failed")
@@ -76,9 +76,13 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         print(mt5.terminal_info())
         # get data on MetaTrader 5 version
         print(mt5.version())
-        end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
-        start_date = end_date - datetime.timedelta(days=365)
-        self.iterator = CandleIterator(code, k_type, start_date)
+
+        if begin_date is None:
+            begin_date = end_date - datetime.timedelta(days=10)
+        if end_date is None:
+            end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
+        self.iterator = CandleIterator(code, k_type, begin_date)
+        super(CMT5ForexOnlineAPI, self).__init__(code, k_type, begin_date, end_date)
 
     def get_kl_data(self):
         fields = "time,open,high,low,close,volume"

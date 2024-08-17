@@ -33,13 +33,13 @@ def asynchronous(f):
 
 
 plot_config = {
-    "plot_kline": True,
+    "plot_kline": False,
     "plot_kline_combine": False,
     "plot_bi": True,
     "plot_seg": True,
     "plot_eigen": False,
     "plot_zs": True,
-    "plot_macd": True,
+    "plot_macd": False,
     "plot_mean": False,
     "plot_channel": False,
     "plot_bsp": True,
@@ -51,30 +51,33 @@ plot_config = {
 }
 
 plot_para = {
+    "figure": {
+        "w": 224 / 100,
+        "h": 224 / 100,
+        "x_range": 400,
+    },
     "seg": {
-        # "plot_trendline": True,
         "disp_end": False,
-        "end_fontsize": 12
+        "end_fontsize": 15,
+        "width": 1
     },
     "bi": {
         "show_num": False,
         "disp_end": False,
-        "end_fontsize": 12
+        "end_fontsize": 15,
     },
     "zs": {
-        "fontsize": 12
+        "fontsize": 15,
     },
     "bsp": {
-        "fontsize": 16
+        "fontsize": 20
     },
     "segseg": {
-        "end_fontsize": 12
+        "end_fontsize": 15,
+        "width": 1
     },
     "seg_bsp": {
-        "fontsize": 16
-    },
-    "figure": {
-        "x_range": 400,
+        "fontsize": 20
     },
     "marker": {
         # "markers": {  # text, position, color
