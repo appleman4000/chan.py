@@ -15,9 +15,9 @@ from Plot.PlotDriver import CPlotDriver
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
     "skip_step": 500,
-    "divergence_rate": 0.9,
+    "divergence_rate": float("inf"),
     "min_zs_cnt": 1,
-    "macd_algo": "peak",
+    "macd_algo": "slope",
     "kl_data_check": False,
     "bs_type": "1,1p,2,2s,3a,3b",
 })
@@ -151,7 +151,7 @@ if __name__ == "__main__":
             if BSP_TYPE.T2 not in last_bsp.type and BSP_TYPE.T2S not in last_bsp.type:  # 假如只做2类买卖点
                 continue
             cur_lv_chan = chan_snapshot[0]
-            if last_bsp.klu.klc.idx != cur_lv_chan[-2].idx:
+            if last_bsp.klu.klc.idx != cur_lv_chan[-1].idx:
                 continue
             str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
             file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径

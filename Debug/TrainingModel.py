@@ -1,9 +1,10 @@
 # cython: language_level=3
 # encoding:utf-8
-import csv
-import os
 
+import os
 os.environ['KERAS_BACKEND'] = 'torch'
+import csv
+from transformers import  FlaxViTPreTrainedModel
 
 import keras
 import numpy as np
@@ -51,13 +52,12 @@ else:
     np.save('./images.npy', images)
     np.save('./labels.npy', labels)
 # images = keras.applications.mobilenet_v3.preprocess_input(images, data_format="channels_last")
-X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.3, shuffle=False, random_state=42)
+X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, shuffle=False, random_state=42)
 
 print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
 # 模型构建
-conv_base = keras.applications.MobileNetV3Small(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-
+conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 model = Sequential()
 model.add(conv_base)
 model.add(keras.layers.GlobalAveragePooling2D())
@@ -70,8 +70,8 @@ conv_base.trainable = False
 
 # 编译模型
 model.compile(loss=keras.losses.BinaryCrossentropy(),
-              optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.001),
-              metrics=['accuracy'])
+              optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.0005),
+              metrics=[keras.metrics.AUC(name='auc')])
 #
 class_weights = class_weight.compute_class_weight(
     "balanced", classes=np.unique(labels), y=labels
@@ -82,20 +82,21 @@ class_weight = {
 }
 print(f"class_weight:{class_weight}")
 early_stopping = keras.callbacks.EarlyStopping(
-    monitor='val_accuracy',  # Monitor the validation AUC
+    monitor='val_auc',  # Monitor the validation AUC
     mode='max',  # Stop when the AUC is maximized
-    patience=20,  # Number of epochs with no improvement after which training will be stopped
+    patience=50,  # Number of epochs with no improvement after which training will be stopped
     restore_best_weights=True  # Restore the model weights from the epoch with the best AUC
 )
 
 # 训练模型
-history = model.fit(
+model.fit(
     X_train,
     y_train,
     class_weight=class_weight,
     epochs=100,
     verbose=2,
-    batch_size=64,
+    batch_size=32,
     validation_data=(X_val, y_val),
     callbacks=[early_stopping])
-model.save("./model.h5")
+
+model.save("./model.keras")
