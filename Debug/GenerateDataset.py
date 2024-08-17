@@ -9,27 +9,17 @@ from matplotlib import pyplot as plt
 from Chan import CChan
 from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
+from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Plot.PlotDriver import CPlotDriver
 
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
     "skip_step": 500,
-    "divergence_rate": float("inf"),
+    "divergence_rate": 0.9,
     "min_zs_cnt": 1,
-    "macd_algo": "slope",
+    "macd_algo": "peak",
     "kl_data_check": False,
-    "bi_end_is_peak": True,
-    "bsp1_only_multibi_zs": True,
-    "max_bs2_rate": 0.999,
-    "bs1_peak": True,
     "bs_type": "1,1p,2,2s,3a,3b",
-    "bsp2_follow_1": True,
-    "bsp3_follow_1": True,
-    "bsp3_peak": True,
-    "bsp2s_follow_2": True,
-    "max_bsp2s_lv": None,
-    "strict_bsp3": True,
 })
 plot_config = {
     "plot_kline": False,
@@ -134,9 +124,8 @@ if __name__ == "__main__":
         begin_time = "2010-01-01 00:00:00"
         end_time = "2021-01-01 00:00:00"
         data_src = DATA_SRC.FOREX
-        # bottom_kl_type = KL_TYPE.K_3M
-        top_kl_type = KL_TYPE.K_30M
-        lv_list = [top_kl_type]
+        kl_type = KL_TYPE.K_30M
+        lv_list = [kl_type]
 
         chan = CChan(
             code=code,
@@ -154,45 +143,48 @@ if __name__ == "__main__":
         # 跑策略，保存买卖点的特征
         for chan_snapshot in chan.step_load():
 
-            top_lv_chan = chan_snapshot[0]
-            top_bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
-            if not top_bsp_list:
+            lv_chan = chan_snapshot[0]
+            bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
+            if not bsp_list:
                 continue
-            top_last_bsp = top_bsp_list[-1]
-            top_entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
-            if top_entry_rule and (top_last_bsp.is_buy or not top_last_bsp.is_buy):
-                str_date = top_lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-                file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
+            last_bsp = bsp_list[-1]
+            if BSP_TYPE.T2 not in last_bsp.type and BSP_TYPE.T2S not in last_bsp.type:  # 假如只做2类买卖点
+                continue
+            cur_lv_chan = chan_snapshot[0]
+            if last_bsp.klu.klc.idx != cur_lv_chan[-2].idx:
+                continue
+            str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+            file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
 
-                if not os.path.exists(file_path):
-                    matplotlib.use('Agg')
-                    g = CPlotDriver(chan, plot_config, plot_para)
-                    # 移除标题
-                    for ax in g.figure.axes:
-                        ax.set_title("", loc="left")
-                        # 移除 x 轴和 y 轴标签
-                        ax.set_xlabel('')
-                        ax.set_ylabel('')
+            if not os.path.exists(file_path):
+                matplotlib.use('Agg')
+                g = CPlotDriver(chan, plot_config, plot_para)
+                # 移除标题
+                for ax in g.figure.axes:
+                    ax.set_title("", loc="left")
+                    # 移除 x 轴和 y 轴标签
+                    ax.set_xlabel('')
+                    ax.set_ylabel('')
 
-                        # 移除 x 轴和 y 轴的刻度标签
-                        ax.set_xticks([])
-                        ax.set_yticks([])
+                    # 移除 x 轴和 y 轴的刻度标签
+                    ax.set_xticks([])
+                    ax.set_yticks([])
 
-                        ax.spines['top'].set_visible(False)
-                        ax.spines['right'].set_visible(False)
-                        ax.spines['left'].set_visible(False)
-                        ax.spines['bottom'].set_visible(False)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['right'].set_visible(False)
+                    ax.spines['left'].set_visible(False)
+                    ax.spines['bottom'].set_visible(False)
 
-                    g.figure.tight_layout()
-                    g.figure.savefig(file_path, format='png', bbox_inches='tight', pad_inches=0.1)
-                    plt.close(g.figure)
+                g.figure.tight_layout()
+                g.figure.savefig(file_path, format='png', bbox_inches='tight', pad_inches=0.1)
+                plt.close(g.figure)
 
-                bsp_dict[top_last_bsp.klu.idx] = {
-                    "feature": file_path,
-                    "is_buy": top_last_bsp.is_buy,
-                    "close": top_lv_chan[-1][-1].close
-                }
-                print(top_last_bsp.klu.time, top_last_bsp.is_buy)
+            bsp_dict[last_bsp.klu.idx] = {
+                "feature": file_path,
+                "is_buy": last_bsp.is_buy,
+                "close": lv_chan[-1][-1].close
+            }
+            print(last_bsp.klu.time, last_bsp.is_buy)
         closes = []
         filepaths = []
         is_buys = []
