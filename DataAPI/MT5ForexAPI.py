@@ -6,79 +6,10 @@ import MetaTrader5 as mt5
 import baostock as bs
 import pandas as pd
 
-from Common.CEnum import DATA_FIELD, KL_TYPE
-from Common.CTime import CTime
-from Common.func_util import str2float
+from CommonTools import period_mt5_map, period_seconds, period_name, create_item_dict, GetColumnNameFromFieldList, \
+    server_timezone, local_timezone
 from DataAPI.CommonForexAPI import CCommonForexApi
 from KLine.KLine_Unit import CKLine_Unit
-
-
-def create_item_dict(data, column_name):
-    for i in range(len(data)):
-        data[i] = parse_time_column(data[i]) if i == 0 else str2float(data[i])
-    return dict(zip(column_name, data))
-
-
-def parse_time_column(inp):
-    # 20210902113000000
-    # 2021-09-13
-    if len(inp) == 10:
-        year = int(inp[:4])
-        month = int(inp[5:7])
-        day = int(inp[8:10])
-        hour = minute = 0
-    elif len(inp) == 17:
-        year = int(inp[:4])
-        month = int(inp[4:6])
-        day = int(inp[6:8])
-        hour = int(inp[8:10])
-        minute = int(inp[10:12])
-    elif len(inp) == 19:
-        year = int(inp[:4])
-        month = int(inp[5:7])
-        day = int(inp[8:10])
-        hour = int(inp[11:13])
-        minute = int(inp[14:16])
-    else:
-        raise Exception(f"unknown time column from mt5:{inp}")
-    return CTime(year=year, month=month, day=day, hour=hour, minute=minute, second=0, auto=False)
-
-
-def GetColumnNameFromFieldList(fileds: str):
-    _dict = {
-        "time": DATA_FIELD.FIELD_TIME,
-        "open": DATA_FIELD.FIELD_OPEN,
-        "high": DATA_FIELD.FIELD_HIGH,
-        "low": DATA_FIELD.FIELD_LOW,
-        "close": DATA_FIELD.FIELD_CLOSE,
-        "volume": DATA_FIELD.FIELD_VOLUME,
-    }
-    return [_dict[x] for x in fileds.split(",")]
-
-
-timeframe_seconds = {
-    mt5.TIMEFRAME_M1: 60,
-    mt5.TIMEFRAME_M2: 120,
-    mt5.TIMEFRAME_M3: 180,
-    mt5.TIMEFRAME_M4: 240,
-    mt5.TIMEFRAME_M5: 300,
-    mt5.TIMEFRAME_M6: 360,
-    mt5.TIMEFRAME_M10: 600,
-    mt5.TIMEFRAME_M12: 720,
-    mt5.TIMEFRAME_M15: 900,
-    mt5.TIMEFRAME_M20: 1200,
-    mt5.TIMEFRAME_M30: 1800,
-    mt5.TIMEFRAME_H1: 3600,
-    mt5.TIMEFRAME_H2: 7200,
-    mt5.TIMEFRAME_H3: 10800,
-    mt5.TIMEFRAME_H4: 14400,
-    mt5.TIMEFRAME_H6: 21600,
-    mt5.TIMEFRAME_H8: 28800,
-    mt5.TIMEFRAME_H12: 43200,
-    mt5.TIMEFRAME_D1: 86400,
-    mt5.TIMEFRAME_W1: 604800,
-    mt5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
-}
 
 
 class CMT5ForexAPI(CCommonForexApi):
@@ -99,28 +30,6 @@ class CMT5ForexAPI(CCommonForexApi):
         print(mt5.version())
 
     def get_kl_data(self):
-        if self.k_type == KL_TYPE.K_1M:
-            timeframe = mt5.TIMEFRAME_M1
-        elif self.k_type == KL_TYPE.K_3M:
-            timeframe = mt5.TIMEFRAME_M3
-        elif self.k_type == KL_TYPE.K_5M:
-            timeframe = mt5.TIMEFRAME_M5
-        elif self.k_type == KL_TYPE.K_10M:
-            timeframe = mt5.TIMEFRAME_M10
-        elif self.k_type == KL_TYPE.K_15M:
-            timeframe = mt5.TIMEFRAME_M15
-        elif self.k_type == KL_TYPE.K_30M:
-            timeframe = mt5.TIMEFRAME_M30
-        elif self.k_type == KL_TYPE.K_1H:
-            timeframe = mt5.TIMEFRAME_H1
-        elif self.k_type == KL_TYPE.K_2H:
-            timeframe = mt5.TIMEFRAME_H2
-        elif self.k_type == KL_TYPE.K_4H:
-            timeframe = mt5.TIMEFRAME_H4
-        elif self.k_type == KL_TYPE.K_DAY:
-            timeframe = mt5.TIMEFRAME_D1
-        else:
-            raise Exception("不支持的时间框")
         local_time_format = '%Y-%m-%d %H:%M:%S'
 
         # 解析时间字符串为datetime对象
@@ -128,13 +37,13 @@ class CMT5ForexAPI(CCommonForexApi):
         end_date = datetime.datetime.strptime(self.end_date, local_time_format)
         end_date = end_date + datetime.timedelta(hours=2)
 
-        bars = mt5.copy_rates_range(self.code, timeframe, begin_date, end_date)
+        bars = mt5.copy_rates_range(self.code, period_mt5_map[self.k_type], begin_date, end_date)
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
-        bars['time'] = bars['time'] + datetime.timedelta(seconds=timeframe_seconds[timeframe])
-        bars['time'] = bars['time'].dt.tz_localize('Europe/Zurich')
-        bars['time'] = bars['time'].dt.tz_convert("Asia/Shanghai")
+        bars['time'] = bars['time'] + datetime.timedelta(seconds=period_seconds[self.k_type])
+        bars['time'] = bars['time'].dt.tz_localize(server_timezone)
+        bars['time'] = bars['time'].dt.tz_convert(local_timezone)
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"
@@ -165,17 +74,4 @@ class CMT5ForexAPI(CCommonForexApi):
             cls.is_connect = None
 
     def __convert_type(self):
-        _dict = {
-            KL_TYPE.K_DAY: 'd',
-            KL_TYPE.K_WEEK: 'w',
-            KL_TYPE.K_MON: 'm',
-            KL_TYPE.K_1M: '1',
-            KL_TYPE.K_5M: '5',
-            KL_TYPE.K_10M: '10',
-            KL_TYPE.K_15M: '15',
-            KL_TYPE.K_30M: '30',
-            KL_TYPE.K_1H: '60',
-            KL_TYPE.K_2H: '120',
-            KL_TYPE.K_4H: '240',
-        }
-        return _dict[self.k_type]
+        return period_name[self.k_type]

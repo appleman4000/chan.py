@@ -1,16 +1,16 @@
 # cython: language_level=3
+# encoding:utf-8
 import datetime
 import sys
 from multiprocessing import Process
 from multiprocessing import Value
 
-import MetaTrader5 as mt5
 import numpy as np
-import pytz
 
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE
+from CommonTools import period_seconds, shanghai_to_zurich_datetime
 from Messenger import send_message
 
 sys.setrecursionlimit(1000000)
@@ -45,113 +45,12 @@ symbols = [
     # "XAUUSD",
     # "XAGUSD",
 ]
-period_map = {
-    mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
-    mt5.TIMEFRAME_M3: KL_TYPE.K_3M,
-    mt5.TIMEFRAME_M5: KL_TYPE.K_5M,
-    mt5.TIMEFRAME_M10: KL_TYPE.K_10M,
-    mt5.TIMEFRAME_M15: KL_TYPE.K_15M,
-    mt5.TIMEFRAME_M30: KL_TYPE.K_30M,
-    mt5.TIMEFRAME_H1: KL_TYPE.K_1H,
-    mt5.TIMEFRAME_H2: KL_TYPE.K_2H,
-    mt5.TIMEFRAME_H4: KL_TYPE.K_4H,
-    mt5.TIMEFRAME_D1: KL_TYPE.K_DAY,
-
-}
-timeframe_seconds = {
-    mt5.TIMEFRAME_M1: 60,
-    mt5.TIMEFRAME_M2: 120,
-    mt5.TIMEFRAME_M3: 180,
-    mt5.TIMEFRAME_M4: 240,
-    mt5.TIMEFRAME_M5: 300,
-    mt5.TIMEFRAME_M6: 360,
-    mt5.TIMEFRAME_M10: 600,
-    mt5.TIMEFRAME_M12: 720,
-    mt5.TIMEFRAME_M15: 900,
-    mt5.TIMEFRAME_M20: 1200,
-    mt5.TIMEFRAME_M30: 1800,
-    mt5.TIMEFRAME_H1: 3600,
-    mt5.TIMEFRAME_H2: 7200,
-    mt5.TIMEFRAME_H3: 10800,
-    mt5.TIMEFRAME_H4: 14400,
-    mt5.TIMEFRAME_H6: 21600,
-    mt5.TIMEFRAME_H8: 28800,
-    mt5.TIMEFRAME_H12: 43200,
-    mt5.TIMEFRAME_D1: 86400,
-    mt5.TIMEFRAME_W1: 604800,
-    mt5.TIMEFRAME_MN1: 2592000  # 大约的月时间秒数，具体月的秒数会有所不同
-}
-
-
-def period_seconds(period):
-    return timeframe_seconds[period]
-
-
-def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
-    positions = mt5.positions_get(symbol=symbol)
-    if positions:
-        print(f"Currency pair {symbol} has open positions.")
-        return
-    symbol_info = mt5.symbol_info(symbol)
-    if symbol_info is None:
-        print(symbol, "not found, can not call order_check()")
-        return
-    # if the symbol is unavailable in MarketWatch, add it
-    if not symbol_info.visible:
-        print(symbol, "is not visible, trying to switch on")
-        if not mt5.symbol_select(symbol, True):
-            print("symbol_select({}}) failed, exit", symbol)
-            return
-    for tries in range(10):
-        point = mt5.symbol_info(symbol).point
-        price = mt5.symbol_info_tick(symbol).ask if is_buy else mt5.symbol_info_tick(symbol).bid
-        tp = round(price * 0.003 / point)
-        sl = round(price * 0.003 / point)
-        deviation = 30
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": lot,
-            "type": mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL,
-            "price": price,
-            "sl": price - sl * point if is_buy else price + sl * point,
-            "tp": price + tp * point if is_buy else price - tp * point,
-            "deviation": deviation,
-            "magic": 234000,
-            "comment": comment,
-            "type_time": mt5.ORDER_TIME_DAY,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-        # send a trading request
-        result = mt5.order_send(request)
-        if result is None:
-            return
-        if result.retcode != mt5.TRADE_RETCODE_REQUOTE and result.retcode != mt5.TRADE_RETCODE_PRICE_OFF:
-            if is_buy:
-                print(f"{symbol} buy order placed successfully")
-            else:
-                print(f"{symbol} sell order placed successfully")
-            break
-
-
-def shanghai_to_zurich_datetime(timestamp):
-    zurich_tz = pytz.timezone('Europe/Zurich')
-    shanghai_tz = pytz.timezone('Asia/Shanghai')
-    timestamp = shanghai_tz.localize(datetime.datetime.fromtimestamp(timestamp))
-
-    # 将时间戳转换到 'Asia/Shanghai' 时区
-    zurich_time = timestamp.astimezone(zurich_tz)
-
-    # 格式化时间
-    formatted_time = zurich_time.strftime('%Y-%m-%d %H:%M')
-
-    return formatted_time
 
 
 def strategy(code, global_profit):
     data_src_type = DATA_SRC.FOREX_ONLINE
-    bottom_kl_type = mt5.TIMEFRAME_M1
-    top_kl_type = mt5.TIMEFRAME_M30
+    bottom_kl_type = KL_TYPE.K_1M
+    top_kl_type = KL_TYPE.K_30M
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
@@ -173,14 +72,14 @@ def strategy(code, global_profit):
     })
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
-    end_date -= end_date % timeframe_seconds[top_kl_type]
-    end_date -= timeframe_seconds[top_kl_type]
+    end_date -= end_date % period_seconds[top_kl_type]
+    end_date -= period_seconds[top_kl_type]
     end_date = datetime.datetime.fromtimestamp(end_date)
     # 快照
     chan = CChan(
         code=code,
         data_src=data_src_type,
-        lv_list=[period_map[top_kl_type], period_map[bottom_kl_type]],
+        lv_list=[top_kl_type, bottom_kl_type],
         config=config,
         begin_time=None,
         end_time=end_date
@@ -247,11 +146,11 @@ def strategy(code, global_profit):
         if long_order == 0 and short_order == 0:
             if top_entry_rule and botton_entry_rule and top_last_bsp.is_buy and bottom_last_bsp.is_buy:
                 long_order = round(bottom_lv_chan[-1][-1].close * fee, 5)
-                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy long price = {long_order[-1]}')
+                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if top_entry_rule and botton_entry_rule and not top_last_bsp.is_buy and not bottom_last_bsp.is_buy:
                 short_order = round(bottom_lv_chan[-1][-1].close / fee, 5)
-                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy short price = {short_order[-1]}')
+                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
         if top_entry_rule and botton_entry_rule and (top_last_bsp.is_buy and bottom_last_bsp.is_buy or (
                 not top_last_bsp.is_buy and not bottom_last_bsp.is_buy)):

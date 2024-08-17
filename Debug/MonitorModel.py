@@ -118,10 +118,6 @@ def shanghai_to_zurich_datetime(timestamp):
     return formatted_time
 
 
-def period_seconds(period):
-    return timeframe_seconds[period]
-
-
 def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
     symbol_info = mt5.symbol_info(symbol)
     if symbol_info is None:
@@ -208,7 +204,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
             if outputs > 0.7:
                 price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
                 subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {' '.join([t.name for t in last_bsp.type])} {'买点' if last_bsp.is_buy else '卖点'} {price}"
-                message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
+                message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds[period]).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
                 send_message(subject, message, [chans[symbol + str(p)] for p in periods])
                 comment = f"{last_bsp.klu.time.to_str()} {' '.join([t.name for t in last_bsp.type])}"
                 robot_trade(symbol, 0.01, last_bsp.is_buy, comment)
@@ -264,8 +260,8 @@ def init_chan():
                 bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
                 on_bar(symbol, period, bar, enable_send_message=False)
             next_bar_open[symbol + str(period)] = last_bar_time
-            next_bar_open[symbol + str(period)] -= next_bar_open[symbol + str(period)] % period_seconds(period)
-            next_bar_open[symbol + str(period)] += period_seconds(period)
+            next_bar_open[symbol + str(period)] -= next_bar_open[symbol + str(period)] % period_seconds[period]
+            next_bar_open[symbol + str(period)] += period_seconds[period]
 
 
 def initialize_mt5():

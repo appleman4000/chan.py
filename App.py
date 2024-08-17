@@ -8,41 +8,20 @@ import streamlit as st
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE
+from Common.CEnum import DATA_SRC, AUTYPE
+from CommonTools import period_name, period_seconds
 from Plot.AnimatePlotDriver import CAnimateDriver
 from Plot.PlotDriver import CPlotDriver
 
 sys.setrecursionlimit(10000)
-# 时间周期映射
-time_frame_mapping = {
-    '1分钟': KL_TYPE.K_1M,
-    '5分钟': KL_TYPE.K_5M,
-    '10分钟': KL_TYPE.K_10M,
-    '15分钟': KL_TYPE.K_15M,
-    '30分钟': KL_TYPE.K_30M,
-    '1小时': KL_TYPE.K_1H,
-    '4小时': KL_TYPE.K_4H,
-    '1天': KL_TYPE.K_DAY
-}
-time_frame_type = ['1分钟', '5分钟', '10分钟', '15分钟', '30分钟', '1小时', '4小时', '1天']
-timeframe_seconds = {
-    '1分钟': 60,
-    '5分钟': 300,
-    '10分钟': 600,
-    '15分钟': 900,
-    '30分钟': 1800,
-    '1小时': 3600,
-    '4小时': 14400,
-    '1天': 86400,
-}
 
 
-def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time_frames=[], trigger_step=False):
+def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", lv_list=[], trigger_step=False):
     print(code)
     print(begin_time)
     print(end_time)
     print(market_type)
-    print(time_frames)
+    print(lv_list)
     print(trigger_step)
     if market_type == "外汇/贵金属/CFD":
         data_src = DATA_SRC.FOREX
@@ -53,9 +32,9 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
     else:
         data_src = None
 
-    lv_list = [time_frame_mapping[time_frame] for time_frame in time_frames]
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
+        "kl_data_check": False,
         "bi_strict": True,
         "skip_step": 500,
         "divergence_rate": 1.0,
@@ -198,8 +177,9 @@ if __name__ == "__main__":
             code = st.text_input("基金代码", value="513100")
         elif market_type == "外汇/贵金属/CFD":
             code = st.text_input("交易品种", value="EURUSD")
-        time_frames = st.multiselect('时间周期', time_frame_type, default=['1天'])
-        time_frames = sorted(time_frames, key=lambda i: time_frame_type[::-1].index(i))
+        lv_names = st.multiselect('时间周期', period_name.values(), default=['1天'])
+        lv_list = [key for key in period_name.keys() if period_name[key] in lv_names]
+        lv_list = sorted(lv_list, key=lambda i: lv_list[::-1].index(i))
         query = st.button("开始分析", use_container_width=True)
         if query:
             st.balloons()
@@ -208,10 +188,10 @@ if __name__ == "__main__":
                     # 获取当前日期
                     end_time = datetime.datetime.now()
                     # 计算200天前的日期
-                    seconds = timeframe_seconds[time_frames[0]]
+                    seconds = period_seconds[lv_list[0]]
                     begin_time = end_time - datetime.timedelta(seconds=seconds * 500)
                     begin_time = begin_time.strftime("%Y-%m-%d %H:%M:%S")
                     end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
 
                 run_chanlun(code=code, begin_time=begin_time, end_time=end_time, market_type=market_type,
-                            time_frames=time_frames, trigger_step=mode == "历史复盘")
+                            lv_list=lv_list, trigger_step=mode == "历史复盘")
