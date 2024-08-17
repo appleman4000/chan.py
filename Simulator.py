@@ -97,9 +97,9 @@ def strategy(code, global_profit):
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
-        "divergence_rate": 0.9,
+        "divergence_rate": float("inf"),
         "min_zs_cnt": 1,
-        "macd_algo": "peak",
+        "macd_algo": "slope",
         "kl_data_check": False,
         "bs_type": "1,1p,2,2s,3a,3b",
     })
@@ -184,7 +184,6 @@ def strategy(code, global_profit):
     short_order = 0
     history_long_orders = 0
     history_short_orders = 0
-    input_shape = (224, 224, 3)
     model = keras.saving.load_model("./Debug/model.keras")
     for chan_snapshot in chan.step_load():
 
@@ -235,13 +234,13 @@ def strategy(code, global_profit):
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value > 0.6:
+                if value > 0.55:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value < 0.4:
+                if value < 0.45:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号

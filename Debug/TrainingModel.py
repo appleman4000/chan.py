@@ -2,9 +2,9 @@
 # encoding:utf-8
 
 import os
+
 os.environ['KERAS_BACKEND'] = 'torch'
 import csv
-from transformers import  FlaxViTPreTrainedModel
 
 import keras
 import numpy as np
@@ -57,11 +57,11 @@ X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2,
 print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
 # 模型构建
-conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+conv_base = keras.applications.ConvNeXtLarge(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 model = Sequential()
 model.add(conv_base)
 model.add(keras.layers.GlobalAveragePooling2D())
-model.add(keras.layers.Dense(128, activation='relu'))
+model.add(keras.layers.Dense(256, activation='relu', kernel_regularizer=keras.regularizers.l2(0.001)))
 model.add(keras.layers.Dropout(0.5))
 model.add(keras.layers.Dense(1, activation='sigmoid'))
 
@@ -70,7 +70,7 @@ conv_base.trainable = False
 
 # 编译模型
 model.compile(loss=keras.losses.BinaryCrossentropy(),
-              optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.0005),
+              optimizer=keras.optimizers.Adam(learning_rate=1e-3),
               metrics=[keras.metrics.AUC(name='auc')])
 #
 class_weights = class_weight.compute_class_weight(
@@ -95,7 +95,7 @@ model.fit(
     class_weight=class_weight,
     epochs=100,
     verbose=2,
-    batch_size=32,
+    batch_size=16,
     validation_data=(X_val, y_val),
     callbacks=[early_stopping])
 
