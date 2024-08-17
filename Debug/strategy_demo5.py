@@ -53,7 +53,7 @@ def plot(chan, plot_marker):
         plot_config=plot_config,
         plot_para=plot_para,
     )
-    plot_driver.save2img("label.png")
+    plot_driver.save2img("label.png0")
 
 
 alpha = 0.25

@@ -10,7 +10,6 @@ import numpy as np
 from sklearn.utils import class_weight
 
 from keras import Sequential
-from keras.src.layers import Dense
 from PIL import Image
 from sklearn.model_selection import train_test_split
 
@@ -61,18 +60,19 @@ conv_base = keras.applications.MobileNetV3Small(weights='imagenet', include_top=
 
 model = Sequential()
 model.add(conv_base)
-model.add(keras.layers.GlobalMaxPooling2D())
-model.add(Dense(128, activation='relu'))
-model.add(Dense(1, activation='sigmoid'))
+model.add(keras.layers.GlobalAveragePooling2D())
+model.add(keras.layers.Dense(128, activation='relu'))
+model.add(keras.layers.Dropout(0.5))
+model.add(keras.layers.Dense(1, activation='sigmoid'))
 
 # 冻结卷积基
 conv_base.trainable = False
 
 # 编译模型
-model.compile(loss=keras.losses.BinaryFocalCrossentropy(),
+model.compile(loss=keras.losses.BinaryCrossentropy(),
               optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.001),
-              metrics=[keras.metrics.AUC(name='auc')])
-
+              metrics=['accuracy'])
+#
 class_weights = class_weight.compute_class_weight(
     "balanced", classes=np.unique(labels), y=labels
 )
@@ -82,7 +82,7 @@ class_weight = {
 }
 print(f"class_weight:{class_weight}")
 early_stopping = keras.callbacks.EarlyStopping(
-    monitor='val_auc',  # Monitor the validation AUC
+    monitor='val_accuracy',  # Monitor the validation AUC
     mode='max',  # Stop when the AUC is maximized
     patience=20,  # Number of epochs with no improvement after which training will be stopped
     restore_best_weights=True  # Restore the model weights from the epoch with the best AUC

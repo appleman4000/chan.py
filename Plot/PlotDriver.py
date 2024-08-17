@@ -342,7 +342,7 @@ class CPlotDriver:
                     (klc_meta.begin_idx - width, klc_meta.low),
                     klc_meta.end_idx - klc_meta.begin_idx + width * 2,
                     klc_meta.high - klc_meta.low,
-                    fill=False,
+                    fill=True,
                     color=color_type[klc_meta.type]))
 
     def draw_bi(

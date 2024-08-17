@@ -33,9 +33,9 @@ config = CChanConfig({
 })
 plot_config = {
     "plot_kline": False,
-    "plot_kline_combine": False,
+    "plot_kline_combine": True,
     "plot_bi": True,
-    "plot_seg": True,
+    "plot_seg": False,
     "plot_eigen": False,
     "plot_zs": True,
     "plot_macd": False,
@@ -51,15 +51,15 @@ plot_config = {
 
 plot_para = {
     "figure": {
-        "w": 224 / 100,
-        "h": 224 / 100,
-        "x_range": 400,
+        "w": 224 / 50,
+        "h": 224 / 50,
+        "x_range": 90,
     },
     "seg": {
         # "plot_trendline": True,
         "disp_end": False,
         "end_fontsize": 15,
-        "width": 1
+        "width": 0.5
     },
     "bi": {
         "show_num": False,
@@ -74,7 +74,7 @@ plot_para = {
     },
     "segseg": {
         "end_fontsize": 15,
-        "width": 1
+        "width": 0.5
     },
     "seg_bsp": {
         "fontsize": 20
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         )
 
         bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-        source_dir = './png'
+        source_dir = 'png'
         os.makedirs(source_dir, exist_ok=True)
         # 跑策略，保存买卖点的特征
         for chan_snapshot in chan.step_load():
@@ -178,13 +178,13 @@ if __name__ == "__main__":
                         ax.set_xticks([])
                         ax.set_yticks([])
 
-                        # 移除 x 轴和 y 轴的刻度线
-                        ax.tick_params(axis='both', which='both', length=0)
+                        ax.spines['top'].set_visible(False)
+                        ax.spines['right'].set_visible(False)
+                        ax.spines['left'].set_visible(False)
+                        ax.spines['bottom'].set_visible(False)
 
-                        # 移除网格线
-                        ax.grid(False)
                     g.figure.tight_layout()
-                    g.figure.savefig(file_path, format='png')
+                    g.figure.savefig(file_path, format='png', bbox_inches='tight', pad_inches=0.1)
                     plt.close(g.figure)
 
                 bsp_dict[top_last_bsp.klu.idx] = {
@@ -205,10 +205,10 @@ if __name__ == "__main__":
             label = 0
             j = 0
             while True and i + 1 + j < len(closes):
-                if closes[i + 1 + j] / price - 1 >= 0.003:
+                if closes[i + 1 + j] / price - 1 >= 0.004:
                     label = 1
                     break
-                if closes[i + 1 + j] / price - 1 <= -0.003:
+                if closes[i + 1 + j] / price - 1 <= -0.004:
                     label = 0
                     break
                 j += 1

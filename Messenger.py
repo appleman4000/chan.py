@@ -149,7 +149,7 @@ def send_wchat_message(subject, message, image_file):
     app = Sender(corpid, corpsecret, agentid)
     bytes_data = image_file.getvalue()
     # 将字节数据写入到文件中
-    file_path = './upload_file.png'  # 输出文件的路径
+    file_path = './upload_file.png0'  # 输出文件的路径
     with open(file_path, 'wb') as f:
         f.write(bytes_data)
     image_url = app.upload_image(file_path, enable=False)
@@ -202,7 +202,7 @@ def send_mail(to_emails, subject, message, chans):
             g = CPlotDriver(chan, plot_config, plot_para)
             buf = io.BytesIO()
 
-            g.figure.savefig(buf, format='png')
+            g.figure.savefig(buf, format='png0')
             plt.close(g.figure)
             buf.seek(0)
             image_bytes_list.append(buf.getvalue())
@@ -265,7 +265,7 @@ def send_message(app_id, app_secret, webhook_url, subject, message, chans):
             ax.grid(False)
         g.figure.tight_layout()
         buf = io.BytesIO()
-        g.figure.savefig(buf, format='png')
+        g.figure.savefig(buf, format='png0')
         plt.close(g.figure)
         buf.seek(0)
         image_bytes_list.append(buf.getvalue())
