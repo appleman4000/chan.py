@@ -2,8 +2,7 @@
 import datetime
 import sys
 from multiprocessing import Process
-from threading import Thread
-from typing import List
+from multiprocessing import Value
 
 import MetaTrader5 as mt5
 import numpy as np
@@ -11,11 +10,13 @@ import pytz
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_FIELD, DATA_SRC, KL_TYPE
-from KLine.KLine_Unit import CKLine_Unit
+from Common.CEnum import DATA_SRC, KL_TYPE
+from Messenger import send_message
 
-global_profit = 0
 sys.setrecursionlimit(1000000)
+app_id = 'cli_a63ae160c79d500b'
+app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
+webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/d8ea8601-259b-4f48-a310-1e715909232e'
 symbols = [
     # Major
     "EURUSD",
@@ -41,8 +42,8 @@ symbols = [
     "GBPCHF",
     "GBPJPY",
     "USDCNH",
-    # "XAUUSD",
-    # "XAGUSD",
+    "XAUUSD",
+    "XAGUSD",
 ]
 period_map = {
     mt5.TIMEFRAME_M1: KL_TYPE.K_1M,
@@ -147,22 +148,28 @@ def shanghai_to_zurich_datetime(timestamp):
     return formatted_time
 
 
-def strategy(code):
+def strategy(code, global_profit):
     data_src_type = DATA_SRC.FOREX_ONLINE
-    bottom_kl_type = mt5.TIMEFRAME_M1
-    middle_kl_type = mt5.TIMEFRAME_M5
-    top_kl_type = mt5.TIMEFRAME_M15
+    bottom_kl_type = mt5.TIMEFRAME_M3
+    top_kl_type = mt5.TIMEFRAME_M30
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
-        "divergence_rate": 1.0,
-        "min_zs_cnt": 0,
+        "divergence_rate": float("inf"),
+        "min_zs_cnt": 1,
         "macd_algo": "slope",
         "kl_data_check": False,
         "bi_end_is_peak": True,
+        "bsp1_only_multibi_zs": True,
+        "max_bs2_rate": 0.999,
+        "bs1_peak": True,
+        "bs_type": "1,1p,2,2s,3a,3b",
         "bsp2_follow_1": True,
         "bsp3_follow_1": True,
-        "bs_type": '1,1p,2,2s',
+        "bsp3_peak": True,
+        "bsp2s_follow_2": True,
+        "max_bsp2s_lv": None,
+        "strict_bsp3": True,
     })
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
@@ -173,7 +180,7 @@ def strategy(code):
     chan = CChan(
         code=code,
         data_src=data_src_type,
-        lv_list=[period_map[top_kl_type], period_map[middle_kl_type], period_map[bottom_kl_type]],
+        lv_list=[period_map[top_kl_type], period_map[bottom_kl_type]],
         config=config,
         begin_time=None,
         end_time=end_date
@@ -192,8 +199,7 @@ def strategy(code):
     for id, chan_snapshot in enumerate(chan.step_load()):
 
         top_lv_chan = chan_snapshot[0]
-        middle_lv_chan = chan_snapshot[1]
-        bottom_lv_chan = chan_snapshot[2]
+        bottom_lv_chan = chan_snapshot[1]
         # print(datetime.datetime.now())
         # print(
         #     f"北京时间:{top_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(top_lv_chan[-1][-1].time.ts)}  on_bar {code}")
@@ -210,17 +216,12 @@ def strategy(code):
         if not top_bsp_list:
             continue
         top_last_bsp = top_bsp_list[-1]
-        middle_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
-        if not middle_bsp_list:
-            continue
-        middle_last_bsp = middle_bsp_list[-1]
-        bottom_bsp_list = chan.get_bsp(2)  # 获取买卖点列表
+        bottom_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
         if not bottom_bsp_list:
             continue
         bottom_last_bsp = bottom_bsp_list[-1]
-        entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
-        entry_rule = entry_rule and middle_lv_chan[-1].idx == middle_last_bsp.klu.klc.idx
-        entry_rule = entry_rule and bottom_lv_chan[-1].idx == bottom_last_bsp.klu.klc.idx
+        top_entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
+        botton_entry_rule = bottom_lv_chan[-1].idx == bottom_last_bsp.klu.klc.idx
 
         if len(long_orders) > 0:
             # 止盈
@@ -228,13 +229,13 @@ def strategy(code):
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.002
-                sl = long_profit <= -0.002
-                if tp or sl:
+                tp = long_profit >= 0.01
+                sl = long_profit <= -0.01
+                if top_entry_rule and not top_last_bsp.is_buy and botton_entry_rule and not bottom_last_bsp.is_buy:
                     long_orders.remove(order)
                     profit += round(long_profit * money, 2)
                     print(
-                        f'{bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
+                        f'{code} {bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
                     history_long_orders += 1
 
         if len(short_orders) > 0:
@@ -242,42 +243,63 @@ def strategy(code):
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.002
-                sl = short_profit <= -0.002
-                if tp or sl:
+                tp = short_profit >= 0.01
+                sl = short_profit <= -0.01
+                if top_entry_rule and top_last_bsp.is_buy and botton_entry_rule and bottom_last_bsp.is_buy:
                     short_orders.remove(order)
                     profit += round(short_profit * money, 2)
                     print(
-                        f'{bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
+                        f'{code} {bottom_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
                     history_short_orders += 1
 
         if len(long_orders) == 0 and len(short_orders) == 0:
-            if entry_rule and top_last_bsp.is_buy and middle_last_bsp.is_buy and bottom_last_bsp.is_buy:
+            if top_entry_rule and botton_entry_rule and top_last_bsp.is_buy and bottom_last_bsp.is_buy:
                 long_orders.append(round(bottom_lv_chan[-1][-1].close * fee, 5))
-                print(f'{bottom_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
+                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
+                if len(profits) > 0:
+                    win_rate = len(profits[profits > 0]) / len(profits) * 100
+                    price = f"{bottom_lv_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
+                    subject = f"{code} 胜率: {win_rate:.1f}% {'买点' if top_last_bsp.is_buy else '卖点'} {price}"
+                    message = f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}"
+                else:
+                    price = f"{bottom_lv_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
+                    subject = f"{code} {'买点' if top_last_bsp.is_buy else '卖点'} {price}"
+                    message = f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}"
+                # send_message(app_id, app_secret, webhook_url, subject, message, [chan])
 
         if len(short_orders) == 0 and len(long_orders) == 0:
-            if entry_rule and not top_last_bsp.is_buy and not middle_last_bsp.is_buy and not bottom_last_bsp.is_buy:
+            if top_entry_rule and botton_entry_rule and not top_last_bsp.is_buy and not bottom_last_bsp.is_buy:
                 short_orders.append(round(bottom_lv_chan[-1][-1].close / fee, 5))
-                print(f'{bottom_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
+                print(f'{code} {bottom_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
+                if len(profits) > 0:
+                    win_rate = len(profits[profits > 0]) / len(profits) * 100
+                    price = f"{bottom_lv_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
+                    subject = f"{code} 胜率: {win_rate:.1f}% {'买点' if top_last_bsp.is_buy else '卖点'} {price}"
+                    message = f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}"
+                else:
+                    price = f"{bottom_lv_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
+                    subject = f"{code} {'买点' if top_last_bsp.is_buy else '卖点'} {price}"
+                    message = f"北京时间:{bottom_lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(bottom_lv_chan[-1][-1].time.ts)}"
+                # send_message(app_id, app_secret, webhook_url, subject, message, [chan])
+
         capital += profit
         if profit != 0:
             profits = np.append(profits, profit)
-            global global_profit
-            global_profit += profit
+            with global_profit.get_lock():  # 使用锁来确保操作的原子性
+                global_profit.value += profit
 
             capitals = np.append(capitals, capital)
             print(f"{code} capital:{capital}")
             win_rate = len(profits[profits > 0]) / len(profits) * 100
             print(f"{code} 胜率: {win_rate}")
-            print(f"global_profit:{global_profit}")
+            print(f"global_profit:{global_profit.value}")
 
 
 if __name__ == "__main__":
-
+    global_profit = Value('f', 0)
     processes = []
     for symbol in symbols:
-        process = Process(target=strategy, args=(symbol,))
+        process = Process(target=strategy, args=(symbol, global_profit))
         processes.append(process)
         process.start()
     for process in processes:

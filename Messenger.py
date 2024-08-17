@@ -43,7 +43,7 @@ plot_config = {
     "plot_mean": False,
     "plot_channel": False,
     "plot_bsp": True,
-    "plot_extrainfo": True,
+    "plot_extrainfo": False,
     "plot_demark": False,
     "plot_marker": False,
     "plot_rsi": False,
@@ -53,25 +53,25 @@ plot_config = {
 plot_para = {
     "seg": {
         # "plot_trendline": True,
-        "disp_end": True,
-        "end_fontsize": 15
+        "disp_end": False,
+        "end_fontsize": 12
     },
     "bi": {
-        "show_num": True,
-        "disp_end": True,
-        "end_fontsize": 15
+        "show_num": False,
+        "disp_end": False,
+        "end_fontsize": 12
     },
     "zs": {
-        "fontsize": 15
+        "fontsize": 12
     },
     "bsp": {
-        "fontsize": 20
+        "fontsize": 16
     },
     "segseg": {
-        "end_fontsize": 15
+        "end_fontsize": 12
     },
     "seg_bsp": {
-        "fontsize": 20
+        "fontsize": 16
     },
     "figure": {
         "x_range": 400,
@@ -85,7 +85,7 @@ plot_para = {
 }
 
 
-def send_feishu_message(subject, message, image_file):
+def send_feishu_message(app_id, app_secret, webhook_url, subject, message, image_file):
     def send_card_message(webhook_url, subject, message, image_key):
         headers = {
             "Content-Type": "application/json"
@@ -128,9 +128,6 @@ def send_feishu_message(subject, message, image_file):
         response: CreateImageResponse = client.im.v1.image.create(request)
         return response.data.image_key
 
-    app_id = 'cli_a63ae160c79d500b'
-    app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
-    webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/b5d0499b-4082-4dd3-82a5-70528e548695'
     # 创建client
     client = lark.Client.builder() \
         .app_id(app_id) \
@@ -242,8 +239,8 @@ def send_mail(to_emails, subject, message, chans):
         smtpobj.quit()
 
 
-@asynchronous
-def send_message(subject, message, chans):
+# @asynchronous
+def send_message(app_id, app_secret, webhook_url, subject, message, chans):
     matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
     image_bytes_list = []
     for chan in chans:
@@ -253,10 +250,11 @@ def send_message(subject, message, chans):
         plt.close(g.figure)
         buf.seek(0)
         image_bytes_list.append(buf.getvalue())
-    buf = combine_images_vertically(image_bytes_list)
+    if len(chans) > 0:
+        buf = combine_images_vertically(image_bytes_list)
     # 发送邮件
     try:
-        send_feishu_message(subject, message, buf)
+        send_feishu_message(app_id, app_secret, webhook_url, subject, message, buf)
         print("飞书成功发送")
     except Exception as e:
         print(f"发送到飞书时发生错误: {e}")

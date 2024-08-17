@@ -139,9 +139,9 @@ def main():
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.002
-                sl = long_profit <= -0.002
-                if tp or sl:
+                tp = long_profit >= 0.001
+                sl = long_profit <= -0.001
+                if tp or sl or entry_rule and not top_last_bsp.is_buy and not middle_last_bsp.is_buy and not bottom_last_bsp.is_buy:
                     long_orders.remove(order)
                     profit += round(long_profit * money, 2)
                     print(
@@ -153,9 +153,9 @@ def main():
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.002
-                sl = short_profit <= -0.002
-                if tp or sl:
+                tp = short_profit >= 0.001
+                sl = short_profit <= -0.001
+                if tp or sl or entry_rule and top_last_bsp.is_buy and middle_last_bsp.is_buy and bottom_last_bsp.is_buy:
                     short_orders.remove(order)
                     profit += round(short_profit * money, 2)
                     print(

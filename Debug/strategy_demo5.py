@@ -8,9 +8,10 @@ from typing import Dict, TypedDict
 import numpy as np
 import optuna
 import xgboost as xgb
+from lightgbm import LGBMClassifier
 from optuna_dashboard import run_server
 from scipy.sparse import csr_matrix
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import class_weight
@@ -58,127 +59,38 @@ def plot(chan, plot_marker):
 alpha = 0.25
 gamma = 1
 
-# param_grid = {
-#     'seed': 42,
-#     'device': 'cpu',
-#     'objective': 'binary',
-#     'metric': 'binary_logloss',
-#     'min_split_gain': 0,
-#     'min_child_weight': 1e-3,
-#     'verbose': -1,
-#     'boosting_type': 'gbdt',
-#     'feature_fraction': 0.8,
-#     'bagging_fraction': 0.8,
-#     'reg_alpha': 0.0,
-# }
 param_grid = {
-    'random_state': 42
+    'seed': 42,
+    'device': 'cpu',
+    'objective': 'binary',
+    'metric': 'binary_logloss',
+    'min_split_gain': 0,
+    'min_child_weight': 1e-3,
+    'verbose': -1,
+    'boosting_type': 'gbdt',
+    'feature_fraction': 0.8,
+    'bagging_fraction': 0.8,
+    'reg_alpha': 0.0,
 }
+# param_grid = {
+#     'random_state': 42
+# }
 
-
-# def objective(trial):
-#     # 使用 Optuna 定义超参数的搜索空间
-#
-#     param_grid.update({
-#         'max_depth': trial.suggest_int('max_depth', 3, 5),
-#         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-#         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-#         'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
-#         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
-#         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-#         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-#         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-#         # 'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
-#         'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
-#     })
-#     class_weights = class_weight.compute_class_weight(
-#         "balanced", classes=np.unique(train_label), y=train_label
-#     )
-#     param_grid.update(
-#         {
-#             "class_weight": {
-#                 0: class_weights[0],
-#                 1: class_weights[1],
-#             }
-#         }
-#     )
-#     param_grid["random_state"] = param_grid["seed"]
-#     param_grid["bagging_seed"] = param_grid["seed"]
-#     param_grid["feature_fraction_seed"] = param_grid["seed"]
-#     param_grid["gpu_device_id"] = 0
-#     param_grid["gpu_platform_id"] = 0
-#     X, y = train_data, train_label
-#     X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.3, shuffle=False)
-#
-#     model = LGBMClassifier(**param_grid)
-#
-#     model.fit(X_train, y_train)
-#
-#     # 在验证集上预测
-#     y_pred = model.predict(X_valid)
-#
-#     # 计算 F1 分数（适用于二分类）
-#     score = roc_auc_score(y_valid, y_pred)
-#
-#     # 返回平均 F1 分数
-#     return score
-
-
-# def objective(trial):
-#     # 使用 Optuna 定义超参数的搜索空间
-#     param_grid.update({
-#
-#         "C": trial.suggest_float('C', 1e-5, 1e2, log=True),
-#         # "solver": trial.suggest_categorical('solver',
-#         #                                     ["lbfgs", "newton-cg", "newton-cholesky", "sag", "saga"])
-#
-#     })
-#     class_weights = class_weight.compute_class_weight(
-#         "balanced", classes=np.unique(train_label), y=train_label
-#     )
-#     param_grid.update(
-#         {
-#             "class_weight": {
-#                 0: class_weights[0],
-#                 1: class_weights[1],
-#             }
-#         }
-#     )
-#     X, y = train_data, train_label
-#     # 数据标准化
-#     scaler = StandardScaler()
-#     X = scaler.fit_transform(X)
-#     # 定义 StratifiedKFold 交叉验证
-#     folds = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-#
-#     scores = []
-#
-#     # 对每个折叠进行训练和验证
-#     for train_index, valid_index in folds.split(X, y):
-#         X_train, X_valid = X[train_index], X[valid_index]
-#         y_train, y_valid = y[train_index], y[valid_index]
-#
-#         model = LogisticRegression(**param_grid)
-#
-#         model.fit(X_train, y_train)
-#
-#         # 在验证集上预测
-#         y_pred = model.predict(X_valid)
-#
-#         # 计算 F1 分数（适用于二分类）
-#         score = roc_auc_score(y_valid, y_pred)
-#         scores.append(score)
-#
-#     # 返回平均 F1 分数
-#     return sum(scores) / len(scores)
 
 def objective(trial):
     # 使用 Optuna 定义超参数的搜索空间
+
     param_grid.update({
-        "max_depth": trial.suggest_int('max_depth', 1, 20),
-        "min_samples_split": trial.suggest_int('min_samples_split', 2, 100),
-        "min_samples_leaf": trial.suggest_int('min_samples_leaf', 2, 100),
-        "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
+        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        # 'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
     })
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(train_label), y=train_label
@@ -191,10 +103,15 @@ def objective(trial):
             }
         }
     )
+    param_grid["random_state"] = param_grid["seed"]
+    param_grid["bagging_seed"] = param_grid["seed"]
+    param_grid["feature_fraction_seed"] = param_grid["seed"]
+    param_grid["gpu_device_id"] = 0
+    param_grid["gpu_platform_id"] = 0
     X, y = train_data, train_label
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.3, shuffle=False)
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-    model = DecisionTreeClassifier(**param_grid)
+    model = LGBMClassifier(**param_grid)
 
     model.fit(X_train, y_train)
 
@@ -206,6 +123,42 @@ def objective(trial):
 
     # 返回平均 F1 分数
     return score
+
+
+# def objective(trial):
+#     # 使用 Optuna 定义超参数的搜索空间
+#     param_grid.update({
+#         "max_depth": trial.suggest_int('max_depth', 1, 20),
+#         "min_samples_split": trial.suggest_int('min_samples_split', 2, 100),
+#         "min_samples_leaf": trial.suggest_int('min_samples_leaf', 2, 100),
+#         "criterion": trial.suggest_categorical('criterion', ['gini', 'entropy'])
+#     })
+#     class_weights = class_weight.compute_class_weight(
+#         "balanced", classes=np.unique(train_label), y=train_label
+#     )
+#     param_grid.update(
+#         {
+#             "class_weight": {
+#                 0: class_weights[0],
+#                 1: class_weights[1],
+#             }
+#         }
+#     )
+#     X, y = train_data, train_label
+#     X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.3, shuffle=False)
+#
+#     model = DecisionTreeClassifier(**param_grid)
+#
+#     model.fit(X_train, y_train)
+#
+#     # 在验证集上预测
+#     y_pred = model.predict(X_valid)
+#
+#     # 计算 F1 分数（适用于二分类）
+#     score = f1_score(y_valid, y_pred)
+#
+#     # 返回平均 F1 分数
+#     return score
 
 
 # def objective(trial):
@@ -317,14 +270,14 @@ if __name__ == "__main__":
         config = CChanConfig({
             "trigger_step": True,  # 打开开关！
             "bi_strict": True,
-            "skip_step": 1000,
+            "skip_step": 500,
             "divergence_rate": float("inf"),
             "bsp2_follow_1": False,
             "bsp3_follow_1": False,
             "min_zs_cnt": 0,
             "bs1_peak": False,
-            "macd_algo": "peak",
-            "bs_type": '1,2,3a,1p,2s,3b',
+            "macd_algo": "slope",
+            "bs_type": '1,1p',
             "print_warning": True,
             "zs_algo": "normal",
         })
@@ -350,8 +303,7 @@ if __name__ == "__main__":
             last_bsp = bsp_list[-1]
 
             cur_lv_chan = chan_snapshot[0]
-            if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
-                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
+            if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx:
                 bsp_dict[last_bsp.klu.idx] = {
                     "feature": last_bsp.features,
                     "is_buy": last_bsp.is_buy,
@@ -425,8 +377,8 @@ if __name__ == "__main__":
     )
     # scaler = StandardScaler()
     # train_data = scaler.fit_transform(train_data)
-    # classifier1 = LGBMClassifier(**param_grid)
-    classifier1 = DecisionTreeClassifier(**param_grid)
+    classifier1 = LGBMClassifier(**param_grid)
+    # classifier1 = DecisionTreeClassifier(**param_grid)
     # classifier1 = RandomForestClassifier(**param_grid)
     # 训练 Pipeline
     classifier1.fit(train_data, train_label)

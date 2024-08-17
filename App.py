@@ -17,16 +17,18 @@ sys.setrecursionlimit(10000)
 time_frame_mapping = {
     '1分钟': KL_TYPE.K_1M,
     '5分钟': KL_TYPE.K_5M,
+    '10分钟': KL_TYPE.K_10M,
     '15分钟': KL_TYPE.K_15M,
     '30分钟': KL_TYPE.K_30M,
     '1小时': KL_TYPE.K_1H,
     '4小时': KL_TYPE.K_4H,
     '1天': KL_TYPE.K_DAY
 }
-time_frame_type = ['1分钟', '5分钟', '15分钟', '30分钟', '1小时', '4小时', '1天']
+time_frame_type = ['1分钟', '5分钟', '10分钟', '15分钟', '30分钟', '1小时', '4小时', '1天']
 timeframe_seconds = {
     '1分钟': 60,
     '5分钟': 300,
+    '10分钟': 600,
     '15分钟': 900,
     '30分钟': 1800,
     '1小时': 3600,
@@ -53,10 +55,18 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
 
     lv_list = [time_frame_mapping[time_frame] for time_frame in time_frames]
     config = CChanConfig({
-        "trigger_step": trigger_step,  # 打开开关！
-        "min_zs_cnt": 1,
-        "divergence_rate": 0.8,
-        "kl_data_check": False
+        "trigger_step": True,  # 打开开关！
+        "bi_strict": True,
+        "skip_step": 500,
+        "divergence_rate": 1.0,
+        "bsp2_follow_1": False,
+        "bsp3_follow_1": False,
+        "min_zs_cnt": 0,
+        "bs1_peak": False,
+        "macd_algo": "slope",
+        "bs_type": '1,1p',
+        "print_warning": True,
+        "zs_algo": "normal",
     })
 
     plot_config = {
@@ -64,14 +74,14 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
         "plot_kline_combine": False,
         "plot_bi": True,
         "plot_seg": True,
-        "plot_eigen": True,
+        "plot_eigen": False,
         "plot_zs": True,
         "plot_macd": True,
         "plot_mean": False,
         "plot_channel": False,
         "plot_bsp": True,
         "plot_extrainfo": True,
-        "plot_demark": False,
+        "plot_demark": True,
         "plot_marker": False,
         "plot_rsi": False,
         "plot_kdj": False,
@@ -84,24 +94,24 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", time
             "end_fontsize": 15
         },
         "bi": {
-            "show_num": True,
+            "show_num": False,
             "disp_end": True,
             "end_fontsize": 15
         },
         "zs": {
             "fontsize": 15
         },
-        "bsp":{
+        "bsp": {
             "fontsize": 20
         },
-        "segseg":{
+        "segseg": {
             "end_fontsize": 15
         },
-        "seg_bsp":{
+        "seg_bsp": {
             "fontsize": 20
         },
         "figure": {
-            "x_range": 500,
+            "x_range": 1000,
         },
         "marker": {
             # "markers": {  # text, position, color

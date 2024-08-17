@@ -51,14 +51,14 @@ if __name__ == "__main__":
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "bi_strict": True,
-        "skip_step": 1000,
-        "divergence_rate": 0.8,
-        # "bsp2_follow_1": False,
-        # "bsp3_follow_1": False,
-        "min_zs_cnt": 1,
+        "skip_step": 500,
+        "divergence_rate": float("inf"),
+        "bsp2_follow_1": False,
+        "bsp3_follow_1": False,
+        "min_zs_cnt": 0,
         "bs1_peak": False,
         "macd_algo": "slope",
-        "bs_type": '1,2,3a,1p,2s,3b',
+        "bs_type": '1,1p',
         "print_warning": True,
         "zs_algo": "normal",
     })
@@ -102,45 +102,14 @@ if __name__ == "__main__":
 
         cur_lv_chan = chan_snapshot[0]
         profit = 0
-        if len(long_orders) > 0:
-            # 止盈
-            close_price = round(cur_lv_chan[-1][-1].close / fee, 5)
-            long_orders_copy = long_orders.copy()
-            for order in long_orders_copy:
-                long_profit = close_price / order - 1
-                tp = long_profit >= 0.002
-                sl = long_profit <= -0.002
-                if tp or sl:
-                    long_orders.remove(order)
-                    profit = round(long_profit * money, 2)
-                    print(
-                        f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
-                    history_long_orders += 1
-
-        if len(short_orders) > 0:
-            close_price = round(cur_lv_chan[-1][-1].close * fee, 5)
-            short_orders_copy = short_orders.copy()
-            for order in short_orders_copy:
-                short_profit = order / close_price - 1
-                tp = short_profit >= 0.002
-                sl = short_profit <= -0.002
-                if tp or sl:
-                    short_orders.remove(order)
-                    profit = round(short_profit * money, 2)
-                    print(
-                        f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
-                    history_short_orders += 1
-
-        if len(long_orders) <= 0 and len(short_orders) <= 0:
-            if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
-                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-                factors = get_factors(FeatureFactors(chan))
-                for key in factors.keys():
-                    last_bsp.features.add_feat(key, factors[key])
-                    # 买卖点打分，应该和demo5最后的predict结果完全一致才对
-                # print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
-                value = predict_bsp(model, last_bsp, meta)
-                treated_bsp_idx.add(last_bsp.klu.idx)
+        if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
+                (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
+            factors = get_factors(FeatureFactors(chan))
+            for key in factors.keys():
+                last_bsp.features.add_feat(key, factors[key])
+            value = predict_bsp(model, last_bsp, meta)
+            treated_bsp_idx.add(last_bsp.klu.idx)
+            if len(long_orders) == 0 and len(short_orders) == 0:
                 if last_bsp.is_buy and value > 0.7:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
@@ -149,6 +118,55 @@ if __name__ == "__main__":
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 
+        if len(long_orders) > 0:
+            if not last_bsp.is_buy:
+                close_price = round(cur_lv_chan[-1][-1].close / fee, 5)
+                long_orders_copy = long_orders.copy()
+                for order in long_orders_copy:
+                    long_profit = close_price / order - 1
+                    long_orders.remove(order)
+                    profit = round(long_profit * money, 2)
+                    print(
+                        f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
+                    history_long_orders += 1
+            else:
+                close_price = round(cur_lv_chan[-1][-1].close / fee, 5)
+                long_orders_copy = long_orders.copy()
+                for order in long_orders_copy:
+                    long_profit = close_price / order - 1
+                    tp = long_profit >= 0.02
+                    sl = long_profit <= -0.02
+                    if tp or sl:
+                        long_orders.remove(order)
+                        profit = round(long_profit * money, 2)
+                        print(
+                            f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
+                        history_long_orders += 1
+
+        if len(short_orders) > 0:
+            if last_bsp.is_buy:
+                close_price = round(cur_lv_chan[-1][-1].close * fee, 5)
+                short_orders_copy = short_orders.copy()
+                for order in short_orders_copy:
+                    short_profit = order / close_price - 1
+                    short_orders.remove(order)
+                    profit = round(short_profit * money, 2)
+                    print(
+                        f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
+                    history_short_orders += 1
+            else:
+                close_price = round(cur_lv_chan[-1][-1].close * fee, 5)
+                short_orders_copy = short_orders.copy()
+                for order in short_orders_copy:
+                    short_profit = order / close_price - 1
+                    tp = short_profit >= 0.02
+                    sl = short_profit <= -0.02
+                    if tp or sl:
+                        short_orders.remove(order)
+                        profit = round(short_profit * money, 2)
+                        print(
+                            f'{cur_lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
+                        history_short_orders += 1
         capital += profit
         if profit != 0:
             profits = np.append(profits, profit)

@@ -194,7 +194,10 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
         subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds(period)).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds(period))}"
-        send_message(subject, message, [chans[symbol + str(p)] for p in periods])
+        app_id = 'cli_a63ae160c79d500b'
+        app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
+        webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/b5d0499b-4082-4dd3-82a5-70528e548695'
+        send_message(app_id, app_secret, webhook_url, subject, message, [chans[symbol + str(p)] for p in periods])
         comment = f"{','.join([t.name for t in last_bsp_h1.type])}"
         robot_trade(symbol, 0.01, last_bsp_h1.is_buy, comment)
 

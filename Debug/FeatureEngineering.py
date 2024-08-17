@@ -1,9 +1,9 @@
 # cython: language_level=3
 # encoding:utf-8
 from Chan import CChan
-from Common.CEnum import MACD_ALGO, BSP_TYPE
+from Common.CEnum import MACD_ALGO
 
-N_BI = 3
+N_BI = 1
 N_ZS = 1
 N_SEG = 1
 
@@ -15,16 +15,16 @@ class FeatureFactors:
     def open_klu_rate(self):
         klu = self.chan[0][-1][-1]
         return {
-            # "open_klu_amp": klu.close - klu.open,
-            "open_klu_rate": klu.close / klu.open - 1,
+            "open_klu_amp": klu.close - klu.open,
+            # "open_klu_rate": klu.close / klu.open - 1,
         }
 
-    def bsp_type(self):
-        bsp_list = self.chan.get_bsp()
-        if not bsp_list:
-            return {"bsp_type": None}
-        bsp = bsp_list[-1]
-        return {"bsp_type": list(BSP_TYPE).index(bsp.type[0])}
+    # def bsp_type(self):
+    #     bsp_list = self.chan.get_bsp()
+    #     if not bsp_list:
+    #         return {"bsp_type": None}
+    #     bsp = bsp_list[-1]
+    #     return {"bsp_type": list(BSP_TYPE).index(bsp.type[0])}
 
     # def fx(self,chan: CChan):
     #     fx = self.chan[0][-1].fx
@@ -50,8 +50,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_high_amp{i}"] = bi._high() - klu.close
-            returns[f"bi_high_rate{i}"] = bi._high() / klu.close - 1
+            returns[f"bi_high_amp{i}"] = bi._high() - klu.close
+            # returns[f"bi_high_rate{i}"] = bi._high() / klu.close - 1
         return returns
 
     def bi_low(self):
@@ -59,8 +59,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_low_amp{i}"] = bi._low() - klu.close
-            returns[f"bi_low_rate{i}"] = bi._low() / klu.close - 1
+            returns[f"bi_low_amp{i}"] = bi._low() - klu.close
+            # returns[f"bi_low_rate{i}"] = bi._low() / klu.close - 1
         return returns
 
     def bi_mid(self):
@@ -68,8 +68,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_mid_amp{i}"] = bi._mid() - klu.close
-            returns[f"bi_mid_rate{i}"] = bi._mid() / klu.close - 1
+            returns[f"bi_mid_amp{i}"] = bi._mid() - klu.close
+            # returns[f"bi_mid_rate{i}"] = bi._mid() / klu.close - 1
         return returns
 
     def bi_begin(self):
@@ -77,8 +77,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_begin_amp{i}"] = bi.get_begin_val() - klu.close
-            returns[f"bi_begin_rate{i}"] = bi.get_begin_val() / klu.close - 1
+            returns[f"bi_begin_amp{i}"] = bi.get_begin_val() - klu.close
+            # returns[f"bi_begin_rate{i}"] = bi.get_begin_val() / klu.close - 1
             returns[f"bi_begin_slope{i}"] = (bi.get_begin_val() - klu.close) / (klu.idx - bi.get_begin_klu().idx + 1)
         return returns
 
@@ -87,8 +87,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_end_amp{i}"] = bi.get_end_val() - klu.close
-            returns[f"bi_end_rate{i}"] = bi.get_end_val() / klu.close - 1
+            returns[f"bi_end_amp{i}"] = bi.get_end_val() - klu.close
+            # returns[f"bi_end_rate{i}"] = bi.get_end_val() / klu.close - 1
             returns[f"bi_end_slope{i}"] = (bi.get_end_val() - klu.close) / (klu.idx - bi.get_end_klu().idx + 1)
         return returns
 
@@ -96,8 +96,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            # returns[f"bi_amp{i}"] = bi.get_end_val() - bi.get_begin_val()
-            returns[f"bi_rate{i}"] = bi.get_end_val() / bi.get_begin_val() - 1
+            returns[f"bi_amp{i}"] = bi.get_end_val() - bi.get_begin_val()
+            # returns[f"bi_rate{i}"] = bi.get_end_val() / bi.get_begin_val() - 1
             returns[f"bi_slope{i}"] = (bi.get_end_val() - bi.get_begin_val()) / bi.get_klu_cnt()
         return returns
 
@@ -136,8 +136,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_ZS + 1):
             zs = self.chan[0].zs_list[-i]
-            # returns[f"zs_high_amp{i}"] = zs.high - klu.close
-            returns[f"zs_high_rate{i}"] = zs.high / klu.close - 1
+            returns[f"zs_high_amp{i}"] = zs.high - klu.close
+            # returns[f"zs_high_rate{i}"] = zs.high / klu.close - 1
         return returns
 
     def zs_low(self):
@@ -145,8 +145,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_ZS + 1):
             zs = self.chan[0].zs_list[-i]
-            # returns[f"zs_low_amp{i}"] = zs.low - klu.close
-            returns[f"zs_low_rate{i}"] = zs.low / klu.close - 1
+            returns[f"zs_low_amp{i}"] = zs.low - klu.close
+            # returns[f"zs_low_rate{i}"] = zs.low / klu.close - 1
         return returns
 
     def zs_mid(self):
@@ -154,8 +154,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_ZS + 1):
             zs = self.chan[0].zs_list[-i]
-            # returns[f"zs_mid_amp{i}"] = zs.mid - klu.close
-            returns[f"zs_mid_rate{i}"] = zs.mid / klu.close - 1
+            returns[f"zs_mid_amp{i}"] = zs.mid - klu.close
+            # returns[f"zs_mid_rate{i}"] = zs.mid / klu.close - 1
         return returns
 
     def zs_peak_high(self):
@@ -163,8 +163,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_ZS + 1):
             zs = self.chan[0].zs_list[-i]
-            # returns[f"zs_peak_high_amp{i}"] = zs.peak_high - klu.close
-            returns[f"zs_peak_high_rate{i}"] = zs.peak_high / klu.close - 1
+            returns[f"zs_peak_high_amp{i}"] = zs.peak_high - klu.close
+            # returns[f"zs_peak_high_rate{i}"] = zs.peak_high / klu.close - 1
         return returns
 
     def zs_peak_low(self):
@@ -172,19 +172,18 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_ZS + 1):
             zs = self.chan[0].zs_list[-i]
-            # returns[f"zs_peak_low_amp{i}"] = zs.peak_low - klu.close
-            returns[f"zs_peak_low_rate{i}"] = zs.peak_low / klu.close - 1
+            returns[f"zs_peak_low_amp{i}"] = zs.peak_low - klu.close
+            # returns[f"zs_peak_low_rate{i}"] = zs.peak_low / klu.close - 1
 
         return returns
 
     ############################### 线段 ######################################
     def seg_amp_slope(self):
-        klu = self.chan[0][-1][-1]
         returns = dict()
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
-            # returns[f"seg_amp{i}"] = seg.get_end_val() - seg.get_begin_val()
-            returns[f"seg_rate{i}"] = seg.get_end_val() / seg.get_begin_val() - 1
+            returns[f"seg_amp{i}"] = seg.get_end_val() - seg.get_begin_val()
+            # returns[f"seg_rate{i}"] = seg.get_end_val() / seg.get_begin_val() - 1
             returns[f"seg_slope{i}"] = (seg.get_end_val() - seg.get_begin_val()) / (
                     seg.get_end_klu().idx - seg.get_begin_klu().idx)
         return returns
@@ -201,8 +200,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
-            # returns[f"seg_low_amp{i}"] = seg._low() - klu.close
-            returns[f"seg_low_rate{i}"] = seg._low() / klu.close - 1
+            returns[f"seg_low_amp{i}"] = seg._low() - klu.close
+            # returns[f"seg_low_rate{i}"] = seg._low() / klu.close - 1
         return returns
 
     def seg_high(self):
@@ -210,25 +209,25 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
-            # returns[f"seg_high_amp{i}"] = seg._high() - klu.close
-            returns[f"seg_high_rate{i}"] = seg._high() / klu.close - 1
+            returns[f"seg_high_amp{i}"] = seg._high() - klu.close
+            # returns[f"seg_high_rate{i}"] = seg._high() / klu.close - 1
         return returns
 
-    def seg_is_down(self):
-        klu = self.chan[0][-1][-1]
-        returns = dict()
-        for i in range(1, N_SEG + 1):
-            seg = self.chan[0].seg_list[-i]
-            returns[f"seg_is_down{i}"] = int(seg.is_down())
-        return returns
+    # def seg_is_down(self):
+    #     klu = self.chan[0][-1][-1]
+    #     returns = dict()
+    #     for i in range(1, N_SEG + 1):
+    #         seg = self.chan[0].seg_list[-i]
+    #         returns[f"seg_is_down{i}"] = int(seg.is_down())
+    #     return returns
 
     def seg_begin_val(self):
         klu = self.chan[0][-1][-1]
         returns = dict()
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
-            # returns[f"seg_begin_val_amp{i}"] = seg.get_begin_val() - klu.close
-            returns[f"seg_begin_val_rate{i}"] = seg.get_begin_val() / klu.close - 1
+            returns[f"seg_begin_val_amp{i}"] = seg.get_begin_val() - klu.close
+            # returns[f"seg_begin_val_rate{i}"] = seg.get_begin_val() / klu.close - 1
             returns[f"seg_begin_val_slope{i}"] = (seg.get_begin_val() - klu.close) / (
                     klu.idx - seg.get_begin_klu().idx + 1)
         return returns
@@ -238,8 +237,8 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
-            # returns[f"seg_end_val_amp{i}"] = seg.get_end_val() - klu.close
-            returns[f"seg_end_val_rate{i}"] = seg.get_end_val() / klu.close - 1
+            returns[f"seg_end_val_amp{i}"] = seg.get_end_val() - klu.close
+            # returns[f"seg_end_val_rate{i}"] = seg.get_end_val() / klu.close - 1
             returns[f"seg_end_val_slope{i}"] = (seg.get_end_val() - klu.close) / (klu.idx - seg.get_end_klu().idx + 1)
         return returns
 
@@ -262,4 +261,11 @@ class FeatureFactors:
         for i in range(1, N_SEG + 1):
             seg = self.chan[0].seg_list[-i]
             returns[f"seg_macd_amp{i}"] = seg.Cal_MACD_amp()
+        return returns
+
+    def macd(self):
+        returns = dict()
+        returns["macd"] = self.chan[0][-1][-1].macd.macd
+        returns["DIF"] = self.chan[0][-1][-1].macd.DIF
+        returns["DE"] = self.chan[0][-1][-1].macd.DEA
         return returns
