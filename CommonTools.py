@@ -160,7 +160,7 @@ def reconnect_mt5(retry_interval=5, max_retries=5):
 
 def get_latest_bar(symbol, period):
     try:
-        bar = mt5.copy_rates_from_pos(symbol, period, 1, 1)[0]
+        bar = mt5.copy_rates_from_pos(symbol, period_mt5_map[period], 1, 1)[0]
         if bar is None:
             raise ValueError(f"无法获取 {symbol} 的价格信息")
         return bar

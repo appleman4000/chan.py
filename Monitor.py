@@ -11,9 +11,9 @@ import pytz
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_SRC, AUTYPE, BSP_TYPE, FX_TYPE
+from Common.CEnum import DATA_SRC, AUTYPE, BSP_TYPE, FX_TYPE, KL_TYPE
 from CommonTools import period_name, period_seconds, server_timezone, local_timezone, \
-    shanghai_to_zurich_datetime
+    shanghai_to_zurich_datetime, period_mt5_map
 from CommonTools import robot_trade, reconnect_mt5, get_latest_bar
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
@@ -50,7 +50,7 @@ symbols = [
     # "XAUUSD",
     # "XAGUSD",
 ]
-periods = [mt5.TIMEFRAME_D1, mt5.TIMEFRAME_H1, mt5.TIMEFRAME_M15]
+periods = [KL_TYPE.K_DAY, KL_TYPE.K_1H, KL_TYPE.K_15M]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -120,7 +120,7 @@ def init_chan():
 
     for symbol in symbols:
         for period in periods:
-            bars = mt5.copy_rates_from_pos(symbol, period, 1, 1000)
+            bars = mt5.copy_rates_from_pos(symbol, period_mt5_map[period], 1, 1000)
             bars = pd.DataFrame(bars)
             last_bar_time = bars.iloc[-1].time
             bars.dropna(inplace=True)
@@ -179,7 +179,7 @@ if __name__ == "__main__":
                         continue
                     last_bar_time = bar[0]
                     if last_bar_time >= next_bar_open[symbol + str(period)]:
-                        bars = mt5.copy_rates_range(symbol, period, datetime.datetime.fromtimestamp(
+                        bars = mt5.copy_rates_range(symbol, period_mt5_map[period], datetime.datetime.fromtimestamp(
                             next_bar_open[symbol + str(period)]), datetime.datetime.fromtimestamp(last_bar_time))
                         next_bar_open[symbol + str(period)] = last_bar_time
                         next_bar_open[symbol + str(period)] -= next_bar_open[symbol + str(period)] % period_seconds[
