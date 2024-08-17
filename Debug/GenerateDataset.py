@@ -10,7 +10,6 @@ from Chan import CChan
 from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
-from Common.CTime import CTime
 from Plot.PlotDriver import CPlotDriver
 
 config = CChanConfig({
@@ -92,7 +91,7 @@ plot_para = {
 class T_SAMPLE_INFO(TypedDict):
     feature: CFeatures
     is_buy: bool
-    open_time: CTime
+    close: float
 
 
 if __name__ == "__main__":
@@ -191,18 +190,44 @@ if __name__ == "__main__":
                 bsp_dict[top_last_bsp.klu.idx] = {
                     "feature": file_path,
                     "is_buy": top_last_bsp.is_buy,
+                    "close": top_lv_chan[-1][-1].close
                 }
                 print(top_last_bsp.klu.time, top_last_bsp.is_buy)
+        closes = []
+        filepaths = []
+        is_buys = []
+        labels = []
+        for bsp_klu_idx, feature_info in bsp_dict.items():
+            closes.append(feature_info['close'])
+            filepaths.append(feature_info['feature'])
+            is_buys.append(feature_info['is_buy'])
+        for i, price in enumerate(closes):
+            label = 0
+            j = 0
+            while True and i + 1 + j < len(closes):
+                if closes[i + 1 + j] / price - 1 >= 0.003:
+                    label = 1
+                    break
+                if closes[i + 1 + j] / price - 1 <= -0.003:
+                    label = 0
+                    break
+                j += 1
+            labels.append(label)
 
-        # 生成libsvm样本特征
-        bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
-        feature_meta = {}  # 特征meta
-        cur_feature_idx = 0
-        plot_marker = {}
         with open('dataset.csv', mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['label', 'filepath'])  # Write the header
-            for bsp_klu_idx, feature_info in bsp_dict.items():
-                label = int(bsp_klu_idx in bsp_academy)
-                filepath = feature_info['feature']
+            for label, filepath in zip(labels, filepaths):
                 writer.writerow([label, filepath])  # Write label and filepath to the CSV
+    # 生成libsvm样本特征
+    # bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
+    # feature_meta = {}  # 特征meta
+    # cur_feature_idx = 0
+    # plot_marker = {}
+    # with open('dataset.csv', mode='w', newline='') as file:
+    #     writer = csv.writer(file)
+    #     writer.writerow(['label', 'filepath'])  # Write the header
+    #     for bsp_klu_idx, feature_info in bsp_dict.items():
+    #         label = int(bsp_klu_idx in bsp_academy)
+    #         filepath = feature_info['feature']
+    #         writer.writerow([label, filepath])  # Write label and filepath to the CSV

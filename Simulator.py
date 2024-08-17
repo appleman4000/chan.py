@@ -127,7 +127,9 @@ def strategy(code, global_profit):
             # 止盈
             close_price = round(bottom_lv_chan[-1][-1].close / fee, 5)
             long_profit = close_price / long_order - 1
-            if top_entry_rule and not top_last_bsp.is_buy and botton_entry_rule and not bottom_last_bsp.is_buy:
+            tp = long_profit >= 0.02
+            sl = long_profit <= -0.01
+            if tp or sl or top_entry_rule and not top_last_bsp.is_buy and botton_entry_rule and not bottom_last_bsp.is_buy:
                 long_order = 0
                 profit += round(long_profit * money, 2)
                 print(
@@ -136,7 +138,10 @@ def strategy(code, global_profit):
 
         if short_order > 0:
             close_price = round(bottom_lv_chan[-1][-1].close * fee, 5)
-            if top_entry_rule and top_last_bsp.is_buy and botton_entry_rule and bottom_last_bsp.is_buy:
+            short_profit = short_order / close_price - 1
+            tp = short_profit >= 0.02
+            sl = short_profit <= -0.01
+            if tp or sl or top_entry_rule and top_last_bsp.is_buy and botton_entry_rule and bottom_last_bsp.is_buy:
                 short_profit = short_order / close_price - 1
                 short_order = 0
                 profit += round(short_profit * money, 2)

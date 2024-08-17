@@ -4,12 +4,12 @@ import csv
 import os
 
 os.environ['KERAS_BACKEND'] = 'torch'
+
 import keras
 import numpy as np
 from sklearn.utils import class_weight
 
 from keras import Sequential
-from keras.src.applications.convnext import ConvNeXtTiny
 from keras.src.layers import Dense
 from PIL import Image
 from sklearn.model_selection import train_test_split
@@ -48,21 +48,21 @@ if os.path.exists('./images.npy'):
     images = np.load('./images.npy')
     labels = np.load('./labels.npy')
 else:
-    images, labels = load_dataset_from_csv("./dataset.csv", target_size=(224 // 2, 224 // 2))
+    images, labels = load_dataset_from_csv("./dataset.csv", target_size=(224, 224))
     np.save('./images.npy', images)
     np.save('./labels.npy', labels)
-
+# images = keras.applications.mobilenet_v3.preprocess_input(images, data_format="channels_last")
 X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.3, shuffle=False, random_state=42)
 
 print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
 # 模型构建
-conv_base = ConvNeXtTiny(weights='imagenet', include_top=False, input_shape=(224 // 2, 224 // 2, 3))
+conv_base = keras.applications.MobileNetV3Small(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
 
 model = Sequential()
 model.add(conv_base)
-model.add(keras.layers.GlobalAveragePooling2D())
-model.add(Dense(256, activation='relu'))
+model.add(keras.layers.GlobalMaxPooling2D())
+model.add(Dense(128, activation='relu'))
 model.add(Dense(1, activation='sigmoid'))
 
 # 冻结卷积基
@@ -70,7 +70,7 @@ conv_base.trainable = False
 
 # 编译模型
 model.compile(loss=keras.losses.BinaryFocalCrossentropy(),
-              optimizer=keras.optimizers.AdamW(learning_rate=1e-3),
+              optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.001),
               metrics=[keras.metrics.AUC(name='auc')])
 
 class_weights = class_weight.compute_class_weight(
