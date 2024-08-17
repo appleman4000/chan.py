@@ -78,33 +78,6 @@ def remove_dir(path, rm_path=True):
         os.rmdir(path)
 
 
-# 移动编译后的文件至指定目录
-def mv_to_packages(path=BASE_DIR):
-    pathes = os.listdir(path)
-    for p in pathes:
-        if p.startswith('.'):
-            continue
-        if p in ignore_move:
-            continue
-        f_path = os.path.join(path, p)
-        if f_path == package_path:
-            continue
-        p_f_path = f_path.replace(BASE_DIR, package_path)
-        if os.path.isdir(f_path):
-            if not os.path.exists(p_f_path):
-                os.mkdir(p_f_path)
-            mv_to_packages(f_path)
-        else:
-            if not f_path.endswith('.py') or f_path not in translate_pys:
-                with open(f_path, 'rb') as f:
-                    content = f.read()
-                    with open(p_f_path, 'wb') as f:
-                        f.write(content)
-            if f_path.endswith('.pyd') or f_path.endswith('.so'):
-                os.remove(f_path)
-
-
-# 将编译后的文件重命名成：源文件名+.pyd，否则编译后的文件名会类似：myUtils.cp39-win_amd64.pyd
 def batch_rename(src_path):
     filenames = os.listdir(src_path)
     same_name = []

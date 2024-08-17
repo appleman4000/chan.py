@@ -245,6 +245,22 @@ def send_message(app_id, app_secret, webhook_url, subject, message, chans):
     image_bytes_list = []
     for chan in chans:
         g = CPlotDriver(chan, plot_config, plot_para)
+        for ax in g.figure.axes:
+            ax.set_title("", loc="left")
+            # 移除 x 轴和 y 轴标签
+            ax.set_xlabel('')
+            ax.set_ylabel('')
+
+            # 移除 x 轴和 y 轴的刻度标签
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            # 移除 x 轴和 y 轴的刻度线
+            ax.tick_params(axis='both', which='both', length=0)
+
+            # 移除网格线
+            ax.grid(False)
+        g.figure.tight_layout()
         buf = io.BytesIO()
         g.figure.savefig(buf, format='png')
         plt.close(g.figure)

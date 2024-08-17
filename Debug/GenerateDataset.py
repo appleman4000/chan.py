@@ -1,34 +1,45 @@
 # cython: language_level=3
+import csv
 import os.path
-import shutil
 from typing import Dict, TypedDict
 
+import matplotlib
 from matplotlib import pyplot as plt
 
 from Chan import CChan
 from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
-from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
+from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
 from Common.CTime import CTime
 from Plot.PlotDriver import CPlotDriver
 
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
-    "bi_strict": True,
-    "gap_as_kl": True,
-    "min_zs_cnt": 1,
+    "skip_step": 500,
     "divergence_rate": float("inf"),
-    "max_bs2_rate": 0.618,
-    "macd_algo": "diff",
+    "min_zs_cnt": 1,
+    "macd_algo": "slope",
+    "kl_data_check": False,
+    "bi_end_is_peak": True,
+    "bsp1_only_multibi_zs": True,
+    "max_bs2_rate": 0.999,
+    "bs1_peak": True,
+    "bs_type": "1,1p,2,2s,3a,3b",
+    "bsp2_follow_1": True,
+    "bsp3_follow_1": True,
+    "bsp3_peak": True,
+    "bsp2s_follow_2": True,
+    "max_bsp2s_lv": None,
+    "strict_bsp3": True,
 })
 plot_config = {
-    "plot_kline": True,
+    "plot_kline": False,
     "plot_kline_combine": False,
     "plot_bi": True,
     "plot_seg": True,
     "plot_eigen": False,
     "plot_zs": True,
-    "plot_macd": True,
+    "plot_macd": False,
     "plot_mean": False,
     "plot_channel": False,
     "plot_bsp": False,
@@ -80,22 +91,6 @@ class T_SAMPLE_INFO(TypedDict):
     open_time: CTime
 
 
-def plot(chan, plot_marker):
-    plot_para["marker"] = dict(markers=plot_marker)
-    plot_driver = CPlotDriver(
-        chan,
-        plot_config=plot_config,
-        plot_para=plot_para,
-    )
-    plot_driver.save2img("label.png")
-
-
-def stragety_feature(last_klu):
-    return {
-        "open_klu_rate": (last_klu.close - last_klu.open) / last_klu.open,
-    }
-
-
 if __name__ == "__main__":
     """
     本demo主要演示如何记录策略产出的买卖点的特征
@@ -107,12 +102,12 @@ if __name__ == "__main__":
     symbols = [
         # Major
         "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
+        # "GBPUSD",
+        # "AUDUSD",
+        # "NZDUSD",
+        # "USDJPY",
+        # "USDCAD",
+        # "USDCHF",
         # Crosses
         # "AUDCHF",
         # "AUDJPY",
@@ -134,9 +129,11 @@ if __name__ == "__main__":
     ]
     for code in symbols:
         begin_time = "2010-01-01 00:00:00"
-        end_time = "2021-01-01 00:00:00"
+        end_time = "2011-01-10 00:00:00"
         data_src = DATA_SRC.FOREX
-        lv_list = [KL_TYPE.K_1H]
+        bottom_kl_type = KL_TYPE.K_3M
+        top_kl_type = KL_TYPE.K_30M
+        lv_list = [top_kl_type, bottom_kl_type]
 
         chan = CChan(
             code=code,
@@ -149,26 +146,31 @@ if __name__ == "__main__":
         )
 
         bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-        source_dir = './PNG/TMP'
-        target_dir = './PNG/TRAIN'
+        source_dir = './png'
         os.makedirs(source_dir, exist_ok=True)
-        os.makedirs(target_dir, exist_ok=True)
         # 跑策略，保存买卖点的特征
-        for step, chan_snapshot in enumerate(chan.step_load()):
-            if step < 500:
-                continue
-            last_klu = chan_snapshot[0][-1][-1]
-            bsp_list = chan_snapshot.get_bsp()
-            if not bsp_list:
-                continue
-            last_bsp = bsp_list[-1]
+        for chan_snapshot in chan.step_load():
 
-            cur_lv_chan = chan_snapshot[0]
-            if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.time == cur_lv_chan[-1][-1].time and \
-                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-                str_date = last_klu.time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+            top_lv_chan = chan_snapshot[0]
+            bottom_lv_chan = chan_snapshot[1]
+            top_bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
+            if not top_bsp_list:
+                continue
+            top_last_bsp = top_bsp_list[-1]
+            bottom_bsp_list = chan.get_bsp(1)  # 获取低级别买卖点列表
+            if not bottom_bsp_list:
+                continue
+            bottom_last_bsp = bottom_bsp_list[-1]
+            top_entry_rule = top_lv_chan[-1].idx == top_last_bsp.klu.klc.idx
+            botton_entry_rule = bottom_lv_chan[-1].idx == bottom_last_bsp.klu.klc.idx
+
+            if top_entry_rule and botton_entry_rule and (top_last_bsp.is_buy and bottom_last_bsp.is_buy or (
+                    not top_last_bsp.is_buy and not bottom_last_bsp.is_buy)):
+                str_date = bottom_lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
                 file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
+
                 if not os.path.exists(file_path):
+                    matplotlib.use('Agg')
                     g = CPlotDriver(chan, plot_config, plot_para)
                     # 移除标题
                     for ax in g.figure.axes:
@@ -190,21 +192,21 @@ if __name__ == "__main__":
                     g.figure.savefig(file_path, format='png')
                     plt.close(g.figure)
 
-                bsp_dict[last_bsp.klu.idx] = {
+                bsp_dict[top_last_bsp.klu.idx] = {
                     "feature": file_path,
-                    "is_buy": last_bsp.is_buy,
-                    "open_time": last_klu.time,
+                    "is_buy": top_last_bsp.is_buy,
                 }
-                print(last_bsp.klu.time, last_bsp.is_buy)
+                print(top_last_bsp.klu.time, top_last_bsp.is_buy)
 
         # 生成libsvm样本特征
-        bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp()]
+        bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
         feature_meta = {}  # 特征meta
         cur_feature_idx = 0
         plot_marker = {}
-        os.makedirs(f"{target_dir}/{0}", exist_ok=True)
-        os.makedirs(f"{target_dir}/{1}", exist_ok=True)
-        for bsp_klu_idx, feature_info in bsp_dict.items():
-            label = int(bsp_klu_idx in bsp_academy)  # 以买卖点识别是否准确为label
-            filepath = feature_info['feature']
-            shutil.copy(filepath, f"{target_dir}/{label}")
+        with open('dataset.csv', mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['label', 'filepath'])  # Write the header
+            for bsp_klu_idx, feature_info in bsp_dict.items():
+                label = int(bsp_klu_idx in bsp_academy)
+                filepath = feature_info['feature']
+                writer.writerow([label, filepath])  # Write label and filepath to the CSV
