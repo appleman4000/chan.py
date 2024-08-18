@@ -17,7 +17,7 @@ config = CChanConfig({
     "skip_step": 500,
     "divergence_rate": 0.9,
     "min_zs_cnt": 1,
-    "macd_algo": "slope",
+    "macd_algo": "peak",
     "kl_data_check": False,
     "bs_type": "1,1p,2,2s,3a,3b",
 })
@@ -107,7 +107,7 @@ def generate_dataset(code, kl_type, begin_time, end_time):
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    source_dir = './TMP'
+    source_dir = './PNG'
     os.makedirs(source_dir, exist_ok=True)
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
@@ -123,7 +123,7 @@ def generate_dataset(code, kl_type, begin_time, end_time):
         if last_bsp.klu.klc.idx != cur_lv_chan[-1].idx:
             continue
         str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-        file_path = f"{source_dir}/{code}_{str_date}.png"  # 输出文件的路径
+        file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
 
         if not os.path.exists(file_path):
             matplotlib.use('Agg')
@@ -145,7 +145,7 @@ def generate_dataset(code, kl_type, begin_time, end_time):
                 ax.spines['bottom'].set_visible(False)
 
             g.figure.tight_layout()
-            g.figure.savefig(file_path, format='png', bbox_inches='tight', pad_inches=0.1)
+            g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
             plt.close(g.figure)
 
         bsp_dict[last_bsp.klu.idx] = {

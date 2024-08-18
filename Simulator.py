@@ -5,6 +5,8 @@ from threading import Thread
 
 from PIL import Image
 
+from GenerateDataset import plot_config, plot_para
+
 os.environ['KERAS_BACKEND'] = 'torch'
 import keras
 
@@ -79,7 +81,7 @@ def get_predict_value(model, chan, plot_config, plot_para):
 
     g.figure.tight_layout()
     buf = io.BytesIO()
-    g.figure.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.1)
+    g.figure.savefig(buf, format='PNG', bbox_inches='tight', pad_inches=0.1)
     buf.seek(0)
     plt.close(g.figure)
     img = Image.open(buf).resize((224, 224))
@@ -91,75 +93,20 @@ def get_predict_value(model, chan, plot_config, plot_para):
     return outputs
 
 
-def strategy(code, begin_time, total_profit):
-    model = keras.saving.load_model(f"./{code}_model.keras")
+def strategy(code, kl_type, begin_date, total_profit):
+    model = keras.saving.load_model(f"./TMP/{code}_model.keras")
     data_src_type = DATA_SRC.FOREX_ONLINE
-    kl_type = KL_TYPE.K_30M
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
-        "divergence_rate": 1.0,
-        "min_zs_cnt": 0,
-        "macd_algo": "slope",
+        "divergence_rate": 0.9,
+        "min_zs_cnt": 1,
+        "macd_algo": "peak",
         "kl_data_check": False,
         "bs_type": "1,1p,2,2s,3a,3b",
     })
-    plot_config = {
-        "plot_kline": False,
-        "plot_kline_combine": True,
-        "plot_bi": True,
-        "plot_seg": False,
-        "plot_eigen": False,
-        "plot_zs": True,
-        "plot_macd": False,
-        "plot_mean": False,
-        "plot_channel": False,
-        "plot_bsp": False,
-        "plot_extrainfo": False,
-        "plot_demark": False,
-        "plot_marker": False,
-        "plot_rsi": False,
-        "plot_kdj": False,
-    }
 
-    plot_para = {
-        "figure": {
-            "w": 224 / 50,
-            "h": 224 / 50,
-            "x_range": 90,
-        },
-        "seg": {
-            # "plot_trendline": True,
-            "disp_end": False,
-            "end_fontsize": 15,
-            "width": 0.5
-        },
-        "bi": {
-            "show_num": False,
-            "disp_end": False,
-            "end_fontsize": 15,
-        },
-        "zs": {
-            "fontsize": 15,
-        },
-        "bsp": {
-            "fontsize": 20
-        },
-        "segseg": {
-            "end_fontsize": 15,
-            "width": 0.5
-        },
-        "seg_bsp": {
-            "fontsize": 20
-        },
-        "marker": {
-            # "markers": {  # text, position, color
-            #     '2023/06/01': ('marker here', 'up', 'red'),
-            #     '2023/06/08': ('marker here', 'down')
-            # },
-        }
-    }
-    begin_date = datetime.datetime(year=2021, month=1, day=1, hour=1, minute=0, second=0)
+    begin_date = datetime.datetime.strptime(begin_date, "%Y-%m-%d %H:%M:%S")
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
     end_date -= end_date % period_seconds[kl_type]
@@ -211,7 +158,7 @@ def strategy(code, begin_time, total_profit):
             long_profit = close_price / long_order - 1
             tp = long_profit >= 0.004
             sl = long_profit <= -0.004
-            if tp or sl or entry_rule and not last_bsp.is_buy:
+            if tp or sl:
                 long_order = 0
                 profit += round(long_profit * money, 2)
                 print(
@@ -223,7 +170,7 @@ def strategy(code, begin_time, total_profit):
             short_profit = short_order / close_price - 1
             tp = short_profit >= 0.004
             sl = short_profit <= -0.004
-            if tp or sl or entry_rule and last_bsp.is_buy:
+            if tp or sl:
                 short_profit = short_order / close_price - 1
                 short_order = 0
                 profit += round(short_profit * money, 2)
@@ -234,13 +181,13 @@ def strategy(code, begin_time, total_profit):
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value > 0.6:
+                if value > 0.55:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value < 0.4:
+                if value < 0.45:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -266,11 +213,12 @@ def strategy(code, begin_time, total_profit):
 
 
 if __name__ == "__main__":
-    begin_time = "2021-01-01 00:00:00"
+    kl_type = KL_TYPE.K_30M
+    begin_date = "2021-01-01 00:00:00"
     total_profit = Value('f', 0)
     threads = []
     for symbol in symbols:
-        thread = Thread(target=strategy, args=(symbol, begin_time, total_profit))
+        thread = Thread(target=strategy, args=(symbol, kl_type, begin_date, total_profit))
         threads.append(thread)
         thread.start()
     for thread in threads:

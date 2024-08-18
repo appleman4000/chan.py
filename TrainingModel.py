@@ -73,7 +73,7 @@ def train_model(code):
     # 编译模型
     model.compile(loss=keras.losses.BinaryCrossentropy(),
                   optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.004),
-                  metrics=['accuracy'])
+                  metrics=[keras.metrics.AUC(name='auc')])
     #
     class_weights = compute_class_weight(
         "balanced", classes=np.unique(labels), y=labels
@@ -84,8 +84,8 @@ def train_model(code):
     }
     print(f"class_weight:{class_weight}")
     early_stopping = keras.callbacks.EarlyStopping(
-        monitor='val_loss',
-        mode='min',
+        monitor='val_auc',
+        mode='max',
         patience=20,
         restore_best_weights=True
     )
