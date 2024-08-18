@@ -91,14 +91,15 @@ def get_predict_value(model, chan, plot_config, plot_para):
     return outputs
 
 
-def strategy(code, global_profit):
+def strategy(code, begin_time, total_profit):
+    model = keras.saving.load_model(f"./{code}_model.keras")
     data_src_type = DATA_SRC.FOREX_ONLINE
     kl_type = KL_TYPE.K_30M
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
-        "divergence_rate": float("inf"),
-        "min_zs_cnt": 1,
+        "divergence_rate": 1.0,
+        "min_zs_cnt": 0,
         "macd_algo": "slope",
         "kl_data_check": False,
         "bs_type": "1,1p,2,2s,3a,3b",
@@ -184,7 +185,6 @@ def strategy(code, global_profit):
     short_order = 0
     history_long_orders = 0
     history_short_orders = 0
-    model = keras.saving.load_model("./Debug/model.keras")
     for chan_snapshot in chan.step_load():
 
         lv_chan = chan_snapshot[0]
@@ -234,13 +234,13 @@ def strategy(code, global_profit):
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value > 0.55:
+                if value > 0.6:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 value = get_predict_value(model, chan, plot_config, plot_para)
-                if value < 0.45:
+                if value < 0.4:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -255,21 +255,22 @@ def strategy(code, global_profit):
         capital += profit
         if profit != 0:
             profits = np.append(profits, profit)
-            with global_profit.get_lock():  # 使用锁来确保操作的原子性
-                global_profit.value += profit
+            with total_profit.get_lock():  # 使用锁来确保操作的原子性
+                total_profit.value += profit
 
             capitals = np.append(capitals, capital)
             print(f"{code} capital:{capital}")
             win_rate = len(profits[profits > 0]) / len(profits) * 100
             print(f"{code} 胜率: {win_rate}")
-            print(f"盈利总计:{global_profit.value}")
+            print(f"盈利总计:{total_profit.value}")
 
 
 if __name__ == "__main__":
-    global_profit = Value('f', 0)
+    begin_time = "2021-01-01 00:00:00"
+    total_profit = Value('f', 0)
     threads = []
     for symbol in symbols:
-        thread = Thread(target=strategy, args=(symbol, global_profit))
+        thread = Thread(target=strategy, args=(symbol, begin_time, total_profit))
         threads.append(thread)
         thread.start()
     for thread in threads:
