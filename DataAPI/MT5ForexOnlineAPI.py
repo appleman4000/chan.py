@@ -48,7 +48,7 @@ class CandleIterator:
             # 如果已经到达数据末尾，则获取新的数据
             self.data = self._fetch_candles(self.last_time)
             if self.data is None or self.data.empty:
-                raise StopIteration
+                return None
             self.index = 0
 
         candle = self.data.iloc[self.index]
@@ -91,6 +91,9 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
             if (datetime.datetime.now() + datetime.timedelta(
                     hours=2)).timestamp() >= self.iterator.next_bar_open.timestamp():
                 candle = self.iterator.__next__()
+                if candle is None:
+                    time.sleep(interval)  # 等待指定的时间间隔再获取数据
+                    continue
                 # print(candle)  # 打印每根K线的数据
                 data = [
                     candle["time"],

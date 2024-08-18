@@ -17,13 +17,13 @@ config = CChanConfig({
     "skip_step": 500,
     "divergence_rate": 0.9,
     "min_zs_cnt": 1,
-    "macd_algo": "peak",
+    "macd_algo": "area",
     "kl_data_check": False,
     "bs_type": "1,1p,2,2s,3a,3b",
 })
 plot_config = {
     "plot_kline": False,
-    "plot_kline_combine": True,
+    "plot_kline_combine": False,
     "plot_bi": True,
     "plot_seg": False,
     "plot_eigen": False,
@@ -42,8 +42,8 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 50,
-        "h": 224 / 50,
-        "x_range": 90,
+        "h": 224 / 50 / 2,
+        "x_range": 120,
     },
     "seg": {
         # "plot_trendline": True,
@@ -84,7 +84,7 @@ class T_SAMPLE_INFO(TypedDict):
     close: float
 
 
-def generate_dataset(code, kl_type, begin_time, end_time):
+def generate_dataset(code, lv_list, begin_time, end_time):
     """
     本demo主要演示如何记录策略产出的买卖点的特征
     然后将这些特征作为样本，训练一个模型(以XGB为demo)
@@ -94,8 +94,6 @@ def generate_dataset(code, kl_type, begin_time, end_time):
     """
 
     data_src = DATA_SRC.FOREX
-    lv_list = [kl_type]
-
     chan = CChan(
         code=code,
         begin_time=begin_time,
@@ -139,11 +137,6 @@ def generate_dataset(code, kl_type, begin_time, end_time):
                 ax.set_xticks([])
                 ax.set_yticks([])
 
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                ax.spines['left'].set_visible(False)
-                ax.spines['bottom'].set_visible(False)
-
             g.figure.tight_layout()
             g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
             plt.close(g.figure)
@@ -186,5 +179,5 @@ if __name__ == "__main__":
     code = "EURUSD"
     begin_time = "2010-01-01 00:00:00"
     end_time = "2021-01-01 00:00:00"
-    kl_type = KL_TYPE.K_30M
-    generate_dataset(code, kl_type, begin_time, end_time)
+    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_3M]
+    generate_dataset(code, lv_list, begin_time, end_time)

@@ -59,11 +59,12 @@ def train_model(code):
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
     # 模型构建
-    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+    conv_base = keras.applications.ResNet50(weights='imagenet', include_top=False,
+                                            input_shape=(224, 224, 3))
     model = Sequential()
     model.add(conv_base)
     model.add(keras.layers.GlobalAveragePooling2D())
-    model.add(keras.layers.Dense(256, activation='relu'))
+    model.add(keras.layers.Dense(128, activation='relu'))
     model.add(keras.layers.Dropout(0.5))
     model.add(keras.layers.Dense(1, activation='sigmoid'))
 
@@ -72,7 +73,7 @@ def train_model(code):
 
     # 编译模型
     model.compile(loss=keras.losses.BinaryCrossentropy(),
-                  optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.004),
+                  optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.001),
                   metrics=[keras.metrics.AUC(name='auc')])
     #
     class_weights = compute_class_weight(

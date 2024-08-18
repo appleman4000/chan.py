@@ -3,12 +3,10 @@
 import os
 from threading import Thread
 
+import keras
 from PIL import Image
 
-from GenerateDataset import plot_config, plot_para
-
 os.environ['KERAS_BACKEND'] = 'torch'
-import keras
 
 import datetime
 import io
@@ -59,10 +57,15 @@ symbols = [
     # "XAGUSD",
 ]
 
+model = None
 
-def get_predict_value(model, chan, plot_config, plot_para):
+
+def get_predict_value(code, model, chan, plot_config, plot_para):
+    if model is None:
+        model = keras.saving.load_model(f"./TMP/{code}_model.keras")
     matplotlib.use('Agg')
     g = CPlotDriver(chan, plot_config, plot_para)
+    # 移除标题
     # 移除标题
     for ax in g.figure.axes:
         ax.set_title("", loc="left")
@@ -73,11 +76,6 @@ def get_predict_value(model, chan, plot_config, plot_para):
         # 移除 x 轴和 y 轴的刻度标签
         ax.set_xticks([])
         ax.set_yticks([])
-
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
 
     g.figure.tight_layout()
     buf = io.BytesIO()
@@ -94,14 +92,13 @@ def get_predict_value(model, chan, plot_config, plot_para):
 
 
 def strategy(code, kl_type, begin_date, total_profit):
-    model = keras.saving.load_model(f"./TMP/{code}_model.keras")
     data_src_type = DATA_SRC.FOREX_ONLINE
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
         "skip_step": 500,
         "divergence_rate": 0.9,
         "min_zs_cnt": 1,
-        "macd_algo": "peak",
+        "macd_algo": "area",
         "kl_data_check": False,
         "bs_type": "1,1p,2,2s,3a,3b",
     })
@@ -180,13 +177,13 @@ def strategy(code, kl_type, begin_date, total_profit):
 
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = get_predict_value(model, chan, plot_config, plot_para)
+                value = 1  # get_predict_value(code,model, chan, plot_config, plot_para)
                 if value > 0.55:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = get_predict_value(model, chan, plot_config, plot_para)
+                value = 0  # get_predict_value(code,model, chan, plot_config, plot_para)
                 if value < 0.45:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
