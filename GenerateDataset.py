@@ -175,7 +175,7 @@ def generate_dataset(code, kl_type, begin_time, end_time):
             j += 1
         labels.append(label)
 
-    with open(f"{code}_dataset.csv", mode='w', newline='') as file:
+    with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['label', 'filepath'])  # Write the header
         for label, filepath in zip(labels, filepaths):

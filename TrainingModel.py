@@ -3,6 +3,8 @@
 
 import os
 
+from sklearn.utils import compute_class_weight
+
 os.environ['KERAS_BACKEND'] = 'torch'
 import csv
 
@@ -44,13 +46,13 @@ def load_dataset_from_csv(csv_file, target_size=(224, 224)):
 
 
 def train_model(code):
-    if os.path.exists(f"./{code}images.npy"):
-        images = np.load(f"./{code}_images.npy")
-        labels = np.load(f"./{code}_labels.npy")
+    if os.path.exists(f"./TMP/{code}_images.npy"):
+        images = np.load(f"./TMP/{code}_images.npy")
+        labels = np.load(f"./TMP/{code}_labels.npy")
     else:
-        images, labels = load_dataset_from_csv(f"{code}_dataset.csv", target_size=(224, 224))
-        np.save(f"./{code}_images.npy", images)
-        np.save(f"./{code}_labels.npy", labels)
+        images, labels = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", target_size=(224, 224))
+        np.save(f"./TMP/{code}_images.npy", images)
+        np.save(f"./TMP/{code}_labels.npy", labels)
 
     X_train, X_val, y_train, y_val = train_test_split(images, labels, test_size=0.2, shuffle=False, random_state=42)
 
@@ -61,7 +63,7 @@ def train_model(code):
     model = Sequential()
     model.add(conv_base)
     model.add(keras.layers.GlobalAveragePooling2D())
-    model.add(keras.layers.Dense(512, activation='relu'))
+    model.add(keras.layers.Dense(256, activation='relu'))
     model.add(keras.layers.Dropout(0.5))
     model.add(keras.layers.Dense(1, activation='sigmoid'))
 
@@ -70,10 +72,10 @@ def train_model(code):
 
     # 编译模型
     model.compile(loss=keras.losses.BinaryCrossentropy(),
-                  optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.003),
+                  optimizer=keras.optimizers.Adam(learning_rate=1e-3, weight_decay=0.004),
                   metrics=['accuracy'])
     #
-    class_weights = class_weight.compute_class_weight(
+    class_weights = compute_class_weight(
         "balanced", classes=np.unique(labels), y=labels
     )
     class_weight = {
@@ -99,7 +101,7 @@ def train_model(code):
         validation_data=(X_val, y_val),
         callbacks=[early_stopping])
 
-    model.save(f"./{code}_model.keras")
+    model.save(f"./TMP/{code}_model.keras")
 
 
 if __name__ == "__main__":
