@@ -107,7 +107,7 @@ def generate_dataset(code, kl_type, begin_time, end_time):
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    source_dir = 'png'
+    source_dir = './TMP'
     os.makedirs(source_dir, exist_ok=True)
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
