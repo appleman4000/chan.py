@@ -1,12 +1,14 @@
 # cython: language_level=3
 # encoding:utf-8
 import os
+
+os.environ['KERAS_BACKEND'] = 'torch'
 from threading import Thread
 
 import keras
 from PIL import Image
 
-os.environ['KERAS_BACKEND'] = 'torch'
+from GenerateDataset import plot_config, plot_para
 
 import datetime
 import io
@@ -57,8 +59,6 @@ symbols = [
     # "XAGUSD",
 ]
 
-model = None
-
 
 def get_predict_value(code, model, chan, plot_config, plot_para):
     if model is None:
@@ -87,11 +87,11 @@ def get_predict_value(code, model, chan, plot_config, plot_para):
         img = img.convert('RGB')
     # 将图片转换为 NumPy 数组
     img_array = np.array(img)
-    outputs = model.predict(np.expand_dims(img_array, axis=0), verbose=False)[0]
-    return outputs
+    value = model.predict(np.expand_dims(img_array, axis=0), verbose=False)[0]
+    return value
 
 
-def strategy(code, kl_type, begin_date, total_profit):
+def strategy(code, lv_list, begin_date, total_profit):
     data_src_type = DATA_SRC.FOREX_ONLINE
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -106,14 +106,14 @@ def strategy(code, kl_type, begin_date, total_profit):
     begin_date = datetime.datetime.strptime(begin_date, "%Y-%m-%d %H:%M:%S")
     end_date = datetime.datetime.now()
     end_date = end_date.timestamp()
-    end_date -= end_date % period_seconds[kl_type]
-    end_date -= period_seconds[kl_type]
+    end_date -= end_date % period_seconds[lv_list[0]]
+    end_date -= period_seconds[lv_list[0]]
     end_date = datetime.datetime.fromtimestamp(end_date)
     # 快照
     chan = CChan(
         code=code,
         data_src=data_src_type,
-        lv_list=[kl_type],
+        lv_list=lv_list,
         config=config,
         begin_time=begin_date,
         end_time=end_date
@@ -153,8 +153,8 @@ def strategy(code, kl_type, begin_date, total_profit):
             # 止盈
             close_price = round(lv_chan[-1][-1].close / fee, 5)
             long_profit = close_price / long_order - 1
-            tp = long_profit >= 0.004
-            sl = long_profit <= -0.004
+            tp = long_profit >= 0.003
+            sl = long_profit <= -0.005
             if tp or sl:
                 long_order = 0
                 profit += round(long_profit * money, 2)
@@ -165,8 +165,8 @@ def strategy(code, kl_type, begin_date, total_profit):
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close * fee, 5)
             short_profit = short_order / close_price - 1
-            tp = short_profit >= 0.004
-            sl = short_profit <= -0.004
+            tp = short_profit >= 0.003
+            sl = short_profit <= -0.005
             if tp or sl:
                 short_profit = short_order / close_price - 1
                 short_order = 0
@@ -177,14 +177,14 @@ def strategy(code, kl_type, begin_date, total_profit):
 
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = 1  # get_predict_value(code,model, chan, plot_config, plot_para)
-                if value > 0.55:
+                value = get_predict_value(code, model, chan, plot_config, plot_para)
+                if value > 0.6:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = 0  # get_predict_value(code,model, chan, plot_config, plot_para)
-                if value < 0.45:
+                value = get_predict_value(code, model, chan, plot_config, plot_para)
+                if value > 0.6:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -210,12 +210,13 @@ def strategy(code, kl_type, begin_date, total_profit):
 
 
 if __name__ == "__main__":
-    kl_type = KL_TYPE.K_30M
+    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
     begin_date = "2021-01-01 00:00:00"
     total_profit = Value('f', 0)
+    model = None
     threads = []
     for symbol in symbols:
-        thread = Thread(target=strategy, args=(symbol, kl_type, begin_date, total_profit))
+        thread = Thread(target=strategy, args=(symbol, lv_list, begin_date, total_profit))
         threads.append(thread)
         thread.start()
     for thread in threads:

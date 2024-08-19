@@ -1,25 +1,34 @@
 # cython: language_level=3
 import csv
+import json
 import os.path
 from typing import Dict, TypedDict
 
 import matplotlib
 from matplotlib import pyplot as plt
 
+from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
-from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Plot.PlotDriver import CPlotDriver
 
+matplotlib.use('Agg')
+
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
-    "skip_step": 500,
+    "bi_strict": True,
+    "skip_step": 0,
     "divergence_rate": 0.9,
+    "bsp2_follow_1": True,
+    "bsp3_follow_1": True,
     "min_zs_cnt": 1,
-    "macd_algo": "area",
-    "kl_data_check": False,
-    "bs_type": "1,1p,2,2s,3a,3b",
+    "bs1_peak": False,
+    "macd_algo": "peak",
+    "bs_type": '1,2,3a,1p,2s,3b',
+    "print_warning": True,
+    "zs_algo": "normal",
+    "kl_data_check": False
 })
 plot_config = {
     "plot_kline": False,
@@ -79,12 +88,12 @@ plot_para = {
 
 
 class T_SAMPLE_INFO(TypedDict):
-    feature: CFeatures
-    is_buy: bool
-    close: float
+    last_bsp: CBS_Point
+    features: str
+    file_path: str
 
 
-def generate_dataset(code, lv_list, begin_time, end_time):
+def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
     """
     本demo主要演示如何记录策略产出的买卖点的特征
     然后将这些特征作为样本，训练一个模型(以XGB为demo)
@@ -105,7 +114,6 @@ def generate_dataset(code, lv_list, begin_time, end_time):
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    source_dir = './PNG'
     os.makedirs(source_dir, exist_ok=True)
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
@@ -115,69 +123,69 @@ def generate_dataset(code, lv_list, begin_time, end_time):
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
-        if BSP_TYPE.T2 not in last_bsp.type and BSP_TYPE.T2S not in last_bsp.type:  # 假如只做2类买卖点
+        if BSP_TYPE.T1 not in last_bsp.type and BSP_TYPE.T1P not in last_bsp.type \
+                and BSP_TYPE.T2 not in last_bsp.type and BSP_TYPE.T2S not in last_bsp.type \
+                and BSP_TYPE.T3A not in last_bsp.type and BSP_TYPE.T3B not in last_bsp.type:  # 假如只做2类买卖点
             continue
         cur_lv_chan = chan_snapshot[0]
-        if last_bsp.klu.klc.idx != cur_lv_chan[-1].idx:
-            continue
-        str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-        file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
+        if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
+            # 假如策略是：买卖点分形第二元素出现时交易
+            str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+            file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
 
-        if not os.path.exists(file_path):
-            matplotlib.use('Agg')
-            g = CPlotDriver(chan, plot_config, plot_para)
-            # 移除标题
-            for ax in g.figure.axes:
-                ax.set_title("", loc="left")
-                # 移除 x 轴和 y 轴标签
-                ax.set_xlabel('')
-                ax.set_ylabel('')
+            if not os.path.exists(file_path):
+                g = CPlotDriver(chan, plot_config, plot_para)
+                # 移除标题
+                for ax in g.figure.axes:
+                    ax.set_title("", loc="left")
+                    # 移除 x 轴和 y 轴标签
+                    ax.set_xlabel('')
+                    ax.set_ylabel('')
 
-                # 移除 x 轴和 y 轴的刻度标签
-                ax.set_xticks([])
-                ax.set_yticks([])
+                    # 移除 x 轴和 y 轴的刻度标签
+                    ax.set_xticks([])
+                    ax.set_yticks([])
 
-            g.figure.tight_layout()
-            g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
-            plt.close(g.figure)
+                g.figure.tight_layout()
+                g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
+                plt.close(g.figure)
 
-        bsp_dict[last_bsp.klu.idx] = {
-            "feature": file_path,
-            "is_buy": last_bsp.is_buy,
-            "close": lv_chan[-1][-1].close
-        }
-        print(last_bsp.klu.time, last_bsp.is_buy)
-    closes = []
-    filepaths = []
-    is_buys = []
-    labels = []
-    for bsp_klu_idx, feature_info in bsp_dict.items():
-        closes.append(feature_info['close'])
-        filepaths.append(feature_info['feature'])
-        is_buys.append(feature_info['is_buy'])
-    for i, price in enumerate(closes):
-        label = 0
-        j = 0
-        while True and i + 1 + j < len(closes):
-            if closes[i + 1 + j] / price - 1 >= 0.004:
-                label = 1
-                break
-            if closes[i + 1 + j] / price - 1 <= -0.004:
-                label = 0
-                break
-            j += 1
-        labels.append(label)
-
+            bsp_dict[last_bsp.klu.idx] = {
+                "last_bsp": last_bsp,
+                "file_path": file_path
+            }
+            print(last_bsp.klu.time, last_bsp.is_buy)
+    feature_meta = {}  # 特征meta
+    cur_feature_idx = 0
+    bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
     with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['label', 'filepath'])  # Write the header
-        for label, filepath in zip(labels, filepaths):
-            writer.writerow([label, filepath])  # Write label and filepath to the CSV
+        writer.writerow(['label', 'file_path'])  # Write the header
+        for bsp_klu_idx, feature_info in bsp_dict.items():
+            label = int(bsp_klu_idx in bsp_academy)  # 以买卖点识别是否准确为label
+            last_bsp = feature_info["last_bsp"]
+            file_path = str(feature_info["file_path"])
+            features = []
+            for feature_name, value in last_bsp.features.items():
+                if feature_name not in feature_meta:
+                    feature_meta[feature_name] = cur_feature_idx
+                    cur_feature_idx += 1
+                features.append((feature_meta[feature_name], value))
+            features.sort(key=lambda x: x[0])
+            feature_str = " ".join([f"{idx}:{value}" for idx, value in features])
+            writer.writerow(
+                [label, last_bsp.type[0].value, file_path, feature_str])
+    with open(f"./TMP/{code}_feature.meta", "w") as fid:
+        # meta保存下来，实盘预测时特征对齐用
+        fid.write(json.dumps(feature_meta))
 
 
 if __name__ == "__main__":
     code = "EURUSD"
+    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
+    source_dir = './PNG'
+
     begin_time = "2010-01-01 00:00:00"
-    end_time = "2021-01-01 00:00:00"
-    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_3M]
-    generate_dataset(code, lv_list, begin_time, end_time)
+    end_time = "2021-04-01 00:00:00"
+
+    generate_dataset(code, source_dir, lv_list, begin_time, end_time)
