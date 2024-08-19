@@ -1,30 +1,31 @@
 # cython: language_level=3
 # encoding:utf-8
+import json
 import os
+import pickle
+
+from xgboost import DMatrix
+
+from BuySellPoint.BS_Point import CBS_Point
 
 os.environ['KERAS_BACKEND'] = 'torch'
 from threading import Thread
 
 import keras
-from PIL import Image
 
 from GenerateDataset import plot_config, plot_para
 
 import datetime
-import io
 import sys
 from multiprocessing import Value
 
-import matplotlib
 import numpy as np
-from matplotlib import pyplot as plt
 
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE, BSP_TYPE
-from CommonTools import period_seconds, shanghai_to_zurich_datetime
+from CommonTools import period_seconds, shanghai_to_zurich_datetime, chan_to_png
 from Messenger import send_message
-from Plot.PlotDriver import CPlotDriver
 
 sys.setrecursionlimit(1000000)
 app_id = 'cli_a63ae160c79d500b'
@@ -59,36 +60,32 @@ symbols = [
     # "XAGUSD",
 ]
 
+keras_model = {}
+lgb_model = {}
 
-def get_predict_value(code, model, chan, plot_config, plot_para):
-    if model is None:
-        model = keras.saving.load_model(f"./TMP/{code}_model.keras")
-    matplotlib.use('Agg')
-    g = CPlotDriver(chan, plot_config, plot_para)
-    # 移除标题
-    # 移除标题
-    for ax in g.figure.axes:
-        ax.set_title("", loc="left")
-        # 移除 x 轴和 y 轴标签
-        ax.set_xlabel('')
-        ax.set_ylabel('')
 
-        # 移除 x 轴和 y 轴的刻度标签
-        ax.set_xticks([])
-        ax.set_yticks([])
+def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_para):
+    if keras_model[code] is None:
+        keras_model[code] = keras.saving.load_model(f"./TMP/{code}_model.keras")
+    if lgb_model[code] is None:
+        with open(f"./TMP/{code}_model.lgb", 'rb') as file:
+            # 使用 pickle.load 加载对象
+            lgb_model[code] = pickle.load(file)
+            meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
 
-    g.figure.tight_layout()
-    buf = io.BytesIO()
-    g.figure.savefig(buf, format='PNG', bbox_inches='tight', pad_inches=0.1)
-    buf.seek(0)
-    plt.close(g.figure)
-    img = Image.open(buf).resize((224, 224))
-    if img.mode == 'RGBA':
-        img = img.convert('RGB')
-    # 将图片转换为 NumPy 数组
-    img_array = np.array(img)
-    value = model.predict(np.expand_dims(img_array, axis=0), verbose=False)[0]
-    return value
+    img_array = chan_to_png(chan, plot_config, plot_para, file_path="")
+    intermediate_layer = keras_model[code].layers[-2]
+    intermediate_model = keras.Model(inputs=keras_model[code].input,
+                                     outputs=intermediate_layer.output)
+    keras_features = intermediate_model.predict([img_array], verbose=False)[0]
+    missing = -9999999
+    feature_arr = [missing] * len(meta)
+    for feat_name, feat_value in last_bsp.features.items():
+        if feat_name in meta:
+            feature_arr[meta[feat_name]] = feat_value
+    feature_arr = [feature_arr]
+    dtest = DMatrix(feature_arr, missing=missing)
+    return lgb_model.predict_proba([dtest])[0][1]
 
 
 def strategy(code, lv_list, begin_date, total_profit):

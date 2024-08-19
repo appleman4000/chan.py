@@ -202,7 +202,7 @@ def send_mail(to_emails, subject, message, chans):
             g = CPlotDriver(chan, plot_config, plot_para)
             buf = io.BytesIO()
 
-            g.figure.savefig(buf, format='png0')
+            g.figure.savefig(buf, format='png')
             plt.close(g.figure)
             buf.seek(0)
             image_bytes_list.append(buf.getvalue())

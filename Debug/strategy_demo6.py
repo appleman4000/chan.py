@@ -26,16 +26,18 @@ class T_SAMPLE_INFO(TypedDict):
     open_time: CTime
 
 
-def predict_bsp(model, last_bsp: CBS_Point, meta: Dict[str, int]):
+def predict_bsp(chan_snapshot, lgb_model, keras_model, last_bsp: CBS_Point, meta: Dict[str, int]):
     missing = -9999999
     feature_arr = [missing] * len(meta)
     for feat_name, feat_value in last_bsp.features.items():
         if feat_name in meta:
             feature_arr[meta[feat_name]] = feat_value
     feature_arr = [feature_arr]
+
+
     dtest = xgb.DMatrix(feature_arr, missing=missing)
-    return model.predict_proba(csr_matrix(dtest.get_data()).toarray())[0][1]
-    # return model.predict(dtest)
+
+    return lgb_model.predict_proba(csr_matrix(dtest.get_data()).toarray())[0][1]
 
 
 if __name__ == "__main__":
@@ -73,9 +75,6 @@ if __name__ == "__main__":
         autype=AUTYPE.QFQ,
     )
 
-    # model = xgb.Booster()
-    # model.load_model("model.json")
-    # meta = json.load(open("feature.meta", "r"))
     # # 打开文件以二进制读模式
     with open("model.hdf5", 'rb') as file:
         # 使用 pickle.load 加载对象
@@ -107,7 +106,8 @@ if __name__ == "__main__":
             factors = get_factors(FeatureFactors(chan))
             for key in factors.keys():
                 last_bsp.features.add_feat(key, factors[key])
-            value = predict_bsp(model, last_bsp, meta)
+            value = predict_bsp(chan_snapshot, lgb_model=lgb_model, keras_model=keras_model, last_bsp=last_bsp,
+                                meta=meta)
             treated_bsp_idx.add(last_bsp.klu.idx)
             if len(long_orders) == 0 and len(short_orders) == 0:
                 if last_bsp.is_buy and value > 0.7:

@@ -1,14 +1,21 @@
 # cython: language_level=3
 # encoding:utf-8
 import datetime
+import io
 import time
 
 import MetaTrader5 as mt5
+import matplotlib
+import numpy as np
 import pytz
+from PIL import Image
+from matplotlib import pyplot as plt
 
+from Chan import CChan
 from Common.CEnum import KL_TYPE, DATA_FIELD
 from Common.CTime import CTime
 from Common.func_util import str2float
+from Plot.PlotDriver import CPlotDriver
 
 local_timezone = 'Asia/Shanghai'
 server_timezone = 'Europe/Zurich'
@@ -215,3 +222,38 @@ def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
             else:
                 print(f"{symbol} sell order placed successfully")
             break
+
+
+def chan_to_png(chan: CChan, plot_config, plot_para, file_path=""):
+    matplotlib.use('Agg')
+    g = CPlotDriver(chan, plot_config, plot_para)
+    # 移除标题
+    # 移除标题
+    for ax in g.figure.axes:
+        ax.set_title("", loc="left")
+        # 移除 x 轴和 y 轴标签
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        # 移除 x 轴和 y 轴的刻度标签
+        ax.set_xticks([])
+        ax.set_yticks([])
+    g.figure.tight_layout()
+    if file_path:
+        g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
+        plt.close(g.figure)
+        img = Image.open(file_path).resize((224, 224))
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+        img.save(file_path)
+        return None
+    else:
+        buf = io.BytesIO()
+        g.figure.savefig(buf, format='PNG', bbox_inches='tight', pad_inches=0.1)
+        buf.seek(0)
+        plt.close(g.figure)
+        img = Image.open(buf).resize((224, 224))
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+        # 将图片转换为 NumPy 数组
+        img_array = np.array(img)
+        return img_array

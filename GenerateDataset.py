@@ -11,6 +11,7 @@ from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
+from CommonTools import chan_to_png
 from Plot.PlotDriver import CPlotDriver
 
 matplotlib.use('Agg')
@@ -134,22 +135,7 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
             file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
 
             if not os.path.exists(file_path):
-                g = CPlotDriver(chan, plot_config, plot_para)
-                # 移除标题
-                for ax in g.figure.axes:
-                    ax.set_title("", loc="left")
-                    # 移除 x 轴和 y 轴标签
-                    ax.set_xlabel('')
-                    ax.set_ylabel('')
-
-                    # 移除 x 轴和 y 轴的刻度标签
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-
-                g.figure.tight_layout()
-                g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)
-                plt.close(g.figure)
-
+                chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
             bsp_dict[last_bsp.klu.idx] = {
                 "last_bsp": last_bsp,
                 "file_path": file_path
