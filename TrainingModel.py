@@ -65,7 +65,8 @@ def train_model(code):
         features = np.load(f"./TMP/{code}_features.npy")
     else:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"], meta=meta,
+        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"],
+                                                         meta=meta,
                                                          target_size=(224, 224))
         np.save(f"./TMP/{code}_images.npy", images)
         np.save(f"./TMP/{code}_labels.npy", labels)
@@ -93,11 +94,11 @@ def train_model(code):
     output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
-    
+
     # 冻结卷积基
-    conv_base.trainable = True
-    # for layer in conv_base.layers[-30:]:
-    #     layer.trainable = True
+    conv_base.trainable = False
+    for layer in conv_base.layers[-30:]:
+        layer.trainable = True
 
     model.compile(loss=keras.losses.BinaryCrossentropy(),
                   optimizer=keras.optimizers.AdamW(learning_rate=0.001, weight_decay=0.005),
