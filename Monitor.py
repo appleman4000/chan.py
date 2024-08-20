@@ -62,23 +62,22 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     chan = chans[symbol + str(period)]
     chan.trigger_load({period: [bar]})
 
-    if enable_send_message and period == mt5.TIMEFRAME_M5:
+    if enable_send_message and period == KL_TYPE.K_5M:
         # 5分钟买卖点,底分型或者顶分型成立
         chan_m5 = chan[0]
         # 确保分型已确认
         if chan_m5[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
             return
         # 30M买卖点，分型待确认
-        chan_m30 = chans[symbol + str(mt5.TIMEFRAME_M30)]
+        chan_m30 = chans[symbol + str(KL_TYPE.K_30M)]
         bsp_list = chan_m30.get_bsp(0)
         if not bsp_list:
             return
         last_bsp_h1 = bsp_list[-1]
-        if BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
+        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P and \
+           BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
             return
-        # if chan_m30[-1].idx - last_bsp_h1.klu.klc.idx != 0:
-        #     return
-        if last_bsp_h1.klu.time != bar.time:
+        if chan_m30[-1].idx - last_bsp_h1.klu.klc.idx != 0:
             return
         # 1小时买卖点和15分钟方向一致
         if (last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.BOTTOM or
@@ -86,7 +85,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
             return
 
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
-        subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_M30]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
+        subject = f"外汇- {symbol} {period_name[KL_TYPE.K_30M]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds[period]).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds[period])}"
         app_id = 'cli_a63ae160c79d500b'
         app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'

@@ -95,9 +95,9 @@ def train_model(code):
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
     
     # 冻结卷积基
-    conv_base.trainable = False
-    for layer in conv_base.layers[:9]:
-        layer.trainable = True
+    conv_base.trainable = True
+    # for layer in conv_base.layers[-30:]:
+    #     layer.trainable = True
 
     model.compile(loss=keras.losses.BinaryCrossentropy(),
                   optimizer=keras.optimizers.AdamW(learning_rate=0.001, weight_decay=0.005),
