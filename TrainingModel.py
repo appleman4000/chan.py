@@ -65,14 +65,11 @@ def train_model(code):
         features = np.load(f"./TMP/{code}_features.npy")
     else:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"],
-                                                         meta=meta,
+        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"], meta=meta,
                                                          target_size=(224, 224))
         np.save(f"./TMP/{code}_images.npy", images)
         np.save(f"./TMP/{code}_labels.npy", labels)
         np.save(f"./TMP/{code}_features.npy", features)
-
-    # images = keras.applications.resnet.preprocess_input(images)
 
     X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                       shuffle=False,
@@ -90,18 +87,19 @@ def train_model(code):
     img_output = keras.layers.Dense(64, activation='relu')(img_output)
     img_output = keras.layers.Dropout(0.2)(img_output)
 
-    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
+    feature_output = keras.layers.Dense(32, activation='relu')(feature_inputs)
     output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
+
     conv_base.trainable = False
     for layer in conv_base.layers[-30:]:
         layer.trainable = True
 
     model.compile(loss=keras.losses.BinaryCrossentropy(),
-                  optimizer=keras.optimizers.AdamW(learning_rate=0.001, weight_decay=0.005),
+                  optimizer=keras.optimizers.Adam(learning_rate=1e-3),
                   metrics=[keras.metrics.AUC(name='auc')])
 
     class_weights = compute_class_weight(
@@ -115,9 +113,8 @@ def train_model(code):
     early_stopping = keras.callbacks.EarlyStopping(
         monitor='val_auc',
         mode='max',
-        patience=50,
+        patience=5,
         restore_best_weights=True,
-        start_from_epoch=5,
         verbose=2
     )
 
@@ -126,7 +123,7 @@ def train_model(code):
         (X_train, f_train),
         y_train,
         class_weight=class_weight,
-        epochs=50,
+        epochs=20,
         verbose=2,
         batch_size=32,
         validation_data=((X_val, f_val), y_val),

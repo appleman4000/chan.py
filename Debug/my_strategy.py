@@ -136,7 +136,7 @@ class CZSCStrategy(bt.Strategy):  # BOLL策略程序
                     ax.grid(False)
                 g.figure.tight_layout()
                 buf = io.BytesIO()
-                g.figure.savefig(buf, format='png0')
+                g.figure.savefig(buf, format='png')
                 plt.close(g.figure)
                 buf.seek(0)
                 outputs = self.model.predict(np.expand_dims(buf.getvalue(), axis=0))[0]

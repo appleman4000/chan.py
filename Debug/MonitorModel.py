@@ -197,7 +197,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
                 ax.grid(False)
             g.figure.tight_layout()
             buf = io.BytesIO()
-            g.figure.savefig(buf, format='png0')
+            g.figure.savefig(buf, format='png')
             plt.close(g.figure)
             buf.seek(0)
             outputs = model.predict(np.expand_dims(buf.getvalue(), axis=0))[0]

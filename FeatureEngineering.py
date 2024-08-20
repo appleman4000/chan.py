@@ -19,31 +19,7 @@ class FeatureFactors:
             "open_klu_rate": klu.close / klu.open - 1,
         }
 
-    # def bsp_type(self):
-    #     bsp_list = self.chan.get_bsp()
-    #     if not bsp_list:
-    #         return {"bsp_type": None}
-    #     bsp = bsp_list[-1]
-    #     return {"bsp_type": list(BSP_TYPE).index(bsp.type[0])}
-
-    # def fx(self,chan: CChan):
-    #     fx = self.chan[0][-1].fx
-    #     return {"fx": list(FX_TYPE).index(fx)}
-
     ############################### 笔 ########################################
-    # def bi_dir(self,chan: CChan):
-    #     returns = dict()
-    #     for i in range(1, N_BI + 1):
-    #         bi = self.chan[0].bi_list[-i]
-    #         returns[f"bi_dir{i}"] = list(BI_DIR).index(bi.dir)
-    #     return returns
-
-    # def bi_is_sure(self,chan: CChan):
-    #     returns = dict()
-    #     for i in range(1, N_BI + 1):
-    #         bi = self.chan[0].bi_list[-i]
-    #         returns[f"bi_is_sure{i}"] = int(bi.is_sure)
-    #     return returns
 
     def bi_high(self):
         klu = self.chan[0][-1][-1]
@@ -68,7 +44,7 @@ class FeatureFactors:
         returns = dict()
         for i in range(1, N_BI + 1):
             bi = self.chan[0].bi_list[-i]
-            #returns[f"bi_mid_amp{i}"] = bi._mid() - klu.close
+            # returns[f"bi_mid_amp{i}"] = bi._mid() - klu.close
             returns[f"bi_mid_rate{i}"] = bi._mid() / klu.close - 1
         return returns
 
@@ -99,20 +75,6 @@ class FeatureFactors:
             # returns[f"bi_amp{i}"] = bi.get_end_val() - bi.get_begin_val()
             returns[f"bi_rate{i}"] = bi.get_end_val() / bi.get_begin_val() - 1
             returns[f"bi_slope{i}"] = (bi.get_end_val() - bi.get_begin_val()) / bi.get_klu_cnt()
-        return returns
-
-    def bi_klu_cnt(self):
-        returns = dict()
-        for i in range(1, N_BI + 1):
-            bi = self.chan[0].bi_list[-i]
-            returns[f"bi_klu_cnt{i}"] = bi.get_klu_cnt()
-        return returns
-
-    def bi_klc_cnt(self):
-        returns = dict()
-        for i in range(1, N_BI + 1):
-            bi = self.chan[0].bi_list[-i]
-            returns[f"bi_klc_cnt{i}"] = bi.get_klc_cnt()
         return returns
 
     def divergence_macd_metric(self):
@@ -188,13 +150,6 @@ class FeatureFactors:
                     seg.get_end_klu().idx - seg.get_begin_klu().idx)
         return returns
 
-    def seg_bi_cnt(self):
-        returns = dict()
-        for i in range(1, N_SEG + 1):
-            seg = self.chan[0].seg_list[-i]
-            returns[f"seg_bi_cnt{i}"] = seg.cal_bi_cnt()
-        return returns
-
     def seg_low(self):
         klu = self.chan[0][-1][-1]
         returns = dict()
@@ -212,14 +167,6 @@ class FeatureFactors:
             # returns[f"seg_high_amp{i}"] = seg._high() - klu.close
             returns[f"seg_high_rate{i}"] = seg._high() / klu.close - 1
         return returns
-
-    # def seg_is_down(self):
-    #     klu = self.chan[0][-1][-1]
-    #     returns = dict()
-    #     for i in range(1, N_SEG + 1):
-    #         seg = self.chan[0].seg_list[-i]
-    #         returns[f"seg_is_down{i}"] = int(seg.is_down())
-    #     return returns
 
     def seg_begin_val(self):
         klu = self.chan[0][-1][-1]
@@ -240,13 +187,6 @@ class FeatureFactors:
             # returns[f"seg_end_val_amp{i}"] = seg.get_end_val() - klu.close
             returns[f"seg_end_val_rate{i}"] = seg.get_end_val() / klu.close - 1
             returns[f"seg_end_val_slope{i}"] = (seg.get_end_val() - klu.close) / (klu.idx - seg.get_end_klu().idx + 1)
-        return returns
-
-    def seg_klu_cnt(self):
-        returns = dict()
-        for i in range(1, N_SEG + 1):
-            seg = self.chan[0].seg_list[-i]
-            returns[f"seg_klu_cnt{i}"] = seg.get_klu_cnt()
         return returns
 
     def seg_macd_slope(self):

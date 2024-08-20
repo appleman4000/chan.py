@@ -132,8 +132,8 @@ def strategy(code, lv_list, begin_date, total_profit):
             # 止盈
             close_price = round(lv_chan[-1][-1].close / fee, 5)
             long_profit = close_price / long_order - 1
-            tp = long_profit >= 0.005
-            sl = long_profit <= -0.005
+            tp = long_profit >= 0.004
+            sl = long_profit <= -0.004
             if tp or sl:
                 long_order = 0
                 profit += round(long_profit * money, 2)
@@ -144,8 +144,8 @@ def strategy(code, lv_list, begin_date, total_profit):
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close * fee, 5)
             short_profit = short_order / close_price - 1
-            tp = short_profit >= 0.005
-            sl = short_profit <= -0.005
+            tp = short_profit >= 0.004
+            sl = short_profit <= -0.004
             if tp or sl:
                 short_profit = short_order / close_price - 1
                 short_order = 0
@@ -155,8 +155,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                 history_short_orders += 1
 
         if long_order == 0 and short_order == 0:
-            if entry_rule and last_bsp.is_buy and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type or \
-                                                   BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
+            if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 factors = get_factors(FeatureFactors(chan))
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
@@ -165,8 +164,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
-            if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type or \
-                                                       BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
+            if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
                 factors = get_factors(FeatureFactors(chan))
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])

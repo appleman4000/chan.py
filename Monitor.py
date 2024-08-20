@@ -77,7 +77,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P and \
            BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
             return
-        if chan_m30[-1].idx - last_bsp_h1.klu.klc.idx != 0:
+        if chan_m30[0][-1].idx - last_bsp_h1.klu.klc.idx != 0:
             return
         # 1小时买卖点和15分钟方向一致
         if (last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.BOTTOM or
@@ -90,6 +90,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         app_id = 'cli_a63ae160c79d500b'
         app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
         webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/b5d0499b-4082-4dd3-82a5-70528e548695'
+
         send_message(app_id, app_secret, webhook_url, subject, message, [chans[symbol + str(p)] for p in periods])
         comment = f"{','.join([t.name for t in last_bsp_h1.type])}"
         robot_trade(symbol, 0.01, last_bsp_h1.is_buy, comment)

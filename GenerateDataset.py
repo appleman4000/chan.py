@@ -131,7 +131,7 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    os.makedirs(source_dir, exist_ok=True)
+    os.makedirs(f"{source_dir}/{code}", exist_ok=True)
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
 
@@ -170,7 +170,7 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
         if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx:
             # 假如策略是：买卖点分形第2元素出现时交易
             str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-            file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
+            file_path = f"{source_dir}/{code}/{code}_{str_date}.PNG"  # 输出文件的路径
 
             if not os.path.exists(file_path):
                 chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
