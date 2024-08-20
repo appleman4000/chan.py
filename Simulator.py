@@ -208,7 +208,7 @@ def strategy(code, lv_list, begin_date, total_profit):
 
 if __name__ == "__main__":
     lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
-    begin_date = "2021-01-01 00:00:00"
+    begin_date = "2021-04-01 00:00:00"
     total_profit = Value('f', 0)
     model = None
     threads = []

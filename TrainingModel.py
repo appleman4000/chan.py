@@ -15,7 +15,7 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 
 
-def load_dataset_from_csv(csv_file, meta, target_size=(224, 224)):
+def load_dataset_from_csv(csv_file, meta, bsp_type, target_size=(224, 224)):
     images = []
     labels = []
     features = []
@@ -26,19 +26,18 @@ def load_dataset_from_csv(csv_file, meta, target_size=(224, 224)):
         for row in reader:
             label = int(row[0])  # Read the label (convert it to int if necessary)
             bs_type = row[1]
-            if bs_type not in ["2", "2s"]:
+            if bs_type not in bsp_type:
                 continue
             file_path = row[2]  # Read the filepath
 
             feature = row[3]
             feature = {int(k): float(v) for k, v in (item.split(':') for item in feature.split())}
 
-            missing = -9999999
+            missing = 0
             feature_arr = [missing] * len(meta)
-            for feat_name, feat_value in features:
-                if feat_name in meta:
-                    feature_arr[meta[feat_name]] = feat_value
-            feature_arr = [feature_arr]
+            for feat_name, feat_value in feature.items():
+                if feat_name in meta.values():
+                    feature_arr[feat_name] = feat_value
             # Process the label and filepath as needed
             print(f"Label: {label}, Filepath: {file_path}")
 
@@ -51,7 +50,7 @@ def load_dataset_from_csv(csv_file, meta, target_size=(224, 224)):
                 img_array = np.array(img)
                 images.append(img_array)
                 labels.append(label)
-                features.append(feature)
+                features.append(feature_arr)
             except Exception as e:
                 print(f"Error processing file {file_path}: {e}")
 
@@ -60,12 +59,14 @@ def load_dataset_from_csv(csv_file, meta, target_size=(224, 224)):
 
 def train_model(code):
     if os.path.exists(f"./TMP/{code}_images.npy"):
+        meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
         images = np.load(f"./TMP/{code}_images.npy")
         labels = np.load(f"./TMP/{code}_labels.npy")
         features = np.load(f"./TMP/{code}_features.npy")
     else:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv",meta=meta, target_size=(224, 224))
+        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"], meta=meta,
+                                                         target_size=(224, 224))
         np.save(f"./TMP/{code}_images.npy", images)
         np.save(f"./TMP/{code}_labels.npy", labels)
         np.save(f"./TMP/{code}_features.npy", features)
@@ -79,16 +80,17 @@ def train_model(code):
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
     # 模型构建
-    conv_base = keras.applications.ResNet50(weights='imagenet', include_top=False,
-                                            input_shape=(224, 224, 3))
-    img_inputs = keras.layers.Input()
+    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False,
+                                                 input_shape=(224, 224, 3))
+    img_inputs = keras.layers.Input(shape=(224, 224, 3))
+    feature_inputs = keras.layers.Input(shape=(len(meta),))
     output = conv_base(img_inputs)
     output = keras.layers.GlobalAveragePooling2D()(output)
-    output = keras.layers.Dense(128, activation='relu')(output)
     output = keras.layers.Dropout(0.5)(output)
-    output = keras.layers.Dense(16, activation='relu')(output)
+    output = keras.layers.Dense(128, activation='relu')(output)
+    output = keras.layers.Concatenate(axis=-1)([output, feature_inputs])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
-    model = keras.models.Model(inputs=img_inputs, outputs=output)
+    model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
     # 冻结卷积基
     conv_base.trainable = False
 
@@ -110,18 +112,19 @@ def train_model(code):
         mode='max',
         patience=50,
         restore_best_weights=True,
-        start_from_epoch=10
+        start_from_epoch=5,
+        verbose=2
     )
 
     # 训练模型
     model.fit(
-        X_train,
+        (X_train, f_train),
         y_train,
         class_weight=class_weight,
         epochs=100,
         verbose=2,
         batch_size=32,
-        validation_data=(X_val, y_val),
+        validation_data=((X_val, f_val), y_val),
         callbacks=[early_stopping])
 
     model.save(f"./TMP/{code}_model.keras")

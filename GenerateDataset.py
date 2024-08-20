@@ -5,14 +5,13 @@ import os.path
 from typing import Dict, TypedDict
 
 import matplotlib
-from matplotlib import pyplot as plt
 
 from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from CommonTools import chan_to_png
-from Plot.PlotDriver import CPlotDriver
+from Debug.FeatureEngineering import FeatureFactors
 
 matplotlib.use('Agg')
 
@@ -92,6 +91,23 @@ class T_SAMPLE_INFO(TypedDict):
     last_bsp: CBS_Point
     features: str
     file_path: str
+    close: float
+    label: int
+    state: int
+
+
+def stragety_feature(last_klu):
+    return {
+        "open_klu_rate": (last_klu.close - last_klu.open) / last_klu.open,
+    }
+
+
+def get_factors(obj):
+    results = {}
+    for attr_name, attr_value in obj.__class__.__dict__.items():
+        if callable(attr_value) and attr_name != '__init__':
+            results.update(attr_value(obj))
+    return results
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
@@ -121,6 +137,17 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
 
         lv_chan = chan_snapshot[0]
         bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
+        for idx, bsp in bsp_dict.items():
+            if bsp["state"] == 0:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.002:
+                    bsp["state"] = 1
+                    bsp["label"] = int(bsp["last_bsp"].is_buy)
+                    continue
+                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.002:
+                    bsp["state"] = 1
+                    bsp["label"] = int(not bsp["last_bsp"].is_buy)
+                    continue
+
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
@@ -138,17 +165,22 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
                 chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
             bsp_dict[last_bsp.klu.idx] = {
                 "last_bsp": last_bsp,
-                "file_path": file_path
+                "file_path": file_path,
+                "close": lv_chan[-1][-1].close,
+                "label": 0,
+                "state": 0
             }
+            factors = get_factors(FeatureFactors(chan))
+            for key in factors.keys():
+                bsp_dict[last_bsp.klu.idx]['last_bsp'].features.add_feat(key, factors[key])
             print(last_bsp.klu.time, last_bsp.is_buy)
     feature_meta = {}  # 特征meta
     cur_feature_idx = 0
-    bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
     with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['label', 'file_path'])  # Write the header
+        writer.writerow(['label', 'bs_type', 'file_path', 'feature'])  # Write the header
         for bsp_klu_idx, feature_info in bsp_dict.items():
-            label = int(bsp_klu_idx in bsp_academy)  # 以买卖点识别是否准确为label
+            label = feature_info["label"]
             last_bsp = feature_info["last_bsp"]
             file_path = str(feature_info["file_path"])
             features = []
@@ -168,7 +200,7 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
 
 if __name__ == "__main__":
     code = "EURUSD"
-    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
+    lv_list = [KL_TYPE.K_30M]
     source_dir = './PNG'
 
     begin_time = "2010-01-01 00:00:00"
