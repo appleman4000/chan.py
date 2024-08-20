@@ -10,12 +10,12 @@ import pandas as pd
 import pytz
 
 from Chan import CChan
-from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, AUTYPE, BSP_TYPE, FX_TYPE, KL_TYPE
 from CommonTools import period_name, period_seconds, server_timezone, local_timezone, \
     shanghai_to_zurich_datetime, period_mt5_map
 from CommonTools import robot_trade, reconnect_mt5, get_latest_bar
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
+from GenerateDataset import config
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
 
@@ -50,7 +50,7 @@ symbols = [
     # "XAUUSD",
     # "XAGUSD",
 ]
-periods = [KL_TYPE.K_DAY, KL_TYPE.K_1H, KL_TYPE.K_15M]
+periods = [KL_TYPE.K_DAY, KL_TYPE.K_30M, KL_TYPE.K_5M]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -62,31 +62,31 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     chan = chans[symbol + str(period)]
     chan.trigger_load({period: [bar]})
 
-    if enable_send_message and period == mt5.TIMEFRAME_M15:
+    if enable_send_message and period == mt5.TIMEFRAME_M5:
         # 5分钟买卖点,底分型或者顶分型成立
-        chan_m15 = chan[0]
+        chan_m5 = chan[0]
         # 确保分型已确认
-        if chan_m15[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
+        if chan_m5[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
             return
-        # 1小时买卖点，分型待确认
-        chan_h1 = chans[symbol + str(mt5.TIMEFRAME_H1)]
-        bsp_list = chan_h1.get_bsp(0)
+        # 30M买卖点，分型待确认
+        chan_m30 = chans[symbol + str(mt5.TIMEFRAME_M30)]
+        bsp_list = chan_m30.get_bsp(0)
         if not bsp_list:
             return
         last_bsp_h1 = bsp_list[-1]
-        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type:
+        if BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
             return
-        # if chan_h1[-1].idx - last_bsp_h1.klu.klc.idx != 0:
+        # if chan_m30[-1].idx - last_bsp_h1.klu.klc.idx != 0:
         #     return
         if last_bsp_h1.klu.time != bar.time:
             return
         # 1小时买卖点和15分钟方向一致
-        if (last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.BOTTOM or
-                not last_bsp_h1.is_buy and chan_m15[-2].fx != FX_TYPE.TOP):
+        if (last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.BOTTOM or
+                not last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.TOP):
             return
 
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')
-        subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_H1]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
+        subject = f"外汇- {symbol} {period_name[mt5.TIMEFRAME_M30]} {','.join([t.name for t in last_bsp_h1.type])} {'买点' if last_bsp_h1.is_buy else '卖点'} {price}"
         message = f"北京时间:{datetime.datetime.fromtimestamp(bar.time.ts + period_seconds[period]).strftime('%Y-%m-%d %H:%M')} 瑞士时间:{shanghai_to_zurich_datetime(bar.time.ts + period_seconds[period])}"
         app_id = 'cli_a63ae160c79d500b'
         app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
@@ -97,16 +97,10 @@ def on_bar(symbol, period, bar, enable_send_message=False):
 
 
 def init_chan():
-    local_tz = pytz.timezone('Asia/Shanghai')
     for symbol in symbols:
         data_src = DATA_SRC.FOREX
         for period in periods:
             lv_list = [period]
-            config = CChanConfig({
-                "trigger_step": True,  # 打开开关！
-                "min_zs_cnt": 1,
-                "divergence_rate": 0.8,
-            })
             chan = CChan(
                 code=symbol,
                 begin_time=None,

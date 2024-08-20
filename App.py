@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 from Chan import CChan
-from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, AUTYPE
 from CommonTools import period_name, period_seconds
+from GenerateDataset import config, plot_config, plot_para
 from Plot.AnimatePlotDriver import CAnimateDriver
 from Plot.PlotDriver import CPlotDriver
 
@@ -31,77 +31,23 @@ def run_chanlun(code, begin_time=None, end_time=None, market_type="外汇", lv_l
         data_src = DATA_SRC.AKSHARE_ETF
     else:
         data_src = None
-
-    config = CChanConfig({
-        "trigger_step": False,  # 打开开关！
-        "skip_step": 500,
-        "divergence_rate": float("inf"),
-        "min_zs_cnt": 1,
-        "macd_algo": "slope",
-        "kl_data_check": False,
-        "bi_end_is_peak": True,
-        "bsp1_only_multibi_zs": True,
-        "max_bs2_rate": 0.999,
-        "bs1_peak": True,
-        "bs_type": "1,1p,2,2s,3a,3b",
-        "bsp2_follow_1": True,
-        "bsp3_follow_1": True,
-        "bsp3_peak": True,
-        "bsp2s_follow_2": True,
-        "max_bsp2s_lv": None,
-        "strict_bsp3": True,
-    })
-
-    plot_config = {
-        "plot_kline": True,
-        "plot_kline_combine": False,
-        "plot_bi": True,
-        "plot_seg": True,
-        "plot_eigen": False,
-        "plot_zs": True,
-        "plot_macd": True,
-        "plot_mean": False,
-        "plot_channel": False,
-        "plot_bsp": True,
-        "plot_extrainfo": True,
-        "plot_demark": True,
-        "plot_marker": False,
-        "plot_rsi": False,
-        "plot_kdj": False,
+    plot_config["plot_kline"] = True
+    plot_config["plot_kline_combine"] = False
+    plot_para["figure"] = {
+        "w": 224,
+        "h": 224,
+        "x_range": 200,
     }
-
-    plot_para = {
-        "seg": {
-            # "plot_trendline": True,
-            "disp_end": True,
-            "end_fontsize": 15
-        },
-        "bi": {
-            "show_num": False,
-            "disp_end": True,
-            "end_fontsize": 15
-        },
-        "zs": {
-            "fontsize": 15
-        },
-        "bsp": {
-            "fontsize": 20
-        },
-        "segseg": {
-            "end_fontsize": 15
-        },
-        "seg_bsp": {
-            "fontsize": 20
-        },
-        "figure": {
-            "x_range": 1000,
-        },
-        "marker": {
-            # "markers": {  # text, position, color
-            #     '2023/06/01': ('marker here', 'up', 'red'),
-            #     '2023/06/08': ('marker here', 'down')
-            # },
-        }
+    plot_para["seg"] = {
+        # "plot_trendline": True,
+        "disp_end": True,
+        "end_fontsize": 15,
+        "width": 0.5
+    }
+    plot_para["bi"] = {
+        "show_num": False,
+        "disp_end": True,
+        "end_fontsize": 15,
     }
     chan = CChan(
         code=code,

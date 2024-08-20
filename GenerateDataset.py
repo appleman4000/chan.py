@@ -11,7 +11,7 @@ from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from CommonTools import chan_to_png
-from Debug.FeatureEngineering import FeatureFactors
+from FeatureEngineering import FeatureFactors
 
 matplotlib.use('Agg')
 
@@ -32,7 +32,7 @@ config = CChanConfig({
 })
 plot_config = {
     "plot_kline": False,
-    "plot_kline_combine": False,
+    "plot_kline_combine": True,
     "plot_bi": True,
     "plot_seg": False,
     "plot_eigen": False,
@@ -51,8 +51,8 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 50,
-        "h": 224 / 50 / 2,
-        "x_range": 120,
+        "h": 224 / 50,
+        "x_range": 70,
     },
     "seg": {
         # "plot_trendline": True,
@@ -139,13 +139,24 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
         bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
         for idx, bsp in bsp_dict.items():
             if bsp["state"] == 0:
-                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.002:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.0025:
                     bsp["state"] = 1
                     bsp["label"] = int(bsp["last_bsp"].is_buy)
                     continue
-                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.002:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.0025:
                     bsp["state"] = 1
                     bsp["label"] = int(not bsp["last_bsp"].is_buy)
+                    continue
+            if bsp["state"] == 1:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.005:
+                    bsp["state"] = 2
+                    bsp["label"] = int(bsp["label"] and bsp["last_bsp"].is_buy)
+                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
+                    continue
+                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.005:
+                    bsp["state"] = 2
+                    bsp["label"] = int(not bsp["label"] and not bsp["last_bsp"].is_buy)
+                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
                     continue
 
         if not bsp_list:
@@ -156,8 +167,8 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
                 and BSP_TYPE.T3A not in last_bsp.type and BSP_TYPE.T3B not in last_bsp.type:  # 假如只做2类买卖点
             continue
         cur_lv_chan = chan_snapshot[0]
-        if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
-            # 假如策略是：买卖点分形第二元素出现时交易
+        if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx:
+            # 假如策略是：买卖点分形第2元素出现时交易
             str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
             file_path = f"{source_dir}/{code}_{str_date}.PNG"  # 输出文件的路径
 
@@ -173,7 +184,6 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
             factors = get_factors(FeatureFactors(chan))
             for key in factors.keys():
                 bsp_dict[last_bsp.klu.idx]['last_bsp'].features.add_feat(key, factors[key])
-            print(last_bsp.klu.time, last_bsp.is_buy)
     feature_meta = {}  # 特征meta
     cur_feature_idx = 0
     with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
@@ -204,6 +214,6 @@ if __name__ == "__main__":
     source_dir = './PNG'
 
     begin_time = "2010-01-01 00:00:00"
-    end_time = "2021-04-01 00:00:00"
+    end_time = "2021-01-01 00:00:00"
 
     generate_dataset(code, source_dir, lv_list, begin_time, end_time)

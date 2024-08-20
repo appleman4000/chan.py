@@ -237,6 +237,11 @@ def chan_to_png(chan: CChan, plot_config, plot_para, file_path=""):
         # 移除 x 轴和 y 轴的刻度标签
         ax.set_xticks([])
         ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
     g.figure.tight_layout()
     if file_path:
         g.figure.savefig(file_path, format='PNG', bbox_inches='tight', pad_inches=0.1)

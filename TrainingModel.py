@@ -80,23 +80,27 @@ def train_model(code):
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
     # 模型构建
-    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False,
-                                                 input_shape=(224, 224, 3))
+    conv_base = keras.applications.ResNet50(weights='imagenet', include_top=False,
+                                            input_shape=(224, 224, 3))
     img_inputs = keras.layers.Input(shape=(224, 224, 3))
     feature_inputs = keras.layers.Input(shape=(len(meta),))
-    output = conv_base(img_inputs)
-    output = keras.layers.GlobalAveragePooling2D()(output)
-    output = keras.layers.Dropout(0.5)(output)
-    output = keras.layers.Dense(128, activation='relu')(output)
-    output = keras.layers.Concatenate(axis=-1)([output, feature_inputs])
+    img_output = conv_base(img_inputs)
+    img_output = keras.layers.GlobalAvgPool2D()(img_output)
+    img_output = keras.layers.Dense(64, activation='relu')(img_output)
+    img_output = keras.layers.Dropout(0.2)(img_output)
+
+    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
+    output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
+    
     # 冻结卷积基
     conv_base.trainable = False
+    for layer in conv_base.layers[:9]:
+        layer.trainable = True
 
-    # 编译模型
     model.compile(loss=keras.losses.BinaryCrossentropy(),
-                  optimizer=keras.optimizers.Adam(learning_rate=0.001),
+                  optimizer=keras.optimizers.AdamW(learning_rate=0.001, weight_decay=0.005),
                   metrics=[keras.metrics.AUC(name='auc')])
 
     class_weights = compute_class_weight(
@@ -121,7 +125,7 @@ def train_model(code):
         (X_train, f_train),
         y_train,
         class_weight=class_weight,
-        epochs=100,
+        epochs=50,
         verbose=2,
         batch_size=32,
         validation_data=((X_val, f_val), y_val),

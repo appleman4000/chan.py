@@ -2,18 +2,16 @@
 # encoding:utf-8
 import json
 import os
-import pickle
-
-from xgboost import DMatrix
 
 from BuySellPoint.BS_Point import CBS_Point
+from FeatureEngineering import FeatureFactors
 
 os.environ['KERAS_BACKEND'] = 'torch'
 from threading import Thread
 
 import keras
 
-from GenerateDataset import plot_config, plot_para
+from GenerateDataset import get_factors, config, plot_config, plot_para
 
 import datetime
 import sys
@@ -22,7 +20,6 @@ from multiprocessing import Value
 import numpy as np
 
 from Chan import CChan
-from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE, BSP_TYPE
 from CommonTools import period_seconds, shanghai_to_zurich_datetime, chan_to_png
 from Messenger import send_message
@@ -62,43 +59,28 @@ symbols = [
 
 keras_model = {}
 lgb_model = {}
+meta = {}
 
 
 def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_para):
-    if keras_model[code] is None:
+    if code not in keras_model.keys():
         keras_model[code] = keras.saving.load_model(f"./TMP/{code}_model.keras")
-    if lgb_model[code] is None:
-        with open(f"./TMP/{code}_model.lgb", 'rb') as file:
-            # 使用 pickle.load 加载对象
-            lgb_model[code] = pickle.load(file)
-            meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
+        meta[code] = json.load(open(f"./TMP/{code}_feature.meta", "r"))
 
-    img_array = chan_to_png(chan, plot_config, plot_para, file_path="")
-    intermediate_layer = keras_model[code].layers[-2]
-    intermediate_model = keras.Model(inputs=keras_model[code].input,
-                                     outputs=intermediate_layer.output)
-    keras_features = intermediate_model.predict([img_array], verbose=False)[0]
-    missing = -9999999
-    feature_arr = [missing] * len(meta)
+    img_array = chan_to_png(chan, plot_config, plot_para, file_path="").astype(float)
+    missing = 0
+    feature_arr = [missing] * len(meta[code])
     for feat_name, feat_value in last_bsp.features.items():
         if feat_name in meta:
             feature_arr[meta[feat_name]] = feat_value
-    feature_arr = [feature_arr]
-    dtest = DMatrix(feature_arr, missing=missing)
-    return lgb_model.predict_proba([dtest])[0][1]
+    img_array = np.expand_dims(img_array, axis=0)
+    feature_arr = np.expand_dims(feature_arr, axis=0)
+    value = keras_model[code].predict([img_array, feature_arr], verbose=False)
+    return value[0][0]
 
 
 def strategy(code, lv_list, begin_date, total_profit):
     data_src_type = DATA_SRC.FOREX_ONLINE
-    config = CChanConfig({
-        "trigger_step": True,  # 打开开关！
-        "skip_step": 500,
-        "divergence_rate": 0.9,
-        "min_zs_cnt": 1,
-        "macd_algo": "area",
-        "kl_data_check": False,
-        "bs_type": "1,1p,2,2s,3a,3b",
-    })
 
     begin_date = datetime.datetime.strptime(begin_date, "%Y-%m-%d %H:%M:%S")
     end_date = datetime.datetime.now()
@@ -141,16 +123,16 @@ def strategy(code, lv_list, begin_date, total_profit):
         这里基于chan实现你的策略
         """
         profit = 0
-        top_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
-        if not top_bsp_list:
+        bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not bsp_list:
             continue
-        last_bsp = top_bsp_list[-1]
+        last_bsp = bsp_list[-1]
         entry_rule = lv_chan[-1].idx == last_bsp.klu.klc.idx
         if long_order > 0:
             # 止盈
             close_price = round(lv_chan[-1][-1].close / fee, 5)
             long_profit = close_price / long_order - 1
-            tp = long_profit >= 0.003
+            tp = long_profit >= 0.005
             sl = long_profit <= -0.005
             if tp or sl:
                 long_order = 0
@@ -162,7 +144,7 @@ def strategy(code, lv_list, begin_date, total_profit):
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close * fee, 5)
             short_profit = short_order / close_price - 1
-            tp = short_profit >= 0.003
+            tp = short_profit >= 0.005
             sl = short_profit <= -0.005
             if tp or sl:
                 short_profit = short_order / close_price - 1
@@ -174,14 +156,20 @@ def strategy(code, lv_list, begin_date, total_profit):
 
         if long_order == 0 and short_order == 0:
             if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = get_predict_value(code, model, chan, plot_config, plot_para)
-                if value > 0.6:
+                factors = get_factors(FeatureFactors(chan))
+                for key in factors.keys():
+                    last_bsp.features.add_feat(key, factors[key])
+                value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
+                if value > 0.65:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
             if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-                value = get_predict_value(code, model, chan, plot_config, plot_para)
-                if value > 0.6:
+                factors = get_factors(FeatureFactors(chan))
+                for key in factors.keys():
+                    last_bsp.features.add_feat(key, factors[key])
+                value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
+                if value > 0.65:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -207,8 +195,8 @@ def strategy(code, lv_list, begin_date, total_profit):
 
 
 if __name__ == "__main__":
-    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
-    begin_date = "2021-04-01 00:00:00"
+    lv_list = [KL_TYPE.K_30M]
+    begin_date = "2021-01-01 00:00:00"
     total_profit = Value('f', 0)
     model = None
     threads = []

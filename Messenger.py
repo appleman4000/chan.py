@@ -21,6 +21,7 @@ from PIL import Image
 from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody, CreateImageResponse
 from pywchat import Sender
 
+from GenerateDataset import plot_config, plot_para
 from Plot.PlotDriver import CPlotDriver
 
 
@@ -30,62 +31,6 @@ def asynchronous(f):
         thr.start()
 
     return wrapper
-
-
-plot_config = {
-    "plot_kline": False,
-    "plot_kline_combine": False,
-    "plot_bi": True,
-    "plot_seg": True,
-    "plot_eigen": False,
-    "plot_zs": True,
-    "plot_macd": False,
-    "plot_mean": False,
-    "plot_channel": False,
-    "plot_bsp": True,
-    "plot_extrainfo": False,
-    "plot_demark": False,
-    "plot_marker": False,
-    "plot_rsi": False,
-    "plot_kdj": False,
-}
-
-plot_para = {
-    "figure": {
-        "w": 224 / 100,
-        "h": 224 / 100,
-        "x_range": 400,
-    },
-    "seg": {
-        "disp_end": False,
-        "end_fontsize": 15,
-        "width": 1
-    },
-    "bi": {
-        "show_num": False,
-        "disp_end": False,
-        "end_fontsize": 15,
-    },
-    "zs": {
-        "fontsize": 15,
-    },
-    "bsp": {
-        "fontsize": 20
-    },
-    "segseg": {
-        "end_fontsize": 15,
-        "width": 1
-    },
-    "seg_bsp": {
-        "fontsize": 20
-    },
-    "marker": {
-        # "markers": {  # text, position, color
-        #     '2023/06/01': ('marker here', 'up', 'red'),
-        #     '2023/06/08': ('marker here', 'down')
-        # },
-    }
-}
 
 
 def send_feishu_message(app_id, app_secret, webhook_url, subject, message, image_file):
@@ -244,6 +189,24 @@ def send_mail(to_emails, subject, message, chans):
 
 # @asynchronous
 def send_message(app_id, app_secret, webhook_url, subject, message, chans):
+    plot_config["plot_kline"] = True
+    plot_config["plot_kline_combine"] = False
+    plot_para["figure"] = {
+        "w": 224,
+        "h": 224,
+        "x_range": 200,
+    }
+    plot_para["seg"] = {
+        # "plot_trendline": True,
+        "disp_end": True,
+        "end_fontsize": 15,
+        "width": 0.5
+    }
+    plot_para["bi"] = {
+        "show_num": False,
+        "disp_end": True,
+        "end_fontsize": 15,
+    }
     matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
     image_bytes_list = []
     for chan in chans:
@@ -257,7 +220,10 @@ def send_message(app_id, app_secret, webhook_url, subject, message, chans):
             # 移除 x 轴和 y 轴的刻度标签
             ax.set_xticks([])
             ax.set_yticks([])
-
+            ax.spines['top'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['right'].set_visible(False)
             # 移除 x 轴和 y 轴的刻度线
             ax.tick_params(axis='both', which='both', length=0)
 
