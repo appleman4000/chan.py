@@ -70,7 +70,7 @@ def train_model(code):
         np.save(f"./TMP/{code}_images.npy", images)
         np.save(f"./TMP/{code}_labels.npy", labels)
         np.save(f"./TMP/{code}_features.npy", features)
-
+    images /= 255.0
     X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                       shuffle=False,
                                                                       random_state=42)
@@ -78,8 +78,8 @@ def train_model(code):
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
 
     # 模型构建
-    conv_base = keras.applications.ResNet50(weights='imagenet', include_top=False,
-                                            input_shape=(224, 224, 3))
+    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False,
+                                                 input_shape=(224, 224, 3))
     img_inputs = keras.layers.Input(shape=(224, 224, 3))
     feature_inputs = keras.layers.Input(shape=(len(meta),))
     img_output = conv_base(img_inputs)
@@ -87,7 +87,7 @@ def train_model(code):
     img_output = keras.layers.Dense(64, activation='relu')(img_output)
     img_output = keras.layers.Dropout(0.2)(img_output)
 
-    feature_output = keras.layers.Dense(32, activation='relu')(feature_inputs)
+    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
     output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
@@ -95,8 +95,6 @@ def train_model(code):
     # 冻结卷积基
 
     conv_base.trainable = False
-    for layer in conv_base.layers[-30:]:
-        layer.trainable = True
 
     model.compile(loss=keras.losses.BinaryCrossentropy(),
                   optimizer=keras.optimizers.Adam(learning_rate=1e-3),
@@ -113,7 +111,7 @@ def train_model(code):
     early_stopping = keras.callbacks.EarlyStopping(
         monitor='val_auc',
         mode='max',
-        patience=5,
+        patience=50,
         restore_best_weights=True,
         verbose=2
     )
@@ -123,7 +121,7 @@ def train_model(code):
         (X_train, f_train),
         y_train,
         class_weight=class_weight,
-        epochs=20,
+        epochs=100,
         verbose=2,
         batch_size=32,
         validation_data=((X_val, f_val), y_val),

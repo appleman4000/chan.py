@@ -50,7 +50,7 @@ symbols = [
     # "XAUUSD",
     # "XAGUSD",
 ]
-periods = [KL_TYPE.K_DAY, KL_TYPE.K_30M, KL_TYPE.K_5M]
+periods = [KL_TYPE.K_DAY, KL_TYPE.K_30M]
 # to_emails = ['appleman4000@qq.com', 'xubin.njupt@foxmail.com', '375961433@qq.com', 'idbeny@163.com', 'jflzhao@163.com',
 #              '837801694@qq.com', '1169006942@qq.com', 'vincent1122@126.com']
 to_emails = ['appleman4000@qq.com']
@@ -62,26 +62,18 @@ def on_bar(symbol, period, bar, enable_send_message=False):
     chan = chans[symbol + str(period)]
     chan.trigger_load({period: [bar]})
 
-    if enable_send_message and period == KL_TYPE.K_5M:
-        # 5分钟买卖点,底分型或者顶分型成立
-        chan_m5 = chan[0]
+    if enable_send_message:
         # 确保分型已确认
-        if chan_m5[-2].fx not in [FX_TYPE.BOTTOM, FX_TYPE.TOP]:
-            return
         # 30M买卖点，分型待确认
         chan_m30 = chans[symbol + str(KL_TYPE.K_30M)]
         bsp_list = chan_m30.get_bsp(0)
         if not bsp_list:
             return
         last_bsp_h1 = bsp_list[-1]
-        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P and \
+        if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type and \
            BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
             return
         if chan_m30[0][-1].idx - last_bsp_h1.klu.klc.idx != 0:
-            return
-        # 1小时买卖点和15分钟方向一致
-        if (last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.BOTTOM or
-                not last_bsp_h1.is_buy and chan_m5[-2].fx != FX_TYPE.TOP):
             return
 
         price = f"{bar.close:.5f}".rstrip('0').rstrip('.')

@@ -68,6 +68,7 @@ def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_
         meta[code] = json.load(open(f"./TMP/{code}_feature.meta", "r"))
 
     img_array = chan_to_png(chan, plot_config, plot_para, file_path="").astype(float)
+    img_array /= 255.0
     missing = 0
     feature_arr = [missing] * len(meta[code])
     for feat_name, feat_value in last_bsp.features.items():
