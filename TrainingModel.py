@@ -9,7 +9,6 @@ os.environ['KERAS_BACKEND'] = 'torch'
 import csv
 
 import keras
-import numpy as np
 
 from PIL import Image
 from sklearn.model_selection import train_test_split
@@ -47,7 +46,7 @@ def load_dataset_from_csv(csv_file, meta, bsp_type, target_size=(224, 224)):
                 if img.mode == 'RGBA':
                     img = img.convert('RGB')
                 # 将图片转换为 NumPy 数组
-                img_array = np.array(img)
+                img_array = np.array(img, np.float32)
                 assert img_array.shape == target_size + (3,)
                 images.append(img_array)
                 labels.append(label)
@@ -55,11 +54,80 @@ def load_dataset_from_csv(csv_file, meta, bsp_type, target_size=(224, 224)):
             except Exception as e:
                 print(f"Error processing file {file_path}: {e}")
 
-    return np.array(images, dtype=float), np.array(labels, dtype=float), np.array(features, dtype=float)
+    return np.array(images, dtype=np.float32), np.array(labels, dtype=np.float32), np.array(features, dtype=np.float32)
+
+
+import h5py
+import numpy as np
+
+
+def append_to_hdf5(file_name, dataset_name, new_data):
+    """
+    追加多维数组到指定的 HDF5 数据集中，并返回整个数据集内容。
+
+    参数:
+    - file_name: str, HDF5 文件名
+    - dataset_name: str, 数据集名称
+    - new_data: numpy.ndarray, 要追加的数据
+
+    返回:
+    - entire_data: numpy.ndarray, 包含所有数据的数据集内容
+    """
+    # 打开 HDF5 文件，如果文件不存在，则创建它
+    with h5py.File(file_name, 'a') as hdf5_file:
+        # 检查数据集是否存在
+        if dataset_name in hdf5_file:
+            # 如果数据集已存在，获取现有数据集
+            dataset = hdf5_file[dataset_name]
+        else:
+            # 如果数据集不存在，创建新的数据集
+            dataset = hdf5_file.create_dataset(
+                dataset_name,
+                shape=(0,) + new_data.shape[1:],  # 初始形状，第一维度为 0，其他维度与新数据一致
+                maxshape=(None,) + new_data.shape[1:],  # 允许第一维度扩展
+                dtype=new_data.dtype,
+                chunks=True,  # 使用块存储以支持动态扩展
+                compression='gzip',  # 启用 Gzip 压缩
+                compression_opts=9  # 压缩级别，0-9 之间，9 为最高压缩级别
+            )
+
+        # 扩展数据集的第一维度以包含新数据
+        dataset.resize(dataset.shape[0] + new_data.shape[0], axis=0)
+
+        # 将新数据写入数据集
+        dataset[-new_data.shape[0]:] = new_data
+
+    return
+
+
+# 示例用法
+file_name = './TMP/mydata.h5'
+
+
+def get_from_hdf5(file_name, dataset_name):
+    with h5py.File(file_name, 'a') as hdf5_file:
+        # 检查数据集是否存在
+        if dataset_name in hdf5_file:
+            # 如果数据集已存在，获取现有数据集
+            dataset = hdf5_file[dataset_name]
+        else:
+            return None
+        # 读取整个数据集内容并返回
+        entire_data = dataset[:]
+
+    return np.array(entire_data, dtype=np.float32)
 
 
 def get_all_in_one_dataset(codes, bsp_type):
-    X_trains, X_vals, y_trains, y_vals, f_trains, f_vals = [], [], [], [], [], []
+    if os.path.exists(file_name):
+        X_train = get_from_hdf5(file_name, "X_train")
+        X_val = get_from_hdf5(file_name, "X_val")
+        y_train = get_from_hdf5(file_name, "y_train")
+        y_val = get_from_hdf5(file_name, "y_val")
+        f_train = get_from_hdf5(file_name, "f_train")
+        f_val = get_from_hdf5(file_name, "f_val")
+        return X_train, X_val, y_train, y_val, f_train, f_val
+
     for code in codes:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
         images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta,
@@ -68,18 +136,21 @@ def get_all_in_one_dataset(codes, bsp_type):
         X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                           shuffle=False,
                                                                           random_state=42)
-        X_trains.extend(X_train)
-        X_vals.extend(X_val)
-        y_trains.extend(y_train)
-        y_vals.extend(y_val)
-        f_trains.extend(f_train)
-        f_vals.extend(f_val)
-    X_train = np.array(X_trains).astype(np.float32)
-    X_val = np.array(X_vals).astype(np.float32)
-    y_train = np.array(y_trains).astype(np.float32)
-    y_val = np.array(y_vals).astype(np.float32)
-    f_train = np.array(f_trains).astype(np.float32)
-    f_val = np.array(f_vals).astype(np.float32)
+        # 追加新数据到数据集中
+        append_to_hdf5(file_name, "X_train", X_train)
+        append_to_hdf5(file_name, "X_val", X_val)
+        append_to_hdf5(file_name, "y_train", y_train)
+        append_to_hdf5(file_name, "y_val", y_val)
+        append_to_hdf5(file_name, "f_train", f_train)
+        append_to_hdf5(file_name, "f_val", f_val)
+
+    X_train = get_from_hdf5(file_name, "X_train")
+    X_val = get_from_hdf5(file_name, "X_val")
+    y_train = get_from_hdf5(file_name, "y_train")
+    y_val = get_from_hdf5(file_name, "y_val")
+    f_train = get_from_hdf5(file_name, "f_train")
+    f_val = get_from_hdf5(file_name, "f_val")
+
     return X_train, X_val, y_train, y_val, f_train, f_val
 
 
@@ -141,8 +212,8 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
         verbose=2
     )
     # 模型构建
-    conv_base = keras.applications.ConvNeXtTiny(weights='imagenet', include_top=False,
-                                                input_shape=(224, 224, 3))
+    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False,
+                                                 input_shape=(224, 224, 3))
     img_inputs = keras.layers.Input(shape=(224, 224, 3))
     feature_inputs = keras.layers.Input(shape=(len(meta),))
     img_output = conv_base(img_inputs)
@@ -161,11 +232,11 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     # for layer in conv_base.layers[-10:]:
     #     layer.trainable = True
 
-    model.compile(loss=keras.losses.BinaryFocalCrossentropy(),
+    model.compile(loss=keras.losses.BinaryCrossentropy(),
                   optimizer=keras.optimizers.Adam(learning_rate=0.001),
                   metrics=[keras.metrics.AUC(name='auc')])
     # 训练模型
-    model.fit((X_train, f_train), y_train, epochs=50, verbose=2, batch_size=32,
+    model.fit((X_train, f_train), y_train, epochs=50, verbose=2, batch_size=32, class_weight=class_weight,
               validation_data=((X_val, f_val), y_val),
               callbacks=[early_stopping])
 
@@ -212,5 +283,6 @@ if __name__ == "__main__":
         "XAGUSD",
     ]
     X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
+    # X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
     train_model(code="all_in_one", bsp_type=["2", "2s"], X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
                 f_train=f_train, f_val=f_val)

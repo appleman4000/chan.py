@@ -138,27 +138,27 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
 
         lv_chan = chan_snapshot[0]
         bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
-        # for idx, bsp in bsp_dict.items():
-        #     if bsp["state"] == 0:
-        #         if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.0025:
-        #             bsp["state"] = 1
-        #             bsp["label"] = int(bsp["last_bsp"].is_buy)
-        #             continue
-        #         if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.0025:
-        #             bsp["state"] = 1
-        #             bsp["label"] = int(not bsp["last_bsp"].is_buy)
-        #             continue
-        #     if bsp["state"] == 1:
-        #         if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.005:
-        #             bsp["state"] = 2
-        #             bsp["label"] = int(bsp["label"] and bsp["last_bsp"].is_buy)
-        #             print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
-        #             continue
-        #         if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.005:
-        #             bsp["state"] = 2
-        #             bsp["label"] = int(not bsp["label"] and not bsp["last_bsp"].is_buy)
-        #             print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
-        #             continue
+        for idx, bsp in bsp_dict.items():
+            if bsp["state"] == 0:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.002:
+                    bsp["state"] = 1
+                    bsp["label"] = int(bsp["last_bsp"].is_buy)
+                    continue
+                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.002:
+                    bsp["state"] = 1
+                    bsp["label"] = int(not bsp["last_bsp"].is_buy)
+                    continue
+            if bsp["state"] == 1:
+                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.004:
+                    bsp["state"] = 2
+                    bsp["label"] = int(bsp["label"] and bsp["last_bsp"].is_buy)
+                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
+                    continue
+                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.004:
+                    bsp["state"] = 2
+                    bsp["label"] = int(not bsp["label"] and not bsp["last_bsp"].is_buy)
+                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
+                    continue
 
         if not bsp_list:
             continue
@@ -179,22 +179,21 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
                 "last_bsp": last_bsp,
                 "file_path": file_path,
                 "close": lv_chan[-1][-1].close,
-                # "label": 0,
-                # "state": 0
+                "label": 0,
+                "state": 0
             }
             factors = get_factors(FeatureFactors(chan))
             for key in factors.keys():
                 bsp_dict[last_bsp.klu.idx]['last_bsp'].features.add_feat(key, factors[key])
 
         # 生成libsvm样本特征
-    bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp()]
     feature_meta = {}  # 特征meta
     cur_feature_idx = 0
     with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['label', 'bs_type', 'file_path', 'feature'])  # Write the header
         for bsp_klu_idx, feature_info in bsp_dict.items():
-            label = int(bsp_klu_idx in bsp_academy)
+            label = int(feature_info["label"])
             last_bsp = feature_info["last_bsp"]
             file_path = str(feature_info["file_path"])
             features = []
@@ -237,9 +236,6 @@ if __name__ == "__main__":
         "GBPCAD",
         "GBPCHF",
         "GBPJPY",
-        "USDCNH",
-        "XAUUSD",
-        "XAGUSD",
     ]
     lv_list = [KL_TYPE.K_30M]
     source_dir = './PNG'
