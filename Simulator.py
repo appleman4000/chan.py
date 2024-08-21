@@ -140,21 +140,21 @@ def strategy(code, lv_list, begin_date, total_profit):
                 history_short_orders += 1
 
         if long_order == 0 and short_order == 0:
-            if entry_rule and last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
+            if entry_rule and last_bsp.is_buy and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 factors = get_factors(FeatureFactors(chan))
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
-                if value > 0.52:
+                if value > 0.5:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
-            if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
+            if entry_rule and not last_bsp.is_buy and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 factors = get_factors(FeatureFactors(chan))
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
-                if value > 0.52:
+                if value > 0.5:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -182,31 +182,31 @@ def strategy(code, lv_list, begin_date, total_profit):
 if __name__ == "__main__":
     symbols = [
         # Major
-        "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
-        # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
+        # "EURUSD",
+        # "GBPUSD",
+        # "AUDUSD",
+        # "NZDUSD",
+        # "USDJPY",
+        # "USDCAD",
+        # "USDCHF",
+        # # Crosses
+        # "AUDCHF",
+        # "AUDJPY",
+        # "AUDNZD",
+        # "CADCHF",
+        # "CADJPY",
+        # "CHFJPY",
+        # "EURAUD",
+        # "EURCAD",
+        # "AUDCAD",
+        # "EURCHF",
+        # "GBPNZD",
+        # "GBPCAD",
+        # "GBPCHF",
+        # "GBPJPY",
         "USDCNH",
-        "XAUUSD",
-        "XAGUSD",
+        # "XAUUSD",
+        # "XAGUSD",
     ]
     load_keras_model(symbols)
     lv_list = [KL_TYPE.K_30M]

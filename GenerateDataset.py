@@ -179,8 +179,8 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
                 "last_bsp": last_bsp,
                 "file_path": file_path,
                 "close": lv_chan[-1][-1].close,
-                "label": 0,
-                "state": 0
+                # "label": 0,
+                # "state": 0
             }
             factors = get_factors(FeatureFactors(chan))
             for key in factors.keys():

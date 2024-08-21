@@ -58,18 +58,9 @@ def load_dataset_from_csv(csv_file, meta, bsp_type, target_size=(224, 224)):
 
 
 def train_model(code, bsp_type):
-    if os.path.exists(f"./TMP/{code}_{'_'.join(bsp_type)}_images.npy"):
-        meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        images = np.load(f"./TMP/{code}_{'_'.join(bsp_type)}_images.npy")
-        labels = np.load(f"./TMP/{code}_{'_'.join(bsp_type)}_labels.npy")
-        features = np.load(f"./TMP/{code}_{'_'.join(bsp_type)}_features.npy")
-    else:
-        meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta,
-                                                         target_size=(224, 224))
-        np.save(f"./TMP/{code}_{'_'.join(bsp_type)}_images.npy", images)
-        np.save(f"./TMP/{code}_{'_'.join(bsp_type)}_labels.npy", labels)
-        np.save(f"./TMP/{code}_{'_'.join(bsp_type)}_features.npy", features)
+    meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
+    images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta,
+                                                     target_size=(224, 224))
     images /= 255.0
     X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                       shuffle=False,
@@ -86,10 +77,12 @@ def train_model(code, bsp_type):
     img_output = keras.layers.GlobalAvgPool2D()(img_output)
     img_output = keras.layers.Dense(64, activation='relu')(img_output)
     img_output = keras.layers.Dropout(0.2)(img_output)
+    img_output = keras.layers.Dense(64, activation='relu')(img_output)
+    img_output = keras.layers.Dropout(0.2)(img_output)
 
-    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
-    output = keras.layers.Concatenate()([img_output, feature_output])
-    output = keras.layers.Dense(1, activation='sigmoid')(output)
+    # feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
+    # output = keras.layers.Concatenate()([img_output, feature_output])
+    output = keras.layers.Dense(1, activation='sigmoid')(img_output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
@@ -133,31 +126,31 @@ def train_model(code, bsp_type):
 if __name__ == "__main__":
     symbols = [
         # Major
-        "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
+        # "EURUSD",
+        # "GBPUSD",
+        # "AUDUSD",
+        # "NZDUSD",
+        # "USDJPY",
+        # "USDCAD",
+        # "USDCHF",
         # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
+        # "AUDCHF",
+        # "AUDJPY",
+        # "AUDNZD",
+        # "CADCHF",
+        # "CADJPY",
+        # "CHFJPY",
+        # "EURAUD",
+        # "EURCAD",
+        # "AUDCAD",
+        # "EURCHF",
+        # "GBPNZD",
+        # "GBPCAD",
+        # "GBPCHF",
+        # "GBPJPY",
         "USDCNH",
-        "XAUUSD",
-        "XAGUSD",
+        # "XAUUSD",
+        # "XAGUSD",
     ]
     for symbol in symbols:
         train_model(symbol, bsp_type=["1", "1p"])
