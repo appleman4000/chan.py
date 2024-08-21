@@ -3,10 +3,10 @@
 import os
 import shutil
 
-main_files = ["App.py", "Monitor.py", "Simulator.py"]
+main_files = ["App.py", "Monitor.py", "Simulator.py", "GenerateDataset.py", "TrainingModel.py", "Simulator.py"]
 # 项目根目录下不用（能）转译的py文件（夹）名，用于启动的入口脚本文件一定要加进来
 ignore_files = ['build', 'package', 'venv', '__pycache__', '.git', 'setup.py', 'setup_main.py', 'App.py', "Monitor.py",
-                '__init__.py', "Simulator.py"]
+                '__init__.py', "Simulator.py", "GenerateDataset.py", "TrainingModel.py", "Simulator.py"]
 # 项目子目录下不用（能）转译的'py文件（夹）名
 ignore_names = ['__init__.py']
 # 不需要原样复制到编译文件夹的文件或者文件夹
