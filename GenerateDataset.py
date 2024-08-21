@@ -29,11 +29,12 @@ config = CChanConfig({
     "bs_type": '1,2,3a,1p,2s,3b',
     "print_warning": True,
     "zs_algo": "normal",
+    "cal_rsi": True,
     "kl_data_check": False
 })
 plot_config = {
     "plot_kline": False,
-    "plot_kline_combine": True,
+    "plot_kline_combine": False,
     "plot_bi": True,
     "plot_seg": False,
     "plot_eigen": False,
@@ -52,8 +53,8 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 50,
-        "h": 224 / 50,
-        "x_range": 90,
+        "h": 224 / 50 / 2,
+        "x_range": 120,
     },
     "seg": {
         # "plot_trendline": True,
@@ -222,22 +223,22 @@ if __name__ == "__main__":
         "USDCAD",
         "USDCHF",
         # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
+        # "AUDCHF",
+        # "AUDJPY",
+        # "AUDNZD",
+        # "CADCHF",
+        # "CADJPY",
+        # "CHFJPY",
+        # "EURAUD",
+        # "EURCAD",
+        # "AUDCAD",
+        # "EURCHF",
+        # "GBPNZD",
+        # "GBPCAD",
+        # "GBPCHF",
+        # "GBPJPY",
     ]
-    lv_list = [KL_TYPE.K_30M]
+    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
     source_dir = './PNG'
 
     begin_time = "2010-01-01 00:00:00"

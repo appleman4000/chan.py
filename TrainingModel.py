@@ -212,8 +212,8 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
         verbose=2
     )
     # 模型构建
-    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False,
-                                                 input_shape=(224, 224, 3))
+    conv_base = keras.applications.ConvNeXtSmall(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+    # conv_base = create_alexnet(input_shape=(224, 224, 3))
     img_inputs = keras.layers.Input(shape=(224, 224, 3))
     feature_inputs = keras.layers.Input(shape=(len(meta),))
     img_output = conv_base(img_inputs)
@@ -221,14 +221,14 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     img_output = keras.layers.Dense(128, activation='relu')(img_output)
     img_output = keras.layers.Dropout(0.5)(img_output)
 
-    # feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
-    # output = keras.layers.Concatenate()([img_output, feature_output])
-    output = keras.layers.Dense(1, activation='sigmoid')(img_output)
+    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
+    output = keras.layers.Concatenate()([img_output, feature_output])
+    output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
 
-    conv_base.trainable = True
+    conv_base.trainable = False
     # for layer in conv_base.layers[-10:]:
     #     layer.trainable = True
 
@@ -265,22 +265,20 @@ if __name__ == "__main__":
         "USDCAD",
         "USDCHF",
         # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
-        "XAUUSD",
-        "XAGUSD",
+        # "AUDCHF",
+        # "AUDJPY",
+        # "AUDNZD",
+        # "CADCHF",
+        # "CADJPY",
+        # "CHFJPY",
+        # "EURAUD",
+        # "EURCAD",
+        # "AUDCAD",
+        # "EURCHF",
+        # "GBPNZD",
+        # "GBPCAD",
+        # "GBPCHF",
+        # "GBPJPY",
     ]
     X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
     # X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
