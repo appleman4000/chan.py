@@ -4,7 +4,7 @@ from Chan import CChan
 from Common.CEnum import MACD_ALGO
 
 N_BI = 1
-N_ZS = 1
+N_ZS = 0
 N_SEG = 1
 
 
@@ -79,17 +79,18 @@ class FeatureFactors:
 
     def divergence_macd_metric(self):
         returns = dict()
-        for macd_algo in [MACD_ALGO.AREA,
-                          MACD_ALGO.PEAK,
-                          MACD_ALGO.FULL_AREA,
-                          MACD_ALGO.DIFF,
-                          MACD_ALGO.SLOPE,
-                          MACD_ALGO.AMP]:
-            bi_in_metric = self.chan[0].zs_list[-1].bi_in.cal_macd_metric(macd_algo, is_reverse=False)
-            bi_out_metric = self.chan[0].zs_list[-1].bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-            returns[f"bi_in_divergence_macd_metric_{macd_algo.name}"] = bi_in_metric
-            returns[f"bi_out_divergence_macd_metric_{macd_algo.name}"] = bi_out_metric
-            returns[f"divergence_macd_metric_{macd_algo.name}"] = bi_out_metric / bi_in_metric - 1
+        if len(self.chan[0].zs_list) > 0:
+            for macd_algo in [MACD_ALGO.AREA,
+                              MACD_ALGO.PEAK,
+                              MACD_ALGO.FULL_AREA,
+                              MACD_ALGO.DIFF,
+                              MACD_ALGO.SLOPE,
+                              MACD_ALGO.AMP]:
+                bi_in_metric = self.chan[0].zs_list[-1].bi_in.cal_macd_metric(macd_algo, is_reverse=False)
+                bi_out_metric = self.chan[0].zs_list[-1].bi_out.cal_macd_metric(macd_algo, is_reverse=True)
+                returns[f"bi_in_divergence_macd_metric_{macd_algo.name}"] = bi_in_metric
+                returns[f"bi_out_divergence_macd_metric_{macd_algo.name}"] = bi_out_metric
+                returns[f"divergence_macd_metric_{macd_algo.name}"] = bi_out_metric / bi_in_metric - 1
         return returns
 
     ############################### 中枢 ####################################

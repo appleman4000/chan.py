@@ -191,6 +191,11 @@ def send_mail(to_emails, subject, message, chans):
 def send_message(app_id, app_secret, webhook_url, subject, message, chans):
     plot_config["plot_kline"] = True
     plot_config["plot_kline_combine"] = False
+    plot_para.update({"figure": {
+        "w": 224 / 50,
+        "h": 224 / 50,
+        "x_range": 200,
+    }})
     matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
     image_bytes_list = []
     for chan in chans:

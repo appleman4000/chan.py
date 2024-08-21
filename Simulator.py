@@ -28,45 +28,28 @@ sys.setrecursionlimit(1000000)
 app_id = 'cli_a63ae160c79d500b'
 app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
 webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/d8ea8601-259b-4f48-a310-1e715909232e'
-symbols = [
-    # Major
-    "EURUSD",
-    # "GBPUSD",
-    # "AUDUSD",
-    # "NZDUSD",
-    # "USDJPY",
-    # "USDCAD",
-    # "USDCHF",
-    # Crosses
-    # "AUDCHF",
-    # "AUDJPY",
-    # "AUDNZD",
-    # "CADCHF",
-    # "CADJPY",
-    # "CHFJPY",
-    # "EURAUD",
-    # "EURCAD",
-    # "AUDCAD",
-    # "EURCHF",
-    # "GBPNZD",
-    # "GBPCAD",
-    # "GBPCHF",
-    # "GBPJPY",
-    # "USDCNH",
-    # "XAUUSD",
-    # "XAGUSD",
-]
-
 keras_model = {}
 lgb_model = {}
 meta = {}
 
 
-def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_para):
-    if code not in keras_model.keys():
-        keras_model[code] = keras.saving.load_model(f"./TMP/{code}_model.keras")
+def load_keras_model(symbols):
+    for code in symbols:
+        for bsp_type in ["1_1p", "2_2s"]:
+            keras_model[f"{code}_{bsp_type}"] = keras.saving.load_model(
+                f"./TMP/{code}_{bsp_type}_model.keras")
         meta[code] = json.load(open(f"./TMP/{code}_feature.meta", "r"))
 
+
+def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_para):
+    if BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type:
+        bsp_type = "1_1p"
+        model = keras_model[f"{code}_{bsp_type}"]
+    elif BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type:
+        bsp_type = "2_2s"
+        model = keras_model[f"{code}_{bsp_type}"]
+    else:
+        model = None
     img_array = chan_to_png(chan, plot_config, plot_para, file_path="").astype(float)
     img_array /= 255.0
     missing = 0
@@ -76,8 +59,9 @@ def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_
             feature_arr[meta[feat_name]] = feat_value
     img_array = np.expand_dims(img_array, axis=0)
     feature_arr = np.expand_dims(feature_arr, axis=0)
-    value = keras_model[code].predict([img_array, feature_arr], verbose=False)
-    return value[0][0]
+    value = model.predict([img_array, feature_arr], verbose=False)[0][0]
+    print(value)
+    return value
 
 
 def strategy(code, lv_list, begin_date, total_profit):
@@ -133,8 +117,8 @@ def strategy(code, lv_list, begin_date, total_profit):
             # 止盈
             close_price = round(lv_chan[-1][-1].close / fee, 5)
             long_profit = close_price / long_order - 1
-            tp = long_profit >= 0.004
-            sl = long_profit <= -0.004
+            tp = long_profit >= 0.005
+            sl = long_profit <= -0.005
             if tp or sl:
                 long_order = 0
                 profit += round(long_profit * money, 2)
@@ -145,8 +129,8 @@ def strategy(code, lv_list, begin_date, total_profit):
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close * fee, 5)
             short_profit = short_order / close_price - 1
-            tp = short_profit >= 0.004
-            sl = short_profit <= -0.004
+            tp = short_profit >= 0.005
+            sl = short_profit <= -0.005
             if tp or sl:
                 short_profit = short_order / close_price - 1
                 short_order = 0
@@ -161,7 +145,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
-                if value > 0.65:
+                if value > 0.52:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
         if short_order == 0 and long_order == 0:
@@ -170,7 +154,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = get_predict_value(code, chan_snapshot, last_bsp, plot_config, plot_para)
-                if value > 0.65:
+                if value > 0.52:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
         # 发送买卖点信号
@@ -196,6 +180,35 @@ def strategy(code, lv_list, begin_date, total_profit):
 
 
 if __name__ == "__main__":
+    symbols = [
+        # Major
+        "EURUSD",
+        "GBPUSD",
+        "AUDUSD",
+        "NZDUSD",
+        "USDJPY",
+        "USDCAD",
+        "USDCHF",
+        # Crosses
+        "AUDCHF",
+        "AUDJPY",
+        "AUDNZD",
+        "CADCHF",
+        "CADJPY",
+        "CHFJPY",
+        "EURAUD",
+        "EURCAD",
+        "AUDCAD",
+        "EURCHF",
+        "GBPNZD",
+        "GBPCAD",
+        "GBPCHF",
+        "GBPJPY",
+        "USDCNH",
+        "XAUUSD",
+        "XAGUSD",
+    ]
+    load_keras_model(symbols)
     lv_list = [KL_TYPE.K_30M]
     begin_date = "2021-01-01 00:00:00"
     total_profit = Value('f', 0)

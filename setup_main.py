@@ -16,14 +16,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 将以上不需要转译的文件(夹)加上绝对路径
 ignore_files = [os.path.join(BASE_DIR, x) for x in ignore_files]
 # 是否将编译打包到指定文件夹内 (True)，还是和源文件在同一目录下(False)，默认True
-package = True
-# 打包文件夹名 (package = True 时有效)
-package_name = "package"
-# 打包文件夹路径 (package = True 时有效)
-package_path = os.path.join(BASE_DIR, package_name)
 # 若没有打包文件夹，则生成一个
-if not os.path.exists(package_path):
-    os.mkdir(package_path)
 translate_pys = []
 
 
@@ -84,8 +77,6 @@ def batch_rename(src_path):
     count = 0
     for filename in filenames:
         old_name = os.path.join(src_path, filename)
-        if old_name == package_path:
-            continue
         if os.path.isdir(old_name):
             batch_rename(old_name)
         file_name, file_extension = os.path.splitext(filename)
