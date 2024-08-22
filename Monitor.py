@@ -10,16 +10,32 @@ import pandas as pd
 import pytz
 
 from Chan import CChan
-from Common.CEnum import DATA_SRC, AUTYPE, BSP_TYPE, FX_TYPE, KL_TYPE
+from ChanConfig import CChanConfig
+from Common.CEnum import DATA_SRC, AUTYPE, BSP_TYPE, KL_TYPE
 from CommonTools import period_name, period_seconds, server_timezone, local_timezone, \
     shanghai_to_zurich_datetime, period_mt5_map
 from CommonTools import robot_trade, reconnect_mt5, get_latest_bar
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
-from GenerateDataset import config
 from KLine.KLine_Unit import CKLine_Unit
 from Messenger import send_message
 
 sys.setrecursionlimit(10000)
+config = CChanConfig({
+    "trigger_step": True,  # 打开开关！
+    "bi_strict": True,
+    "skip_step": 0,
+    "divergence_rate": float("inf"),
+    "bsp2_follow_1": True,
+    "bsp3_follow_1": True,
+    "min_zs_cnt": 1,
+    "bs1_peak": False,
+    "macd_algo": "peak",
+    "bs_type": '1,2,3a,1p,2s,3b',
+    "print_warning": True,
+    "zs_algo": "normal",
+    "cal_rsi": True,
+    "kl_data_check": False
+})
 
 # 设置交易对
 symbols = [
@@ -71,7 +87,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
             return
         last_bsp_h1 = bsp_list[-1]
         if BSP_TYPE.T1 not in last_bsp_h1.type and BSP_TYPE.T1P not in last_bsp_h1.type and \
-           BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
+                BSP_TYPE.T2 not in last_bsp_h1.type and BSP_TYPE.T2S not in last_bsp_h1.type:
             return
         if chan_m30[0][-1].idx - last_bsp_h1.klu.klc.idx != 0:
             return

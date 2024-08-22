@@ -59,22 +59,22 @@ plot_para = {
     "seg": {
         # "plot_trendline": True,
         "disp_end": False,
-        "end_fontsize": 15,
+        "end_fontsize": 12,
         "width": 0.5
     },
     "bi": {
         "show_num": False,
         "disp_end": False,
-        "end_fontsize": 15,
+        "end_fontsize": 12,
     },
     "zs": {
-        "fontsize": 15,
+        "fontsize": 12,
     },
     "bsp": {
         "fontsize": 20
     },
     "segseg": {
-        "end_fontsize": 15,
+        "end_fontsize": 12,
         "width": 0.5
     },
     "seg_bsp": {
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
     source_dir = './PNG'
 
-    begin_time = "2010-01-01 00:00:00"
+    begin_time = "2020-03-01 00:00:00"
     end_time = "2021-01-01 00:00:00"
     processes = []
     for symbol in symbols:

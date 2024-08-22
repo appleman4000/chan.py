@@ -21,8 +21,63 @@ from PIL import Image
 from lark_oapi.api.im.v1 import CreateImageRequest, CreateImageRequestBody, CreateImageResponse
 from pywchat import Sender
 
-from GenerateDataset import plot_config, plot_para
 from Plot.PlotDriver import CPlotDriver
+
+plot_config = {
+    "plot_kline": True,
+    "plot_kline_combine": False,
+    "plot_bi": True,
+    "plot_seg": True,
+    "plot_eigen": False,
+    "plot_zs": True,
+    "plot_macd": True,
+    "plot_mean": False,
+    "plot_channel": False,
+    "plot_bsp": True,
+    "plot_extrainfo": False,
+    "plot_demark": False,
+    "plot_marker": False,
+    "plot_rsi": False,
+    "plot_kdj": False,
+}
+
+plot_para = {
+    "figure": {
+        "w": 224 / 50,
+        "h": 224 / 50,
+        "x_range": 120,
+    },
+    "seg": {
+        # "plot_trendline": True,
+        "disp_end": True,
+        "end_fontsize": 12,
+        "width": 0.5
+    },
+    "bi": {
+        "show_num": False,
+        "disp_end": True,
+        "end_fontsize": 12,
+    },
+    "zs": {
+        "fontsize": 12,
+    },
+    "bsp": {
+        "fontsize": 20
+    },
+    "segseg": {
+        "end_fontsize": 12,
+        "width": 0.5
+    },
+    "seg_bsp": {
+        "fontsize": 12
+    },
+    "marker": {
+        # "markers": {  # text, position, color
+        #     '2023/06/01': ('marker here', 'up', 'red'),
+        #     '2023/06/08': ('marker here', 'down')
+        # },
+    }
+}
 
 
 def asynchronous(f):
@@ -191,6 +246,9 @@ def send_mail(to_emails, subject, message, chans):
 def send_message(app_id, app_secret, webhook_url, subject, message, chans):
     plot_config["plot_kline"] = True
     plot_config["plot_kline_combine"] = False
+    plot_config["plot_seg"] = True
+    plot_config["plot_bsp"] = True
+
     plot_para.update({"figure": {
         "w": 224 / 50,
         "h": 224 / 50,
