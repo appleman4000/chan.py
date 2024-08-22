@@ -104,29 +104,16 @@ def append_to_hdf5(file_name, dataset_name, new_data):
 file_name = './TMP/mydata.h5'
 
 
-def get_from_hdf5(file_name, dataset_name):
+def get_dataset_from_hdf5(file_name):
     with h5py.File(file_name, 'a') as hdf5_file:
-        # 检查数据集是否存在
-        if dataset_name in hdf5_file:
-            # 如果数据集已存在，获取现有数据集
-            dataset = hdf5_file[dataset_name]
-        else:
-            return None
-        # 读取整个数据集内容并返回
-        entire_data = dataset[:]
-
-    return np.array(entire_data, dtype=np.float32)
+        return hdf5_file["X_train"][:], hdf5_file["X_val"][:], hdf5_file["y_train"][:], hdf5_file["y_val"][:], \
+            hdf5_file[
+                "f_train"][:], hdf5_file["f_val"][:]
 
 
 def get_all_in_one_dataset(codes, bsp_type):
     if os.path.exists(file_name):
-        X_train = get_from_hdf5(file_name, "X_train")
-        X_val = get_from_hdf5(file_name, "X_val")
-        y_train = get_from_hdf5(file_name, "y_train")
-        y_val = get_from_hdf5(file_name, "y_val")
-        f_train = get_from_hdf5(file_name, "f_train")
-        f_val = get_from_hdf5(file_name, "f_val")
-        return X_train, X_val, y_train, y_val, f_train, f_val
+        return get_dataset_from_hdf5(file_name)
 
     for code in codes:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
@@ -144,12 +131,7 @@ def get_all_in_one_dataset(codes, bsp_type):
         append_to_hdf5(file_name, "f_train", f_train)
         append_to_hdf5(file_name, "f_val", f_val)
 
-    X_train = get_from_hdf5(file_name, "X_train")
-    X_val = get_from_hdf5(file_name, "X_val")
-    y_train = get_from_hdf5(file_name, "y_train")
-    y_val = get_from_hdf5(file_name, "y_val")
-    f_train = get_from_hdf5(file_name, "f_train")
-    f_val = get_from_hdf5(file_name, "f_val")
+    X_train, X_val, y_train, y_val, f_train, f_val = get_dataset_from_hdf5(file_name)
 
     return X_train, X_val, y_train, y_val, f_train, f_val
 
@@ -218,16 +200,23 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     feature_inputs = keras.layers.Input(shape=(len(meta),))
     img_output = conv_base(img_inputs)
     img_output = keras.layers.GlobalAvgPool2D()(img_output)
-    img_output = keras.layers.Dense(128, activation='relu')(img_output)
+    img_output = keras.layers.Dense(128)(img_output)
     img_output = keras.layers.Dropout(0.5)(img_output)
+    img_output = keras.layers.BatchNormalization()(img_output)
+    img_output = keras.layers.Activation("relu")(img_output)
+    normalization_layer = keras.layers.Normalization()
+    # 对输入因子数据进行归一化
+    normalization_layer.adapt(f_train)
+    feature_output = normalization_layer(feature_inputs)
+    feature_output = keras.layers.Dense(64)(feature_output)
+    feature_output = keras.layers.BatchNormalization()(feature_output)
+    feature_output = keras.layers.Activation("relu")(feature_output)
 
-    feature_output = keras.layers.Dense(64, activation='relu')(feature_inputs)
     output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
-
     conv_base.trainable = False
     # for layer in conv_base.layers[-10:]:
     #     layer.trainable = True
@@ -280,7 +269,7 @@ if __name__ == "__main__":
         # "GBPCHF",
         # "GBPJPY",
     ]
-    X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
     # X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
+    X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
     train_model(code="all_in_one", bsp_type=["2", "2s"], X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
                 f_train=f_train, f_val=f_val)

@@ -33,7 +33,13 @@ lgb_model = {}
 meta = {}
 
 
-def load_keras_model(symbols):
+def load_keras_model(symbols, is_all_in_one):
+    if is_all_in_one:
+        code = "all_in_one"
+        for bsp_type in ["1_1p", "2_2s"]:
+            keras_model[f"{code}_{bsp_type}"] = keras.saving.load_model(
+                f"./TMP/{code}_{bsp_type}_model.keras")
+            meta[code] = json.load(open(f"./TMP/EURUSD_feature.meta", "r"))
     for code in symbols:
         for bsp_type in ["1_1p", "2_2s"]:
             keras_model[f"{code}_{bsp_type}"] = keras.saving.load_model(
@@ -42,6 +48,8 @@ def load_keras_model(symbols):
 
 
 def get_predict_value(code, chan: CChan, last_bsp: CBS_Point, plot_config, plot_para):
+    if "all_in_one" in keras_model.keys():
+        code = "all_in_one"
     if BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type:
         bsp_type = "1_1p"
         model = keras_model[f"{code}_{bsp_type}"]
@@ -182,13 +190,13 @@ def strategy(code, lv_list, begin_date, total_profit):
 if __name__ == "__main__":
     symbols = [
         # Major
-        # "EURUSD",
-        # "GBPUSD",
-        # "AUDUSD",
-        # "NZDUSD",
-        # "USDJPY",
-        # "USDCAD",
-        # "USDCHF",
+        "EURUSD",
+        "GBPUSD",
+        "AUDUSD",
+        "NZDUSD",
+        "USDJPY",
+        "USDCAD",
+        "USDCHF",
         # # Crosses
         # "AUDCHF",
         # "AUDJPY",
@@ -204,7 +212,7 @@ if __name__ == "__main__":
         # "GBPCAD",
         # "GBPCHF",
         # "GBPJPY",
-        "USDCNH",
+        # "USDCNH",
         # "XAUUSD",
         # "XAGUSD",
     ]

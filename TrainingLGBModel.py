@@ -339,4 +339,4 @@ if __name__ == "__main__":
     with open("model.hdf5", "wb") as f:
         pickle.dump(classifier1, f)
         # pickle.dump(scaler, f)
-    print("train LogisticRegression model completely!")
+    print("train model completely!")
