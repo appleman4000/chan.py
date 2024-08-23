@@ -125,7 +125,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             is_target_bsp = False
         feature_dict = {
             'divergence_rate': divergence_rate,
-            'zs_cnt': len(seg.zs_lst),
+            # 'zs_cnt': len(seg.zs_lst),
         }
         self.add_bs(bs_type=BSP_TYPE.T1, bi=seg.end_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
@@ -150,7 +150,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
         feature_dict = {
             'divergence_rate': divergence_rate,
-            'bsp1_bi_amp': last_bi.amp(),
+            # 'bsp1_bi_amp': last_bi.amp(),
         }
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
@@ -188,8 +188,8 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if bsp2_flag:
             feature_dict = {
                 'bsp2_retrace_rate': retrace_rate,
-                'bsp2_break_bi_amp': break_bi.amp(),
-                'bsp2_bi_amp': bsp2_bi.amp(),
+                # 'bsp2_break_bi_amp': break_bi.amp(),
+                # 'bsp2_bi_amp': bsp2_bi.amp(),
             }
             self.add_bs(bs_type=BSP_TYPE.T2, bi=bsp2_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore

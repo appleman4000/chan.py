@@ -30,7 +30,7 @@ plot_config = {
     "plot_seg": True,
     "plot_eigen": False,
     "plot_zs": True,
-    "plot_macd": True,
+    "plot_macd": False,
     "plot_mean": False,
     "plot_channel": False,
     "plot_bsp": True,
@@ -44,32 +44,32 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 50,
-        "h": 224 / 50,
-        "x_range": 120,
+        "h": 224 / 50 / 2,
+        "x_range": 200,
     },
     "seg": {
         # "plot_trendline": True,
-        "disp_end": True,
-        "end_fontsize": 12,
+        "disp_end": False,
+        "end_fontsize": 10,
         "width": 0.5
     },
     "bi": {
         "show_num": False,
-        "disp_end": True,
-        "end_fontsize": 12,
+        "disp_end": False,
+        "end_fontsize": 10,
     },
     "zs": {
-        "fontsize": 12,
+        "fontsize": 10,
     },
     "bsp": {
-        "fontsize": 20
+        "fontsize": 10
     },
     "segseg": {
-        "end_fontsize": 12,
+        "end_fontsize": 10,
         "width": 0.5
     },
     "seg_bsp": {
-        "fontsize": 12
+        "fontsize": 10
     },
     "marker": {
         # "markers": {  # text, position, color
@@ -244,16 +244,6 @@ def send_mail(to_emails, subject, message, chans):
 
 # @asynchronous
 def send_message(app_id, app_secret, webhook_url, subject, message, chans):
-    plot_config["plot_kline"] = True
-    plot_config["plot_kline_combine"] = False
-    plot_config["plot_seg"] = True
-    plot_config["plot_bsp"] = True
-
-    plot_para.update({"figure": {
-        "w": 224 / 50,
-        "h": 224 / 50,
-        "x_range": 200,
-    }})
     matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
     image_bytes_list = []
     for chan in chans:
@@ -267,15 +257,13 @@ def send_message(app_id, app_secret, webhook_url, subject, message, chans):
             # 移除 x 轴和 y 轴的刻度标签
             ax.set_xticks([])
             ax.set_yticks([])
-            ax.spines['top'].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            ax.spines['left'].set_visible(False)
-            ax.spines['right'].set_visible(False)
+            # ax.spines['top'].set_visible(False)
+            # ax.spines['bottom'].set_visible(False)
+            # ax.spines['left'].set_visible(False)
+            # ax.spines['right'].set_visible(False)
             # 移除 x 轴和 y 轴的刻度线
-            ax.tick_params(axis='both', which='both', length=0)
-
             # 移除网格线
-            ax.grid(False)
+            ax.grid(True)
         g.figure.tight_layout()
         buf = io.BytesIO()
         g.figure.savefig(buf, format='png')

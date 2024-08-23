@@ -182,7 +182,7 @@ class CPlotDriver:
             ax = axes[lv][0]
             ax_macd = None if len(axes[lv]) == 1 else axes[lv][1]
             set_grid(ax, figure_config.get("grid", "xy"))
-            ax.set_title(f"{chan.name}({chan.code})/{lv.name.split('K_')[1]}", fontsize=24, loc='left', color='r')
+            ax.set_title(f"{chan.name}({chan.code})/{lv.name.split('K_')[1]}", fontsize=14, loc='left', color='r')
 
             x_limits = cal_x_limit(meta, x_range)
             if lv != self.lv_lst[0]:
@@ -496,9 +496,11 @@ class CPlotDriver:
             show_text=False,
             fontsize=14,
             text_color='orange',
+            fill=False,
+            alpha=0.5,
             draw_one_bi_zs=False,
     ):
-        linewidth = max(linewidth, 2)
+        linewidth = max(linewidth, 1)
         x_begin = ax.get_xlim()[0]
         for zs_meta in meta.zs_lst:
             if not draw_one_bi_zs and zs_meta.is_onebi_zs:
@@ -506,11 +508,12 @@ class CPlotDriver:
             if zs_meta.begin + zs_meta.w < x_begin:
                 continue
             line_style = '-' if zs_meta.is_sure else '--'
-            ax.add_patch(Rectangle((zs_meta.begin, zs_meta.low), zs_meta.w, zs_meta.h, fill=False, color=color,
-                                   linewidth=linewidth, linestyle=line_style))
+            ax.add_patch(
+                Rectangle((zs_meta.begin, zs_meta.low), zs_meta.w, zs_meta.h, fill=fill, color=color, alpha=alpha,
+                          linewidth=linewidth, linestyle=line_style))
             for sub_zs_meta in zs_meta.sub_zs_lst:
-                ax.add_patch(Rectangle((sub_zs_meta.begin, sub_zs_meta.low), sub_zs_meta.w, sub_zs_meta.h, fill=False,
-                                       color=color, linewidth=sub_linewidth, linestyle=line_style))
+                ax.add_patch(Rectangle((sub_zs_meta.begin, sub_zs_meta.low), sub_zs_meta.w, sub_zs_meta.h, fill=fill,
+                                       color=color, alpha=alpha, linewidth=sub_linewidth, linestyle=line_style))
             if show_text:
                 add_zs_text(ax, zs_meta, fontsize, text_color)
                 for sub_zs_meta in zs_meta.sub_zs_lst:

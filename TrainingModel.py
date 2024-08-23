@@ -24,8 +24,8 @@ def load_dataset_from_csv(csv_file, meta, bsp_type, target_size=(224, 224)):
 
         for row in reader:
             label = int(row[0])  # Read the label (convert it to int if necessary)
-            bs_type = row[1]
-            if bs_type not in bsp_type:
+            bs_types = row[1]
+            if np.array([t not in bs_types for t in bsp_type]).all():
                 continue
             file_path = row[2]  # Read the filepath
 
@@ -119,7 +119,8 @@ def get_all_in_one_dataset(codes, bsp_type):
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
         images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta,
                                                          target_size=(224, 224))
-        images /= 255.0
+        # images /= 255.0
+        # images = keras.applications.convnext.preprocess_input(images)
         X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                           shuffle=False,
                                                                           random_state=42)
@@ -141,7 +142,8 @@ def get_one_dataset(code, bsp_type):
 
     images, labels, features = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta,
                                                      target_size=(224, 224))
-    images /= 255.0
+    # images /= 255.0
+    # images = keras.applications.convnext.preprocess_input(images)
     X_train, X_val, y_train, y_val, f_train, f_val = train_test_split(images, labels, features, test_size=0.2,
                                                                       shuffle=False,
                                                                       random_state=42)
@@ -189,7 +191,7 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     early_stopping = keras.callbacks.EarlyStopping(
         monitor='val_auc',
         mode='max',
-        patience=10,
+        patience=20,
         restore_best_weights=True,
         verbose=2
     )
@@ -200,24 +202,22 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     feature_inputs = keras.layers.Input(shape=(len(meta),))
     img_output = conv_base(img_inputs)
     img_output = keras.layers.GlobalAvgPool2D()(img_output)
-    img_output = keras.layers.Dense(128)(img_output)
-    img_output = keras.layers.Dropout(0.5)(img_output)
-    img_output = keras.layers.BatchNormalization()(img_output)
+    img_output = keras.layers.Dense(64)(img_output)
     img_output = keras.layers.Activation("relu")(img_output)
-    normalization_layer = keras.layers.Normalization()
+    img_output = keras.layers.Dropout(0.5)(img_output)
     # 对输入因子数据进行归一化
+    normalization_layer = keras.layers.Normalization(axis=-1)
     normalization_layer.adapt(f_train)
     feature_output = normalization_layer(feature_inputs)
     feature_output = keras.layers.Dense(64)(feature_output)
-    feature_output = keras.layers.BatchNormalization()(feature_output)
     feature_output = keras.layers.Activation("relu")(feature_output)
-
+    #
     output = keras.layers.Concatenate()([img_output, feature_output])
     output = keras.layers.Dense(1, activation='sigmoid')(output)
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
-    conv_base.trainable = False
+    conv_base.trainable = True
     # for layer in conv_base.layers[-10:]:
     #     layer.trainable = True
 
@@ -269,7 +269,7 @@ if __name__ == "__main__":
         # "GBPCHF",
         # "GBPJPY",
     ]
-    # X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
-    X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
-    train_model(code="all_in_one", bsp_type=["2", "2s"], X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
+    X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
+    # X_train, X_val, y_train, y_val, f_train, f_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
+    train_model(code="EURUSD", bsp_type=["2", "2s"], X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
                 f_train=f_train, f_val=f_val)

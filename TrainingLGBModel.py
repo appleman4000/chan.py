@@ -16,6 +16,7 @@ from sklearn.utils import class_weight
 from ChanModel.Features import CFeatures
 from Common.CTime import CTime
 from Plot.PlotDriver import CPlotDriver
+from TrainingModel import get_one_dataset
 
 
 class T_SAMPLE_INFO(TypedDict):
@@ -63,7 +64,7 @@ param_grid = {
     'boosting_type': 'gbdt',
     'feature_fraction': 0.8,
     'bagging_fraction': 0.8,
-    'reg_alpha': 0.0,
+    # 'reg_alpha': 0.0,
 }
 
 
@@ -84,7 +85,7 @@ def objective(trial):
         'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        # 'reg_alpha': trial.suggest_float('reg_alpha', 0, 500.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 100.0),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
     })
     class_weights = class_weight.compute_class_weight(
@@ -106,10 +107,10 @@ def objective(trial):
 
     model = LGBMClassifier(**param_grid)
 
-    model.fit(X_train, y_train)
+    model.fit(f_train, y_train)
 
     # 在验证集上预测
-    y_pred = model.predict(X_val)
+    y_pred = model.predict(f_val)
 
     # 计算 F1 分数（适用于二分类）
     score = roc_auc_score(y_val, y_pred)
@@ -204,14 +205,6 @@ def objective(trial):
 #     return sum(scores) / len(scores)
 
 
-def get_factors(obj):
-    results = {}
-    for attr_name, attr_value in obj.__class__.__dict__.items():
-        if callable(attr_value) and attr_name != '__init__':
-            results.update(attr_value(obj))
-    return results
-
-
 def load_dataset_from_csv(csv_file, meta, bsp_type):
     images = []
     labels = []
@@ -287,7 +280,8 @@ if __name__ == "__main__":
         # "GBPCHF",
         # "GBPJPY",
     ]
-    X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
+    # X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
+    X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
     # 创建 Optuna 优化器
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
@@ -321,7 +315,7 @@ if __name__ == "__main__":
     )
     classifier1 = LGBMClassifier(**param_grid)
     # 训练 Pipeline
-    classifier1.fit(X_train, y_train)
+    classifier1.fit(f_train, y_train)
     meta = json.load(open(f"./TMP/EURUSD_feature.meta", "r"))
     feature_names = meta.keys()
 

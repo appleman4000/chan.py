@@ -15,8 +15,6 @@ from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
 from Common.CTime import CTime
 from DataAPI.MT5ForexAPI import CMT5ForexAPI
 from FeatureEngineering import FeatureFactors
-from TrainingLGBModel import get_factors
-
 
 class T_SAMPLE_INFO(TypedDict):
     feature: CFeatures
@@ -59,6 +57,8 @@ if __name__ == "__main__":
         "print_warning": True,
         "zs_algo": "normal",
         "cal_rsi": True,
+        "cal_kdj": True,
+        "cal_demark": True,
         "kl_data_check": False
     })
 
@@ -98,19 +98,19 @@ if __name__ == "__main__":
 
         cur_lv_chan = chan_snapshot[0]
         profit = 0
-        if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx and \
+        if last_bsp.klu.idx not in treated_bsp_idx and cur_lv_chan[-1].idx == last_bsp.klu.klc.idx and \
                 (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-            factors = get_factors(FeatureFactors(chan_snapshot))
+            factors = FeatureFactors(chan).get_factors()
             for key in factors.keys():
                 last_bsp.features.add_feat(key, factors[key])
             value = predict_bsp(model, last_bsp=last_bsp, meta=meta)
             treated_bsp_idx.add(last_bsp.klu.idx)
             if len(long_orders) == 0 and len(short_orders) == 0:
-                if last_bsp.is_buy and value > 0.7:
+                if last_bsp.is_buy and value > 0.65:
                     long_orders.append(round(cur_lv_chan[-1][-1].close * fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy long price = {long_orders[-1]}')
 
-                if not last_bsp.is_buy and value > 0.7:
+                if not last_bsp.is_buy and value > 0.65:
                     short_orders.append(round(cur_lv_chan[-1][-1].close / fee, 5))
                     print(f'{cur_lv_chan[-1][-1].time}:buy short price = {short_orders[-1]}')
 
@@ -119,8 +119,8 @@ if __name__ == "__main__":
             long_orders_copy = long_orders.copy()
             for order in long_orders_copy:
                 long_profit = close_price / order - 1
-                tp = long_profit >= 0.003
-                sl = long_profit <= -0.003
+                tp = long_profit >= 0.004
+                sl = long_profit <= -0.004
                 if tp or sl:
                     long_orders.remove(order)
                     profit = round(long_profit * money, 2)
@@ -133,8 +133,8 @@ if __name__ == "__main__":
             short_orders_copy = short_orders.copy()
             for order in short_orders_copy:
                 short_profit = order / close_price - 1
-                tp = short_profit >= 0.003
-                sl = short_profit <= -0.003
+                tp = short_profit >= 0.004
+                sl = short_profit <= -0.004
                 if tp or sl:
                     short_orders.remove(order)
                     profit = round(short_profit * money, 2)

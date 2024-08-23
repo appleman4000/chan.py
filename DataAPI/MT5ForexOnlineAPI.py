@@ -27,16 +27,20 @@ class CandleIterator:
 
     def _fetch_candles(self, start_date):
         # 获取从 start_date 开始的K线数据
-        bars = mt5.copy_rates_range(self.symbol, period_mt5_map[self.period], start_date,
-                                    datetime.datetime.now() + datetime.timedelta(hours=2))
+        current = datetime.datetime.now() + datetime.timedelta(hours=2)
+        current -= datetime.timedelta(seconds=current.timestamp() % period_seconds[self.period])
+        current -= datetime.timedelta(seconds=period_seconds[self.period])
+
+        bars = mt5.copy_rates_range(self.symbol, period_mt5_map[self.period], start_date, current)
         if bars is None:
             print(f"获取数据失败: {mt5.last_error()}")
             return None
         bars = pd.DataFrame(bars)
+
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
-        bars['time'] += datetime.timedelta(seconds=period_seconds[self.period])
-        bars['time'] = bars['time'].dt.tz_localize(server_timezone)
-        bars['time'] = bars['time'].dt.tz_convert(local_timezone)
+        bars['time'] += datetime.timedelta(seconds=period_seconds[self.period])  # 开盘时间转收盘时间
+        bars['time'] = bars['time'].dt.tz_localize(tz=server_timezone)
+        bars['time'] = bars['time'].dt.tz_convert(tz=local_timezone).dt.tz_localize(None)
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         return bars
 
@@ -78,18 +82,18 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
         print(mt5.version())
 
         if begin_date is None:
-            begin_date = end_date - datetime.timedelta(days=10)
-        if end_date is None:
-            end_date = datetime.datetime.now() + datetime.timedelta(hours=2)
+            begin_date = datetime.datetime.now() - datetime.timedelta(days=10)
+
         self.iterator = CandleIterator(code, k_type, begin_date)
-        super(CMT5ForexOnlineAPI, self).__init__(code, k_type, begin_date, end_date)
+        super(CMT5ForexOnlineAPI, self).__init__(code, k_type, begin_date, end_date=None)
 
     def get_kl_data(self):
         fields = "time,open,high,low,close,volume"
         interval = 1
         while True:
-            if (datetime.datetime.now() + datetime.timedelta(
-                    hours=2)).timestamp() >= self.iterator.next_bar_open.timestamp():
+            current = datetime.datetime.now() + datetime.timedelta(hours=2)  # 服务器时间比本地时间多两个小时
+            current -= datetime.timedelta(seconds=current.timestamp() % period_seconds[self.k_type])
+            if current.timestamp() >= self.iterator.next_bar_open.timestamp():
                 candle = self.iterator.__next__()
                 if candle is None:
                     time.sleep(interval)  # 等待指定的时间间隔再获取数据
@@ -104,6 +108,7 @@ class CMT5ForexOnlineAPI(CCommonForexApi):
                     candle["tick_volume"],
                 ]
                 bar = CKLine_Unit(create_item_dict(data, GetColumnNameFromFieldList(fields)))
+                # print(f"{self.k_type}:{bar}")
                 yield bar
             else:
                 time.sleep(interval)  # 等待指定的时间间隔再获取数据
