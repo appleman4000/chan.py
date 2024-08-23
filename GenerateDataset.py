@@ -7,11 +7,10 @@ from typing import Dict, TypedDict
 
 import matplotlib
 
-from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
+from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
-from CommonTools import chan_to_png
 from FeatureEngineering import FeatureFactors
 
 matplotlib.use('Agg')
@@ -20,9 +19,9 @@ config = CChanConfig({
     "trigger_step": True,  # 打开开关！
     "bi_strict": True,
     "skip_step": 0,
-    "divergence_rate": 0.9,
-    "bsp2_follow_1": True,
-    "bsp3_follow_1": True,
+    "divergence_rate": float("inf"),
+    "bsp2_follow_1": False,
+    "bsp3_follow_1": False,
     "min_zs_cnt": 0,
     "bs1_peak": True,
     "macd_algo": "area",
@@ -31,12 +30,12 @@ config = CChanConfig({
     "zs_algo": "normal",
     "cal_rsi": True,
     "cal_kdj": True,
-    "cal_demark": True,
+    "cal_demark": False,
     "kl_data_check": False
 })
 plot_config = {
     "plot_kline": False,
-    "plot_kline_combine": True,
+    "plot_kline_combine": False,
     "plot_bi": True,
     "plot_seg": False,
     "plot_eigen": False,
@@ -55,7 +54,7 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 10,
-        "h": 224 / 50,
+        "h": 224 / 50 / 2,
         "x_range": 200,
     },
     "seg": {
@@ -95,12 +94,10 @@ plot_para = {
 
 
 class T_SAMPLE_INFO(TypedDict):
-    last_bsp: CBS_Point
-    features: str
+    bsp_type: list[BSP_TYPE]
+    high_feature: CFeatures
+    low_feature: CFeatures
     file_path: str
-    close: float
-    label: int
-    state: int
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
@@ -128,77 +125,69 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
 
-        lv_chan = chan_snapshot[0]
-        for idx, bsp in bsp_dict.items():
-            if bsp["state"] == 0:
-                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.001:
-                    bsp["state"] = 1
-                    bsp["label"] = int(bsp["last_bsp"].is_buy)
-                    continue
-                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.001:
-                    bsp["state"] = 1
-                    bsp["label"] = int(not bsp["last_bsp"].is_buy)
-                    continue
-            if bsp["state"] == 1:
-                if lv_chan[-1][-1].close / bsp["close"] - 1 >= 0.004:
-                    bsp["state"] = 2
-                    bsp["label"] = int(bsp["label"] and bsp["last_bsp"].is_buy)
-                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
-                    continue
-                if lv_chan[-1][-1].close / bsp["close"] - 1 <= -0.004:
-                    bsp["state"] = 2
-                    bsp["label"] = int(not bsp["label"] and not bsp["last_bsp"].is_buy)
-                    print(bsp["last_bsp"].klu.time, bsp["last_bsp"].is_buy, bsp["label"])
-                    continue
-        bsp_list = chan.get_bsp(0)  # 获取高级别买卖点列表
-        if not bsp_list:
+        high_chan = chan_snapshot[0]
+        low_chan = chan_snapshot[1]
+        high_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not high_bsp_list:
             continue
-        last_bsp = bsp_list[-1]
-        if BSP_TYPE.T1 not in last_bsp.type and BSP_TYPE.T1P not in last_bsp.type \
-                and BSP_TYPE.T2 not in last_bsp.type and BSP_TYPE.T2S not in last_bsp.type \
-                and BSP_TYPE.T3A not in last_bsp.type and BSP_TYPE.T3B not in last_bsp.type:  # 假如只做2类买卖点
-            continue
-        cur_lv_chan = chan_snapshot[0]
-        if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
-            str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-            # print(f"{code}-{str_date}")
-            file_path = f"{source_dir}/{code}/{code}_{str_date}.PNG"  # 输出文件的路径
+        high_last_bsp = high_bsp_list[-1]
 
-            if not os.path.exists(file_path):
-                chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
-            bsp_dict[last_bsp.klu.idx] = {
-                "last_bsp": last_bsp,
+        low_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
+        if not low_bsp_list:
+            continue
+        low_last_bsp = low_bsp_list[-1]
+
+        if high_last_bsp.klu.idx not in bsp_dict and high_last_bsp.klu.klc.idx == high_chan[-1].idx and \
+                low_last_bsp.klu.klc.idx == low_chan[-1].idx and \
+                (high_last_bsp.is_buy and low_last_bsp.is_buy or not high_last_bsp.is_buy and not low_last_bsp.is_buy):
+            print(high_chan[-1][-1].time.to_str())
+            str_date = high_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+
+            file_path = f"{source_dir}/{code}/{code}_{str_date}.PNG"  # 输出文件的路径
+            # if not os.path.exists(file_path):
+            #     chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
+            bsp_dict[high_last_bsp.klu.idx] = {
+                "bsp_type": high_last_bsp.type,
+                "high_feature": high_last_bsp.features,
+                "low_feature": low_last_bsp.features,
                 "file_path": file_path,
-                "close": lv_chan[-1][-1].close,
-                "label": 0,
-                "state": 0
             }
-            factors = FeatureFactors(chan).get_factors()
+            factors = FeatureFactors(chan[0]).get_factors()
             for key in factors.keys():
-                bsp_dict[last_bsp.klu.idx]['last_bsp'].features.add_feat(key, factors[key])
+                bsp_dict[high_last_bsp.klu.idx]['high_feature'].add_feat("high_" + key, factors[key])
+            factors = FeatureFactors(chan[1]).get_factors()
+            for key in factors.keys():
+                bsp_dict[high_last_bsp.klu.idx]['low_feature'].add_feat("low_" + key, factors[key])
 
         # 生成libsvm样本特征
     feature_meta = {}  # 特征meta
     cur_feature_idx = 0
-    # bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
+    bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
     with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(['label', 'bs_type', 'file_path', 'feature'])  # Write the header
         for bsp_klu_idx, feature_info in bsp_dict.items():
-            label = int(feature_info["label"])
-            # label = int(bsp_klu_idx in bsp_academy)
-            last_bsp = feature_info["last_bsp"]
-            file_path = str(feature_info["file_path"])
+            label = int(bsp_klu_idx in bsp_academy)
             features = []
-            for feature_name, value in last_bsp.features.items():
+            high_feature = feature_info["high_feature"]
+            low_feature = feature_info["low_feature"]
+            bsp_type = feature_info["bsp_type"]
+            file_path = str(feature_info["file_path"])
+            for feature_name, value in high_feature.items():
                 if feature_name not in feature_meta:
                     feature_meta[feature_name] = cur_feature_idx
                     cur_feature_idx += 1
                 features.append((feature_meta[feature_name], value))
+            for feature_name, value in low_feature.items():
+                if feature_name not in feature_meta:
+                    feature_meta[feature_name] = cur_feature_idx
+                    cur_feature_idx += 1
+                features.append((feature_meta[feature_name], value))
+
             features.sort(key=lambda x: x[0])
             feature_str = " ".join([f"{idx}:{value}" for idx, value in features])
             writer.writerow(
-                [label, "-".join([t.value for t in last_bsp.type]), file_path, feature_str])
+                [label, "-".join([t.value for t in bsp_type]), file_path, feature_str])
     with open(f"./TMP/{code}_feature.meta", "w") as fid:
         # meta保存下来，实盘预测时特征对齐用
         fid.write(json.dumps(feature_meta))
@@ -208,12 +197,12 @@ if __name__ == "__main__":
     symbols = [
         # Major
         "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
+        # "GBPUSD",
+        # "AUDUSD",
+        # "NZDUSD",
+        # "USDJPY",
+        # "USDCAD",
+        # "USDCHF",
         # Crosses
         # "AUDCHF",
         # "AUDJPY",
@@ -230,8 +219,8 @@ if __name__ == "__main__":
         # "GBPCHF",
         # "GBPJPY",
     ]
-    lv_list = [KL_TYPE.K_15M]
-    source_dir = './PNG_COMBINE'
+    lv_list = [KL_TYPE.K_10M, KL_TYPE.K_2M]
+    source_dir = './PNG_15_3'
 
     begin_time = "2015-01-01 00:00:00"
     end_time = "2021-01-01 00:00:00"

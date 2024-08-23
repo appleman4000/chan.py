@@ -6,12 +6,11 @@ from ChanConfig import CChanConfig
 from Messenger import send_message
 
 os.environ['KERAS_BACKEND'] = 'torch'
-from threading import Thread
 
 # import keras
 import datetime
 import sys
-from multiprocessing import Value
+from multiprocessing import Value, Process
 
 import numpy as np
 
@@ -29,15 +28,15 @@ meta = {}
 
 config = CChanConfig({
     "trigger_step": True,  # 打开开关！
-    "bi_strict": False,
+    "bi_strict": True,
     "skip_step": 0,
-    "divergence_rate": 1.0,
-    "bsp2_follow_1": True,
-    "bsp3_follow_1": True,
+    "divergence_rate": 0.9,
+    "bsp2_follow_1": False,
+    "bsp3_follow_1": False,
     "min_zs_cnt": 1,
     "bs1_peak": True,
-    "macd_algo": "slope",
-    "bs_type": '1,2,3a,1p,2s,3b',
+    "macd_algo": "diff",
+    "bs_type": '1,1p',
     "print_warning": True,
     "zs_algo": "normal",
     "cal_rsi": False,
@@ -105,7 +104,7 @@ def strategy(code, lv_list, begin_date, total_profit):
     money = 100000 * lots
     capitals = np.array([])
     profits = np.array([])
-    fee = 1.0002
+    fee = 1.0003
     long_order = 0
     short_order = 0
     history_long_orders = 0
@@ -113,10 +112,10 @@ def strategy(code, lv_list, begin_date, total_profit):
     for chan_snapshot in chan.step_load():
 
         high_chan = chan_snapshot[0]
-        lv_chan = chan_snapshot[1]
+        low_chan = chan_snapshot[1]
         # print(datetime.datetime.now())
         # print(f"北京时间:{lv_chan[-1][-1].time}  on_bar {code}")
-        assert lv_chan[-1][-1].close == high_chan[-1][-1].close
+#        assert low_chan[-1][-1].close == high_chan[-1][-1].close
         # print(
         #     f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}  on_bar {code}")
         """
@@ -124,72 +123,71 @@ def strategy(code, lv_list, begin_date, total_profit):
         这里基于chan实现你的策略
         """
         profit = 0
-        bsp_list = chan.get_bsp(1)  # 获取买卖点列表
-        if not bsp_list:
-            continue
-        last_bsp = bsp_list[-1]
-
         high_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
         if not high_bsp_list:
             continue
         high_last_bsp = high_bsp_list[-1]
 
-        cycler_esonance = lv_chan[-1].idx - last_bsp.klu.klc.idx == 0
-        cycler_esonance = cycler_esonance and high_chan[-1].idx - high_last_bsp.klu.klc.idx == 0
+        low_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
+        if not low_bsp_list:
+            continue
+        low_last_bsp = low_bsp_list[-1]
 
         if long_order > 0:
             # 止盈
-            close_price = round(lv_chan[-1][-1].close / fee, 5)
+            close_price = round(high_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            tp = long_profit >= 0.002
-            sl = long_profit <= -0.002
-            if tp or sl:
+            exit_rule = high_last_bsp.klu.klc.idx == high_chan[-2].idx and not high_last_bsp.is_buy
+            # 最大止损保护
+            tp = long_profit > 0.02
+            sl = long_profit < -0.005
+            if tp or sl or exit_rule:
                 long_order = 0
                 profit += round(long_profit * money, 2)
                 print(
-                    f'{code} {lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
+                    f'{code} {high_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}')
                 history_long_orders += 1
         if short_order > 0:
-            close_price = round(lv_chan[-1][-1].close * fee, 5)
+            close_price = round(high_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
-            tp = short_profit >= 0.002
-            sl = short_profit <= -0.002
-            if tp or sl:
-                short_profit = short_order / close_price - 1
+            exit_rule = high_last_bsp.klu.klc.idx == high_chan[-2].idx and high_last_bsp.is_buy
+            # 最大止损保护
+            tp = short_profit > 0.02
+            sl = short_profit < -0.005
+            if tp or sl or exit_rule:
                 short_order = 0
                 profit += round(short_profit * money, 2)
                 print(
-                    f'{code} {lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
+                    f'{code} {high_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}')
                 history_short_orders += 1
 
         if long_order == 0 and short_order == 0:
-            if cycler_esonance and last_bsp.is_buy and (
-                    BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type) and \
-                    high_last_bsp.is_buy and (
-                    BSP_TYPE.T2 in high_last_bsp.type or BSP_TYPE.T2S in high_last_bsp.type):
-                long_order = round(lv_chan[-1][-1].close * fee, 5)
-                print(f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}')
+            # 共振且同向
+            if high_last_bsp.klu.klc.idx == high_chan[-1].idx and high_last_bsp.is_buy and \
+                    low_last_bsp.klu.klc.idx == low_chan[-1].idx and low_last_bsp.is_buy and \
+                    (BSP_TYPE.T1 in high_last_bsp.type or BSP_TYPE.T1P in high_last_bsp.type):
+                long_order = round(high_chan[-1][-1].close * fee, 5)
+                print(f'{code} {high_chan[-1][-1].time}:buy long price = {long_order}')
 
         if short_order == 0 and long_order == 0:
-            if cycler_esonance and not last_bsp.is_buy and (
-                    BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type) and \
-                    not high_last_bsp.is_buy and (
-                    BSP_TYPE.T2 in high_last_bsp.type or BSP_TYPE.T2S in high_last_bsp.type):
-                short_order = round(lv_chan[-1][-1].close / fee, 5)
-                print(f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}')
+            # 共振且同向
+            if high_last_bsp.klu.klc.idx == high_chan[-1].idx and not high_last_bsp.is_buy and \
+                    low_last_bsp.klu.klc.idx == low_chan[-1].idx and not low_last_bsp.is_buy and \
+                    (BSP_TYPE.T1 in high_last_bsp.type or BSP_TYPE.T1P in high_last_bsp.type):
+                short_order = round(high_chan[-1][-1].close / fee, 5)
+                print(f'{code} {high_chan[-1][-1].time}:buy short price = {short_order}')
 
-        # 发送买卖点信号
-        if cycler_esonance and (
-                last_bsp.is_buy and high_last_bsp.is_buy or not last_bsp.is_buy and not high_last_bsp.is_buy) and \
-                (BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
-            bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
+        # 发送进场信号
+        cycler_esonance = False
+        if cycler_esonance:
+            bar_time = datetime.datetime.fromtimestamp(low_chan[-1][-1].time.ts)
             if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
-                price = f"{lv_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
-                subject = f"{code} {'买点' if last_bsp.is_buy else '卖点'}:{price}"
-                message = f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}"
+                price = f"{low_chan[-1][-1].close:.5f}".rstrip('0').rstrip('.')
+                subject = f"{code} {'买点' if low_last_bsp.is_buy else '卖点'}:{price}"
+                message = f"北京时间:{low_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(low_chan[-1][-1].time.ts)}"
                 send_message(app_id, app_secret, webhook_url, subject, message, [chan])
-                comment = f"{','.join([t.name for t in last_bsp.type])}"
-                robot_trade(symbol, 0.01, last_bsp.is_buy, comment)
+                comment = f"{','.join([t.name for t in low_last_bsp.type])}"
+                robot_trade(symbol, 0.01, low_last_bsp.is_buy, comment)
 
         capital += profit
         if profit != 0:
@@ -214,7 +212,7 @@ if __name__ == "__main__":
         "USDJPY",
         "USDCAD",
         "USDCHF",
-        # # Crosses
+        # # # Crosses
         # "AUDCHF",
         # "AUDJPY",
         # "AUDNZD",
@@ -229,19 +227,16 @@ if __name__ == "__main__":
         # "GBPCAD",
         # "GBPCHF",
         # "GBPJPY",
-        # "USDCNH",
-        # "XAUUSD",
-        # "XAGUSD",
     ]
     # load_keras_model(symbols, is_all_in_one=True)
-    lv_list = [KL_TYPE.K_5M, KL_TYPE.K_1M]
+    lv_list = [KL_TYPE.K_10M, KL_TYPE.K_2M]
     begin_date = "2021-08-22 00:00:00"
     total_profit = Value('f', 0)
     model = None
-    threads = []
+    tasks = []
     for symbol in symbols:
-        thread = Thread(target=strategy, args=(symbol, lv_list, begin_date, total_profit))
-        threads.append(thread)
-        thread.start()
-    for thread in threads:
-        thread.join()
+        task = Process(target=strategy, args=(symbol, lv_list, begin_date, total_profit))
+        tasks.append(task)
+        task.start()
+    for task in tasks:
+        task.join()

@@ -177,7 +177,7 @@ def get_latest_bar(symbol, period):
         return None
 
 
-def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
+def open_order(symbol, lot=0.01, is_buy=None, comment=""):
     positions = mt5.positions_get(symbol=symbol)
     if positions:
         print(f"Currency pair {symbol} has open positions.")
@@ -195,7 +195,7 @@ def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
     for tries in range(10):
         point = mt5.symbol_info(symbol).point
         price = mt5.symbol_info_tick(symbol).ask if is_buy else mt5.symbol_info_tick(symbol).bid
-        tp = round(price * 0.003 / point)
+        tp = round(price * 0.02 / point)
         sl = round(price * 0.01 / point)
         deviation = 30
         request = {
@@ -214,6 +214,7 @@ def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
         }
         # send a trading request
         result = mt5.order_send(request)
+        mt5.ORDER_TYPE_CLOSE_BY
         if result is None:
             return
         if result.retcode != mt5.TRADE_RETCODE_REQUOTE and result.retcode != mt5.TRADE_RETCODE_PRICE_OFF:
@@ -222,6 +223,48 @@ def robot_trade(symbol, lot=0.01, is_buy=None, comment=""):
             else:
                 print(f"{symbol} sell order placed successfully")
             break
+
+
+def close_order(symbol, comment=""):
+    # 获取指定符号的持仓
+    positions = mt5.positions_get(symbol=symbol)
+    if not positions:
+        print(f"No open positions found for {symbol}.")
+        return
+
+    for position in positions:
+        # 获取反向持仓的ticket
+        opposite_positions = [p.ticket for p in positions if p.ticket != position.ticket and p.type != position.type]
+        if not opposite_positions:
+            print(f"No opposite positions found to close with for {symbol}.")
+            continue
+
+        lot = position.volume
+        deviation = 30
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": symbol,
+            "volume": lot,
+            "type": mt5.ORDER_TYPE_CLOSE_BY,  # 使用 CLOSE_BY 类型
+            "position": position.ticket,  # 当前持仓的ticket
+            "position_by": opposite_positions[0],  # 反向持仓的ticket
+            "deviation": deviation,
+            "magic": 234000,
+            "comment": comment,
+            "type_time": mt5.ORDER_TIME_DAY,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+
+        # 发送平仓请求
+        result = mt5.order_send(request)
+        if result is None:
+            print("Order send failed.")
+            return
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            print(f"Position {position.ticket} for {symbol} closed successfully.")
+        else:
+            print(f"Failed to close position {position.ticket} for {symbol}, retcode={result.retcode}")
 
 
 def chan_to_png(chan: CChan, plot_config, plot_para, file_path=""):
