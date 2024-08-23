@@ -217,7 +217,7 @@ def train_model(code, bsp_type, X_train, X_val, y_train, y_val, f_train, f_val):
     model = keras.models.Model(inputs=[img_inputs, feature_inputs], outputs=output)
 
     # 冻结卷积基
-    conv_base.trainable = True
+    conv_base.trainable = False
     # for layer in conv_base.layers[-10:]:
     #     layer.trainable = True
 

@@ -1,8 +1,13 @@
 # cython: language_level=3
 # encoding:utf-8
+import json
 import os
+import pickle
+from typing import Dict
 
+from BuySellPoint.BS_Point import CBS_Point
 from ChanConfig import CChanConfig
+from FeatureEngineering import FeatureFactors
 from Messenger import send_message
 
 os.environ['KERAS_BACKEND'] = 'torch'
@@ -30,20 +35,31 @@ config = CChanConfig({
     "trigger_step": True,  # 打开开关！
     "bi_strict": True,
     "skip_step": 0,
-    "divergence_rate": 0.8,
-    "bsp2_follow_1": False,
-    "bsp3_follow_1": False,
-    "min_zs_cnt": 1,
+    "divergence_rate": float("inf"),
+    "bsp2_follow_1": True,
+    "bsp3_follow_1": True,
+    "min_zs_cnt": 0,
     "bs1_peak": True,
     "macd_algo": "diff",
-    "bs_type": '1,1p',
+    "bs_type": '1,1p,2,2s,3a,3b',
     "print_warning": True,
     "zs_algo": "normal",
-    "cal_rsi": False,
-    "cal_kdj": False,
+    "cal_rsi": True,
+    "cal_kdj": True,
     "cal_demark": False,
     "kl_data_check": False
 })
+
+
+def predict_bsp(lgb_model, last_bsp: CBS_Point, meta: Dict[str, int]):
+    missing = -9999999
+    feature_arr = [missing] * len(meta)
+    for feat_name, feat_value in last_bsp.features.items():
+        if feat_name in meta:
+            feature_arr[meta[feat_name]] = feat_value
+    feature_arr = [feature_arr]
+
+    return lgb_model.predict_proba(feature_arr)[0][1]
 
 
 # def load_keras_model(symbols, is_all_in_one):
@@ -85,6 +101,10 @@ config = CChanConfig({
 
 
 def strategy(code, lv_list, begin_date, total_profit):
+    with open("./model.hdf5", 'rb') as file:
+        # 使用 pickle.load 加载对象
+        model = pickle.load(file)
+    meta = json.load(open("./TMP/EURUSD_feature.meta", "r"))
     data_src_type = DATA_SRC.FOREX_ONLINE
 
     begin_date = datetime.datetime.strptime(begin_date, "%Y-%m-%d %H:%M:%S")
@@ -111,11 +131,10 @@ def strategy(code, lv_list, begin_date, total_profit):
     history_short_orders = 0
     for chan_snapshot in chan.step_load():
 
-        high_chan = chan_snapshot[0]
-        low_chan = chan_snapshot[1]
+        lv_chan = chan_snapshot[0]
         # print(datetime.datetime.now())
         # print(f"北京时间:{lv_chan[-1][-1].time}  on_bar {code}")
-        #        assert low_chan[-1][-1].close == high_chan[-1][-1].close
+        #        assert low_chan[-1][-1].close == chan[-1][-1].close
         # print(
         #     f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}  on_bar {code}")
         """
@@ -123,88 +142,93 @@ def strategy(code, lv_list, begin_date, total_profit):
         这里基于chan实现你的策略
         """
         profit = 0
-        high_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
-        if not high_bsp_list:
+        bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not bsp_list:
             continue
-        high_last_bsp = high_bsp_list[-1]
-
-        low_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
-        if not low_bsp_list:
-            continue
-        low_last_bsp = low_bsp_list[-1]
+        last_bsp = bsp_list[-1]
 
         def sendmessage(subject, message):
-            bar_time = datetime.datetime.fromtimestamp(low_chan[-1][-1].time.ts)
+            bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
             if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
                 send_message(app_id, app_secret, webhook_url, subject, message, [chan_snapshot])
 
         if long_order > 0:
             # 止盈
-            close_price = round(high_chan[-1][-1].close, 5)
+            close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            exit_rule = high_last_bsp.klu.klc.idx == high_chan[-2].idx and not high_last_bsp.is_buy
+            exit_rule = last_bsp.klu.klc.idx == lv_chan[-2].idx and not last_bsp.is_buy and \
+                        (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type)
             # 最大止损保护
-            tp = long_profit > 0.02
-            sl = long_profit < -0.003
+            tp = long_profit > 0.004
+            sl = long_profit < -0.004
             if tp or sl or exit_rule:
                 long_order = 0
                 profit += round(long_profit * money, 2)
-                subject = f'{code} {high_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}'
+                subject = f'{code} {lv_chan[-1][-1].time}:sell price = {close_price}, profit = {long_profit * money:.2f}'
                 print(subject)
                 history_long_orders += 1
-                bar_time = datetime.datetime.fromtimestamp(high_chan[-1][-1].time.ts)
+                bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
                 if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
                     close_order(symbol=code, comment=f"tp:{tp},sl:{sl},exit_rule:{exit_rule}")
-                    message = f"北京时间:{high_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(high_chan[-1][-1].time.ts)}"
+                    message = f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}"
                     sendmessage(subject, message)
         if short_order > 0:
-            close_price = round(high_chan[-1][-1].close, 5)
+            close_price = round(lv_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
-            exit_rule = high_last_bsp.klu.klc.idx == high_chan[-2].idx and high_last_bsp.is_buy
+            exit_rule = last_bsp.klu.klc.idx == lv_chan[-2].idx and last_bsp.is_buy and \
+                        (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type)
             # 最大止损保护
-            tp = short_profit > 0.02
-            sl = short_profit < -0.003
+            tp = short_profit > 0.004
+            sl = short_profit < -0.004
             if tp or sl or exit_rule:
                 short_order = 0
                 profit += round(short_profit * money, 2)
-                subject = f'{code} {high_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}'
+                subject = f'{code} {lv_chan[-1][-1].time}:sell price = {close_price}, profit = {short_profit * money:.2f}'
                 print(subject)
                 history_short_orders += 1
-                bar_time = datetime.datetime.fromtimestamp(high_chan[-1][-1].time.ts)
+                bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
                 if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
                     close_order(symbol=code, comment=f"tp:{tp},sl:{sl},exit_rule:{exit_rule}")
-                    message = f"北京时间:{high_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(high_chan[-1][-1].time.ts)}"
+                    message = f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}"
                     sendmessage(subject, message)
 
         if long_order == 0 and short_order == 0:
             # 共振且同向
-            if high_last_bsp.klu.klc.idx == high_chan[-1].idx and high_last_bsp.is_buy and \
-                    low_last_bsp.klu.klc.idx == low_chan[-1].idx and low_last_bsp.is_buy and \
-                    (BSP_TYPE.T1 in high_last_bsp.type or BSP_TYPE.T1P in high_last_bsp.type):
-                long_order = round(high_chan[-1][-1].close * fee, 5)
-                subject = f'{code} {high_chan[-1][-1].time}:buy long price = {long_order}'
-                print(subject)
-                bar_time = datetime.datetime.fromtimestamp(high_chan[-1][-1].time.ts)
-                if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
-                    open_order(code, lot=0.01, is_buy=True, comment=",".join([t.value for t in high_last_bsp.type]))
-                    message = f"北京时间:{high_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(high_chan[-1][-1].time.ts)}"
-                    sendmessage(subject, message)
+            if last_bsp.klu.klc.idx == lv_chan[-1].idx and last_bsp.is_buy and \
+                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
+                factors = FeatureFactors(chan[0]).get_factors()
+                for key in factors.keys():
+                    last_bsp.features.add_feat(key, factors[key])
+                value = predict_bsp(model, last_bsp=last_bsp, meta=meta)
+                if value > 0.65:
+                    long_order = round(lv_chan[-1][-1].close * fee, 5)
+                    subject = f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}'
+                    print(subject)
+                    bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
+                    if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
+                        open_order(code, lot=0.01, is_buy=True, comment=",".join([t.value for t in last_bsp.type]))
+                        message = f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}"
+                        sendmessage(subject, message)
 
         if short_order == 0 and long_order == 0:
             # 共振且同向
-            if high_last_bsp.klu.klc.idx == high_chan[-1].idx and not high_last_bsp.is_buy and \
-                    low_last_bsp.klu.klc.idx == low_chan[-1].idx and not low_last_bsp.is_buy and \
-                    (BSP_TYPE.T1 in high_last_bsp.type or BSP_TYPE.T1P in high_last_bsp.type):
-                short_order = round(high_chan[-1][-1].close / fee, 5)
-                subject = f'{code} {high_chan[-1][-1].time}:buy short price = {short_order}'
-                print(subject)
-                bar_time = datetime.datetime.fromtimestamp(high_chan[-1][-1].time.ts)
-                if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
-                    open_order(code, lot=0.01, is_buy=False, comment=",".join([t.value for t in high_last_bsp.type]))
-                    message = f"北京时间:{low_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(low_chan[-1][-1].time.ts)}"
-                    bar_time = datetime.datetime.fromtimestamp(high_chan[-1][-1].time.ts)
+            if last_bsp.klu.klc.idx == lv_chan[-1].idx and not last_bsp.is_buy and \
+                    (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
+                factors = FeatureFactors(chan[0]).get_factors()
+                for key in factors.keys():
+                    last_bsp.features.add_feat(key, factors[key])
+                value = predict_bsp(model, last_bsp=last_bsp, meta=meta)
+                if value > 0.65:
+                    short_order = round(lv_chan[-1][-1].close / fee, 5)
+                    subject = f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}'
+                    print(subject)
+                    bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
                     if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
-                        sendmessage(subject, message)
+                        open_order(code, lot=0.01, is_buy=False, comment=",".join([t.value for t in last_bsp.type]))
+                        message = f"北京时间:{lv_chan[-1][-1].time} 瑞士时间:{shanghai_to_zurich_datetime(lv_chan[-1][-1].time.ts)}"
+                        bar_time = datetime.datetime.fromtimestamp(lv_chan[-1][-1].time.ts)
+                        if datetime.datetime.now() - bar_time <= datetime.timedelta(minutes=5):
+                            sendmessage(subject, message)
 
         capital += profit
         if profit != 0:
@@ -246,8 +270,8 @@ if __name__ == "__main__":
         # "GBPJPY",
     ]
     # load_keras_model(symbols, is_all_in_one=True)
-    lv_list = [KL_TYPE.K_10M, KL_TYPE.K_2M]
-    begin_date = "2021-08-22 00:00:00"
+    lv_list = [KL_TYPE.K_30M]
+    begin_date = "2021-01-01 00:00:00"
     total_profit = Value('f', 0)
     model = None
     tasks = []

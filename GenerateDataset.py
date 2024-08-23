@@ -24,7 +24,7 @@ config = CChanConfig({
     "bsp3_follow_1": False,
     "min_zs_cnt": 0,
     "bs1_peak": True,
-    "macd_algo": "area",
+    "macd_algo": "diff",
     "bs_type": '1,2,3a,1p,2s,3b',
     "print_warning": True,
     "zs_algo": "normal",
@@ -95,8 +95,7 @@ plot_para = {
 
 class T_SAMPLE_INFO(TypedDict):
     bsp_type: list[BSP_TYPE]
-    high_feature: CFeatures
-    low_feature: CFeatures
+    feature: CFeatures
     file_path: str
 
 
@@ -125,39 +124,27 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
 
-        high_chan = chan_snapshot[0]
-        low_chan = chan_snapshot[1]
-        high_bsp_list = chan.get_bsp(0)  # 获取买卖点列表
-        if not high_bsp_list:
+        lv_chan = chan_snapshot[0]
+        bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        if not bsp_list:
             continue
-        high_last_bsp = high_bsp_list[-1]
+        last_bsp = bsp_list[-1]
 
-        low_bsp_list = chan.get_bsp(1)  # 获取买卖点列表
-        if not low_bsp_list:
-            continue
-        low_last_bsp = low_bsp_list[-1]
-
-        if high_last_bsp.klu.idx not in bsp_dict and high_last_bsp.klu.klc.idx == high_chan[-1].idx and \
-                low_last_bsp.klu.klc.idx == low_chan[-1].idx and \
-                (high_last_bsp.is_buy and low_last_bsp.is_buy or not high_last_bsp.is_buy and not low_last_bsp.is_buy):
-            print(high_chan[-1][-1].time.to_str())
-            str_date = high_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
+        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
+            print(lv_chan[-1][-1].time.to_str())
+            str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
 
             file_path = f"{source_dir}/{code}/{code}_{str_date}.PNG"  # 输出文件的路径
             # if not os.path.exists(file_path):
             #     chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
-            bsp_dict[high_last_bsp.klu.idx] = {
-                "bsp_type": high_last_bsp.type,
-                "high_feature": high_last_bsp.features,
-                "low_feature": low_last_bsp.features,
+            bsp_dict[last_bsp.klu.idx] = {
+                "bsp_type": last_bsp.type,
+                "feature": last_bsp.features,
                 "file_path": file_path,
             }
             factors = FeatureFactors(chan[0]).get_factors()
             for key in factors.keys():
-                bsp_dict[high_last_bsp.klu.idx]['high_feature'].add_feat("high_" + key, factors[key])
-            factors = FeatureFactors(chan[1]).get_factors()
-            for key in factors.keys():
-                bsp_dict[high_last_bsp.klu.idx]['low_feature'].add_feat("low_" + key, factors[key])
+                bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, factors[key])
 
         # 生成libsvm样本特征
     feature_meta = {}  # 特征meta
@@ -169,16 +156,10 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
         for bsp_klu_idx, feature_info in bsp_dict.items():
             label = int(bsp_klu_idx in bsp_academy)
             features = []
-            high_feature = feature_info["high_feature"]
-            low_feature = feature_info["low_feature"]
+            feature = feature_info["feature"]
             bsp_type = feature_info["bsp_type"]
             file_path = str(feature_info["file_path"])
-            for feature_name, value in high_feature.items():
-                if feature_name not in feature_meta:
-                    feature_meta[feature_name] = cur_feature_idx
-                    cur_feature_idx += 1
-                features.append((feature_meta[feature_name], value))
-            for feature_name, value in low_feature.items():
+            for feature_name, value in feature.items():
                 if feature_name not in feature_meta:
                     feature_meta[feature_name] = cur_feature_idx
                     cur_feature_idx += 1
@@ -197,32 +178,32 @@ if __name__ == "__main__":
     symbols = [
         # Major
         "EURUSD",
-        # "GBPUSD",
-        # "AUDUSD",
-        # "NZDUSD",
-        # "USDJPY",
-        # "USDCAD",
-        # "USDCHF",
+        "GBPUSD",
+        "AUDUSD",
+        "NZDUSD",
+        "USDJPY",
+        "USDCAD",
+        "USDCHF",
         # Crosses
-        # "AUDCHF",
-        # "AUDJPY",
-        # "AUDNZD",
-        # "CADCHF",
-        # "CADJPY",
-        # "CHFJPY",
-        # "EURAUD",
-        # "EURCAD",
-        # "AUDCAD",
-        # "EURCHF",
-        # "GBPNZD",
-        # "GBPCAD",
-        # "GBPCHF",
-        # "GBPJPY",
+        "AUDCHF",
+        "AUDJPY",
+        "AUDNZD",
+        "CADCHF",
+        "CADJPY",
+        "CHFJPY",
+        "EURAUD",
+        "EURCAD",
+        "AUDCAD",
+        "EURCHF",
+        "GBPNZD",
+        "GBPCAD",
+        "GBPCHF",
+        "GBPJPY",
     ]
-    lv_list = [KL_TYPE.K_10M, KL_TYPE.K_2M]
+    lv_list = [KL_TYPE.K_30M]
     source_dir = './PNG_15_3'
 
-    begin_time = "2015-01-01 00:00:00"
+    begin_time = "2010-01-01 00:00:00"
     end_time = "2021-01-01 00:00:00"
     processes = []
     for symbol in symbols:

@@ -29,9 +29,8 @@ class FeatureFactors:
     # 最后K线涨跌率
     def open_klu_rate(self):
         returns = dict()
-        for i in range(1, len(self.chan[-1]) + 1):
-            klu = self.chan[-1][-i]
-            returns[f"open_klu_rate{i}"] = klu.close / klu.open - 1
+        klu = self.chan[-1][-1]
+        returns[f"open_klu_rate"] = klu.close / klu.open - 1
         return returns
 
     # 最后一个分型
@@ -307,7 +306,7 @@ class FeatureFactors:
         returns = dict()
         returns["macd"] = self.chan[-1][-1].macd.macd
         returns["DIF"] = self.chan[-1][-1].macd.DIF
-        returns["DE"] = self.chan[-1][-1].macd.DEA
+        returns["DEA"] = self.chan[-1][-1].macd.DEA
         return returns
 
     def rsi(self):

@@ -25,31 +25,6 @@ class T_SAMPLE_INFO(TypedDict):
     open_time: CTime
 
 
-def plot(chan, plot_marker):
-    plot_config = {
-        "plot_kline": True,
-        "plot_bi": True,
-        "plot_seg": True,
-        "plot_zs": True,
-        "plot_bsp": True,
-        "plot_marker": True,
-    }
-    plot_para = {
-        "figure": {
-            "x_range": 400,
-        },
-        "marker": {
-            "markers": plot_marker
-        }
-    }
-    plot_driver = CPlotDriver(
-        chan,
-        plot_config=plot_config,
-        plot_para=plot_para,
-    )
-    plot_driver.save2img("label.png")
-
-
 alpha = 0.25
 gamma = 1
 
@@ -107,10 +82,10 @@ def objective(trial):
 
     model = LGBMClassifier(**param_grid)
 
-    model.fit(f_train, y_train)
+    model.fit(X_train, y_train)
 
     # 在验证集上预测
-    y_pred = model.predict(f_val)
+    y_pred = model.predict(X_val)
 
     # 计算 F1 分数（适用于二分类）
     score = roc_auc_score(y_val, y_pred)
@@ -280,8 +255,9 @@ if __name__ == "__main__":
         # "GBPCHF",
         # "GBPJPY",
     ]
-    # X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["2", "2s"])
-    X_train, X_val, y_train, y_val, f_train, f_val = get_one_dataset("EURUSD", bsp_type=["2", "2s"])
+    X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["1", "1p"])
+    print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
+    # X_train, X_val, y_train, y_val, f_train, f_val = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"])
     # 创建 Optuna 优化器
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
@@ -315,7 +291,7 @@ if __name__ == "__main__":
     )
     classifier1 = LGBMClassifier(**param_grid)
     # 训练 Pipeline
-    classifier1.fit(f_train, y_train)
+    classifier1.fit(X_train, y_train)
     meta = json.load(open(f"./TMP/EURUSD_feature.meta", "r"))
     feature_names = meta.keys()
 
