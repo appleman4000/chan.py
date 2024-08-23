@@ -50,26 +50,26 @@ plot_para = {
     "seg": {
         # "plot_trendline": True,
         "disp_end": False,
-        "end_fontsize": 10,
+        "end_fontsize": 9,
         "width": 0.5
     },
     "bi": {
         "show_num": False,
         "disp_end": False,
-        "end_fontsize": 10,
+        "end_fontsize": 9,
     },
     "zs": {
-        "fontsize": 10,
+        "fontsize": 9,
     },
     "bsp": {
-        "fontsize": 10
+        "fontsize": 9
     },
     "segseg": {
-        "end_fontsize": 10,
+        "end_fontsize": 9,
         "width": 0.5
     },
     "seg_bsp": {
-        "fontsize": 10
+        "fontsize": 9
     },
     "marker": {
         # "markers": {  # text, position, color

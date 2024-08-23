@@ -196,7 +196,7 @@ def open_order(symbol, lot=0.01, is_buy=None, comment=""):
         point = mt5.symbol_info(symbol).point
         price = mt5.symbol_info_tick(symbol).ask if is_buy else mt5.symbol_info_tick(symbol).bid
         tp = round(price * 0.02 / point)
-        sl = round(price * 0.01 / point)
+        sl = round(price * 0.005 / point)
         deviation = 30
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
