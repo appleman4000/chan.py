@@ -5,6 +5,7 @@ import pickle
 import threading
 from typing import TypedDict
 
+import lightgbm as lgb
 import numpy as np
 import optuna
 from lightgbm import LGBMClassifier
@@ -15,8 +16,6 @@ from sklearn.utils import class_weight
 
 from ChanModel.Features import CFeatures
 from Common.CTime import CTime
-from Plot.PlotDriver import CPlotDriver
-from TrainingModel import get_one_dataset
 
 
 class T_SAMPLE_INFO(TypedDict):
@@ -32,20 +31,11 @@ param_grid = {
     'seed': 42,
     'device': 'cpu',
     'objective': 'binary',
-    'metric': 'binary_logloss',
     'min_split_gain': 0,
     'min_child_weight': 1e-3,
     'verbose': -1,
     'boosting_type': 'gbdt',
-    'feature_fraction': 0.8,
-    'bagging_fraction': 0.8,
-    # 'reg_alpha': 0.0,
 }
-
-
-# param_grid = {
-#     'random_state': 42
-# }
 
 
 def objective(trial):
@@ -61,7 +51,10 @@ def objective(trial):
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 100.0),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0)
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0),
+
     })
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(y_train), y=y_train
@@ -81,17 +74,67 @@ def objective(trial):
     param_grid["gpu_platform_id"] = 0
 
     model = LGBMClassifier(**param_grid)
-
-    model.fit(X_train, y_train)
+    callbacks = [lgb.log_evaluation(period=1), lgb.early_stopping(stopping_rounds=100, verbose=False)]
+    model.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric='auc', callbacks=callbacks)
 
     # 在验证集上预测
-    y_pred = model.predict(X_val)
+    y_pred = model.predict_proba(X_val)[:, 1]
 
     # 计算 F1 分数（适用于二分类）
     score = roc_auc_score(y_val, y_pred)
 
     # 返回平均 F1 分数
     return score
+
+
+# param_grid = {
+#     'random_state': 42,
+#     "objective": "Logloss",
+#     "eval_metric": "AUC"
+# }
+#
+#
+# def objective(trial):
+#     # 使用 Optuna 定义超参数的搜索空间
+#     param_grid.update({
+#         # "objective": trial.suggest_categorical("objective", ["Logloss", "CrossEntropy"]),
+#         # "loss_function": "MultiClass",  # trial.suggest_categorical("loss_function", ["MultiClass", "MultiClassOneVsAll"]),
+#         # "objective": trial.suggest_categorical("objective", ["Logloss", "CrossEntropy"]),
+#         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
+#         "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-2, 1e2, log=True),
+#         "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.01, 0.1),
+#         "depth": trial.suggest_int("depth", 1, 10),
+#         "boosting_type": trial.suggest_categorical("boosting_type", ["Ordered", "Plain"]),
+#         "bootstrap_type": trial.suggest_categorical(
+#             "bootstrap_type", ["Bayesian", "Bernoulli", "MVS"]),
+#         "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 2, 20),
+#         "one_hot_max_size": trial.suggest_int("one_hot_max_size", 2, 20),
+#     })
+#
+#     class_weights = class_weight.compute_class_weight(
+#         "balanced", classes=np.unique(y_train), y=y_train
+#     )
+#     param_grid.update(
+#         {
+#             "class_weights": {
+#                 0: class_weights[0],
+#                 1: class_weights[1],
+#             }
+#         }
+#     )
+#
+#     model = CatBoostClassifier(**param_grid)
+#
+#     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=0, early_stopping_rounds=100)
+#
+#     # 在验证集上预测
+#     y_pred = model.predict(X_val)
+#
+#     # 计算 F1 分数（适用于二分类）
+#     score = roc_auc_score(y_val, y_pred)
+#
+#     # 返回平均 F1 分数
+#     return score
 
 
 # def objective(trial):
@@ -190,15 +233,15 @@ def load_dataset_from_csv(csv_file, meta, bsp_type):
 
         for row in reader:
             label = int(row[0])  # Read the label (convert it to int if necessary)
-            bs_type = row[1]
-            if bs_type not in bsp_type:
+            bs_types = row[1]
+            if np.array([t not in bs_types for t in bsp_type]).all():
                 continue
             file_path = row[2]  # Read the filepath
 
             feature = row[3]
             feature = {int(k): float(v) for k, v in (item.split(':') for item in feature.split())}
 
-            missing = 0
+            missing = -9999999
             feature_arr = [missing] * len(meta)
             for feat_name, feat_value in feature.items():
                 if feat_name in meta.values():
@@ -217,7 +260,7 @@ def get_all_in_one_dataset(codes, bsp_type):
     for code in codes:
         meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
         features, labels = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta)
-        X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.2, shuffle=False,
+        X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.1, shuffle=False,
                                                           random_state=42)
         X_trains.extend(X_train)
         X_vals.extend(X_val)
@@ -240,20 +283,20 @@ if __name__ == "__main__":
         "USDCAD",
         "USDCHF",
         # Crosses
-        # "AUDCHF",
-        # "AUDJPY",
-        # "AUDNZD",
-        # "CADCHF",
-        # "CADJPY",
-        # "CHFJPY",
-        # "EURAUD",
-        # "EURCAD",
-        # "AUDCAD",
-        # "EURCHF",
-        # "GBPNZD",
-        # "GBPCAD",
-        # "GBPCHF",
-        # "GBPJPY",
+        "AUDCHF",
+        "AUDJPY",
+        "AUDNZD",
+        "CADCHF",
+        "CADJPY",
+        "CHFJPY",
+        "EURAUD",
+        "EURCAD",
+        "AUDCAD",
+        "EURCHF",
+        "GBPNZD",
+        "GBPCAD",
+        "GBPCHF",
+        "GBPJPY",
     ]
     X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["1", "1p"])
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
@@ -270,7 +313,7 @@ if __name__ == "__main__":
     # 启动一个后台线程来运行 Optuna Dashboard
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=1000, n_jobs=-1)
+    study.optimize(objective, n_trials=2000, n_jobs=-1)
 
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)
@@ -283,7 +326,7 @@ if __name__ == "__main__":
     )
     param_grid.update(
         {
-            "class_weight": {
+            "class_weights": {
                 0: class_weights[0],
                 1: class_weights[1],
             }
@@ -291,7 +334,8 @@ if __name__ == "__main__":
     )
     classifier1 = LGBMClassifier(**param_grid)
     # 训练 Pipeline
-    classifier1.fit(X_train, y_train)
+    callbacks = [lgb.log_evaluation(period=1), lgb.early_stopping(stopping_rounds=100, verbose=False)]
+    classifier1.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric='auc', callbacks=callbacks)
     meta = json.load(open(f"./TMP/EURUSD_feature.meta", "r"))
     feature_names = meta.keys()
 

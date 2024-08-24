@@ -316,15 +316,19 @@ class FeatureFactors:
 
     def kdj(self):
         returns = dict()
-        returns["k"] = self.chan[-1][-1].kdj.k
-        returns["d"] = self.chan[-1][-1].kdj.d
-        returns["j"] = self.chan[-1][-1].kdj.j
+        kdj = self.chan[-1][-1].kdj
+        for i in range(3):
+            returns[f"k{i + 1}"] = kdj.k
+            returns[f"d{i + 1}"] = kdj.d
+            returns[f"j{i + 1}"] = kdj.j
+            kdj = kdj.pre_kdj
+
         return returns
 
     def boll(self):
-        klu = self.chan[-1][-1]
         returns = dict()
-        returns["k"] = self.chan[-1][-1].boll.UP / klu.close - 1
-        returns["d"] = self.chan[-1][-1].boll.MID / klu.close - 1
-        returns["j"] = self.chan[-1][-1].boll.DOWN / klu.close - 1
+        boll = self.chan[-1][-1].boll
+        returns["UP"] = boll.UP / self.chan[-1][-1].close
+        returns["MID"] = boll.MID / self.chan[-1][-1].close
+        returns["DOWN"] = boll.DOWN / self.chan[-1][-1].close
         return returns

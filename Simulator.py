@@ -159,8 +159,8 @@ def strategy(code, lv_list, begin_date, total_profit):
             exit_rule = last_bsp.klu.klc.idx == lv_chan[-2].idx and not last_bsp.is_buy and \
                         (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type)
             # 最大止损保护
-            tp = long_profit > 0.004
-            sl = long_profit < -0.004
+            tp = long_profit > 0.01
+            sl = long_profit < -0.003
             if tp or sl or exit_rule:
                 long_order = 0
                 profit += round(long_profit * money, 2)
@@ -178,8 +178,8 @@ def strategy(code, lv_list, begin_date, total_profit):
             exit_rule = last_bsp.klu.klc.idx == lv_chan[-2].idx and last_bsp.is_buy and \
                         (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type)
             # 最大止损保护
-            tp = short_profit > 0.004
-            sl = short_profit < -0.004
+            tp = short_profit > 0.1
+            sl = short_profit < -0.003
             if tp or sl or exit_rule:
                 short_order = 0
                 profit += round(short_profit * money, 2)
@@ -200,7 +200,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = predict_bsp(model, last_bsp=last_bsp, meta=meta)
-                if value > 0.65:
+                if value > 0.7:
                     long_order = round(lv_chan[-1][-1].close * fee, 5)
                     subject = f'{code} {lv_chan[-1][-1].time}:buy long price = {long_order}'
                     print(subject)
@@ -218,7 +218,7 @@ def strategy(code, lv_list, begin_date, total_profit):
                 for key in factors.keys():
                     last_bsp.features.add_feat(key, factors[key])
                 value = predict_bsp(model, last_bsp=last_bsp, meta=meta)
-                if value > 0.65:
+                if value > 0.7:
                     short_order = round(lv_chan[-1][-1].close / fee, 5)
                     subject = f'{code} {lv_chan[-1][-1].time}:buy short price = {short_order}'
                     print(subject)
