@@ -24,11 +24,6 @@ class CMT5ForexAPI(CCommonForexApi):
             mt5.shutdown()
             exit(0)
 
-        # request connection status and parameters
-        print(mt5.terminal_info())
-        # get data on MetaTrader 5 version
-        print(mt5.version())
-
     def get_kl_data(self):
         local_time_format = '%Y-%m-%d %H:%M:%S'
 
@@ -41,9 +36,9 @@ class CMT5ForexAPI(CCommonForexApi):
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
-        bars['time'] = bars['time'] + datetime.timedelta(seconds=period_seconds[self.k_type])
-        bars['time'] = bars['time'].dt.tz_localize(server_timezone)
-        bars['time'] = bars['time'].dt.tz_convert(local_timezone)
+        bars['time'] += datetime.timedelta(seconds=period_seconds[self.k_type])  # 开盘时间转收盘时间
+        bars['time'] = bars['time'].dt.tz_localize(tz=server_timezone)
+        bars['time'] = bars['time'].dt.tz_convert(tz=local_timezone).dt.tz_localize(None)
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
         # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"
