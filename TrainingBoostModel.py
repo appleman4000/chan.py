@@ -1,6 +1,5 @@
 # cython: language_level=3
 import csv
-import json
 import pickle
 import threading
 from typing import TypedDict
@@ -8,6 +7,8 @@ from typing import TypedDict
 import lightgbm as lgb
 import numpy as np
 import optuna
+import pandas
+import pandas as pd
 from lightgbm import LGBMClassifier
 from optuna_dashboard import run_server
 from sklearn.metrics import roc_auc_score
@@ -51,7 +52,7 @@ def objective(trial):
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 100.0),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 500.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 100.0),
         'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0),
         'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0),
 
@@ -74,8 +75,8 @@ def objective(trial):
     param_grid["gpu_platform_id"] = 0
 
     model = LGBMClassifier(**param_grid)
-    callbacks = [lgb.log_evaluation(period=1), lgb.early_stopping(stopping_rounds=100, verbose=False)]
-    model.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric='auc', callbacks=callbacks)
+    callbacks = [lgb.log_evaluation(period=1), lgb.early_stopping(stopping_rounds=10, verbose=False)]
+    model.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric="auc", callbacks=callbacks)
 
     # 在验证集上预测
     y_pred = model.predict_proba(X_val)[:, 1]
@@ -224,9 +225,12 @@ def objective(trial):
 
 
 def load_dataset_from_csv(csv_file, meta, bsp_type):
-    images = []
     labels = []
     features = []
+    df = pandas.DataFrame(csv_file)
+    labels = pd["label"]
+    features = df.iloc[:, 2:]
+
     with open(csv_file, mode='r', newline='') as file:
         reader = csv.reader(file)
         next(reader)  # Skip the header row
@@ -241,13 +245,13 @@ def load_dataset_from_csv(csv_file, meta, bsp_type):
             feature = row[3]
             feature = {int(k): float(v) for k, v in (item.split(':') for item in feature.split())}
 
-            missing = -9999999
+            missing = float('nan')
             feature_arr = [missing] * len(meta)
             for feat_name, feat_value in feature.items():
                 if feat_name in meta.values():
                     feature_arr[feat_name] = feat_value
             # Process the label and filepath as needed
-            print(f"Label: {label}, Filepath: {file_path}")
+            # print(f"Label: {label}, Filepath: {file_path}")
             labels.append(label)
             features.append(feature_arr)
 
@@ -255,21 +259,19 @@ def load_dataset_from_csv(csv_file, meta, bsp_type):
 
 
 def get_all_in_one_dataset(codes, bsp_type):
-    X_trains, X_vals, y_trains, y_vals = [], [], [], []
-
+    df = pd.DataFrame()
     for code in codes:
-        meta = json.load(open(f"./TMP/{code}_feature.meta", "r"))
-        features, labels = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=bsp_type, meta=meta)
-        X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.1, shuffle=False,
-                                                          random_state=42)
-        X_trains.extend(X_train)
-        X_vals.extend(X_val)
-        y_trains.extend(y_train)
-        y_vals.extend(y_val)
-        # 追加新数据到数据集中
+        new_df = pd.read_csv(f"./TMP/{code}_dataset.csv", index_col=0)
+        df = pd.concat([df, new_df])
+    df = df[df['bsp_type'].isin(bsp_type)]
+    labels = df["label"].to_numpy(dtype=int)
+    features = df.iloc[:, 3:].to_numpy(dtype=np.float32)
+    feature_names = df.columns[3:].tolist()
 
-    return np.array(X_trains, dtype=np.float32), np.array(X_vals, dtype=np.float32), \
-        np.array(y_trains, dtype=np.float32), np.array(y_vals, dtype=np.float32)
+    X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.1, shuffle=False,
+                                                      random_state=42)
+
+    return X_train, X_val, y_train, y_val, feature_names
 
 
 if __name__ == "__main__":
@@ -298,27 +300,32 @@ if __name__ == "__main__":
         "GBPCHF",
         "GBPJPY",
     ]
-    X_train, X_val, y_train, y_val = get_all_in_one_dataset(symbols, bsp_type=["1", "1p"])
-    print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
-    # X_train, X_val, y_train, y_val, f_train, f_val = load_dataset_from_csv(f"./TMP/{code}_dataset.csv", bsp_type=["2", "2s"])
-    # 创建 Optuna 优化器
-    storage = optuna.storages.InMemoryStorage()
-    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    bsp_type = ["1", "1p", "1-1p"]
+    # bsp_type = ["2", "2s", "2-2s"]
+    X_train, X_val, y_train, y_val, feature_names = get_all_in_one_dataset(symbols, bsp_type=bsp_type)
+    with open(f"./TMP/all_in_one_{'_'.join(bsp_type)}_model.meta", "wb") as fid:
+        # meta保存下来，实盘预测时特征对齐用
+        pickle.dump(feature_names, fid)
 
 
     def start_dashboard():
         run_server(storage, host="127.0.0.1", port=8080)
 
 
-    # 启动一个后台线程来运行 Optuna Dashboard
+    storage = optuna.storages.InMemoryStorage()
     dashboard_thread = threading.Thread(target=start_dashboard)
     dashboard_thread.start()
-    study.optimize(objective, n_trials=2000, n_jobs=-1)
 
+    print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
+    # 创建 Optuna 优化器
+
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+
+    # 启动一个后台线程来运行 Optuna Dashboard
+
+    study.optimize(objective, n_trials=1000, n_jobs=-1)
     # 输出最佳结果
     print('Best trial:', study.best_trial.params)
-
-    # 使用最佳参数训练最终模型
     best_params = study.best_trial.params
     param_grid.update(best_params)
     class_weights = class_weight.compute_class_weight(
@@ -326,31 +333,24 @@ if __name__ == "__main__":
     )
     param_grid.update(
         {
-            "class_weights": {
+            "class_weight": {
                 0: class_weights[0],
                 1: class_weights[1],
             }
         }
     )
-    classifier1 = LGBMClassifier(**param_grid)
+    classifier = LGBMClassifier(**param_grid)
     # 训练 Pipeline
     callbacks = [lgb.log_evaluation(period=1), lgb.early_stopping(stopping_rounds=100, verbose=False)]
-    classifier1.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric='auc', callbacks=callbacks)
-    meta = json.load(open(f"./TMP/EURUSD_feature.meta", "r"))
-    feature_names = meta.keys()
-
-    feature_importances = classifier1.feature_importances_
+    classifier.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric='auc', callbacks=callbacks)
+    feature_importances = classifier.feature_importances_
     # 特征名称
-
     # 创建特征重要性数据框
-    import pandas as pd
-
     importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': feature_importances})
     importance_df = importance_df.sort_values(by='Importance', ascending=False)
     pd.set_option('display.max_rows', None)
     print(importance_df)
 
-    with open("model.hdf5", "wb") as f:
-        pickle.dump(classifier1, f)
-        # pickle.dump(scaler, f)
+    with open(f"./TMP/all_in_one_{'_'.join(bsp_type)}_model.hdf5", "wb") as f:
+        pickle.dump(classifier, f)
     print("train model completely!")

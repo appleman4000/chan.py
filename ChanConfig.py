@@ -153,7 +153,7 @@ class CChanConfig:
                 exec(f"self.bs_point_conf.b_conf.set({k}, {v})")
                 exec(f"self.bs_point_conf.s_conf.set({k}, {v})")
             else:
-                raise CChanException(f"unknown para = {k}", ErrCode.PARA_ERROR)
+                pass
         self.bs_point_conf.b_conf.parse_target_type()
         self.bs_point_conf.s_conf.parse_target_type()
         self.seg_bs_point_conf.b_conf.parse_target_type()

@@ -1,11 +1,10 @@
 # cython: language_level=3
-import csv
-import json
 import os.path
 from multiprocessing import Process
 from typing import Dict, TypedDict
 
 import matplotlib
+import pandas
 
 from Chan import CChan
 from ChanConfig import CChanConfig
@@ -24,8 +23,8 @@ config = CChanConfig({
     "bsp3_follow_1": False,
     "min_zs_cnt": 0,
     "bs1_peak": True,
-    "macd_algo": "diff",
-    "bs_type": '1,2,3a,1p,2s,3b',
+    "macd_algo": "peak",
+    "bs_type": '1,1p',
     "print_warning": True,
     "zs_algo": "normal",
     "cal_rsi": True,
@@ -96,7 +95,6 @@ plot_para = {
 class T_SAMPLE_INFO(TypedDict):
     bsp_type: list[BSP_TYPE]
     feature: CFeatures
-    file_path: str
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
@@ -133,45 +131,27 @@ def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
         if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
             print(lv_chan[-1][-1].time.to_str())
             str_date = lv_chan[-1][-1].time.to_str().replace("/", "_").replace(":", "_").replace(" ", "_")
-
-            file_path = f"{source_dir}/{code}/{code}_{str_date}.PNG"  # 输出文件的路径
-            # if not os.path.exists(file_path):
-            #     chan_to_png(chan_snapshot, plot_config, plot_para, file_path=file_path)
             bsp_dict[last_bsp.klu.idx] = {
                 "bsp_type": last_bsp.type,
                 "feature": last_bsp.features,
-                "file_path": file_path,
             }
             factors = FeatureFactors(chan[0]).get_factors()
             for key in factors.keys():
                 bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, factors[key])
 
-        # 生成libsvm样本特征
-    feature_meta = {}  # 特征meta
-    cur_feature_idx = 0
     bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
-    with open(f"./TMP/{code}_dataset.csv", mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['label', 'bs_type', 'file_path', 'feature'])  # Write the header
-        for bsp_klu_idx, feature_info in bsp_dict.items():
-            label = int(bsp_klu_idx in bsp_academy)
-            features = []
-            feature = feature_info["feature"]
-            bsp_type = feature_info["bsp_type"]
-            file_path = str(feature_info["file_path"])
-            for feature_name, value in feature.items():
-                if feature_name not in feature_meta:
-                    feature_meta[feature_name] = cur_feature_idx
-                    cur_feature_idx += 1
-                features.append((feature_meta[feature_name], value))
-
-            features.sort(key=lambda x: x[0])
-            feature_str = " ".join([f"{idx}:{value}" for idx, value in features])
-            writer.writerow(
-                [label, "-".join([t.value for t in bsp_type]), file_path, feature_str])
-    with open(f"./TMP/{code}_feature.meta", "w") as fid:
-        # meta保存下来，实盘预测时特征对齐用
-        fid.write(json.dumps(feature_meta))
+    rows = []
+    for bsp_klu_idx, feature_info in bsp_dict.items():
+        label = int(bsp_klu_idx in bsp_academy)
+        feature = feature_info["feature"]
+        bsp_type = feature_info["bsp_type"]
+        row = {"label": label, "bsp_type": "-".join([t.value for t in bsp_type])}
+        for feature_name, value in feature.items():
+            row.update({feature_name: value})
+        rows.append(row)
+    df = pandas.DataFrame(rows)
+    df.to_csv(f"./TMP/{code}_dataset.csv", sep=",")
+    return df
 
 
 if __name__ == "__main__":

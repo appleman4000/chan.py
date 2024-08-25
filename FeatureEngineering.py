@@ -2,16 +2,20 @@
 # encoding:utf-8
 from Common.CEnum import MACD_ALGO, BI_DIR, FX_TYPE
 
-MAX_BI = 1
-MAX_ZS = 1
-MAX_SEG = 1
-MAX_SEGSEG = 1
-MAX_SEGZS = 1
-
 
 class FeatureFactors:
-    def __init__(self, chan):
+    def __init__(self, chan,
+                 MAX_BI=2,
+                 MAX_ZS=1,
+                 MAX_SEG=1,
+                 MAX_SEGSEG=1,
+                 MAX_SEGZS=1):
         self.chan = chan
+        self.MAX_BI = MAX_BI
+        self.MAX_ZS = MAX_ZS
+        self.MAX_SEG = MAX_SEG
+        self.MAX_SEGSEG = MAX_SEGSEG
+        self.MAX_SEGZS = MAX_SEGZS
 
     def get_factors(self):
         returns = dict()
@@ -102,11 +106,12 @@ class FeatureFactors:
             return returns
 
         returns = dict()
-        for i in range(1, MAX_BI + 1):
+        for i in range(1, self.MAX_BI + 1):
             if i < len(self.chan.bi_list):
                 bi = self.chan.bi_list[-i]
                 returns.update(bi_begin(i, bi))
-                returns.update(bi_end(i, bi))
+                if i > 1:
+                    returns.update(bi_end(i, bi))
                 # returns.update(bi_dir(i, bi))
                 # returns.update(bi_is_sure(i, bi))
                 returns.update(bi_high(i, bi))
@@ -171,15 +176,16 @@ class FeatureFactors:
                               MACD_ALGO.SLOPE,
                               MACD_ALGO.AMP]:
                 bi_in_metric = zs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
-                bi_out_metric = zs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
                 returns[f"bi_in_{macd_algo.name}{i}"] = bi_in_metric
-                returns[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric
-                returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / bi_in_metric
+                if zs.bi_out:
+                    bi_out_metric = zs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
+                    returns[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric
+                    returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / bi_in_metric
             return returns
 
         returns = dict()
         if len(self.chan.zs_list) > 0:
-            for i in range(1, MAX_ZS + 1):
+            for i in range(1, self.MAX_ZS + 1):
                 if i < len(self.chan.zs_list):
                     zs = self.chan.zs_list[-i]
                     returns.update(zs_begin(i, zs))
@@ -192,24 +198,25 @@ class FeatureFactors:
                     returns.update(divergence(i, zs))
 
         if len(self.chan.segzs_list) > 0:
-            for i in range(1, MAX_SEGZS + 1):
+            for i in range(1, self.MAX_SEGZS + 1):
                 if i < len(self.chan.segzs_list):
                     segzs = self.chan.segzs_list[-i]
-                    returns.update(zs_begin(i + MAX_ZS, segzs))
-                    returns.update(zs_end(i + MAX_ZS, segzs))
-                    returns.update(zs_high(i + MAX_ZS, segzs))
-                    returns.update(zs_low(i + MAX_ZS, segzs))
-                    returns.update(zs_mid(i + MAX_ZS, segzs))
-                    returns.update(zs_peak_high(i + MAX_ZS, segzs))
-                    returns.update(zs_peak_low(i + MAX_ZS, segzs))
+                    returns.update(zs_begin(i + self.MAX_ZS, segzs))
+                    returns.update(zs_end(i + self.MAX_ZS, segzs))
+                    returns.update(zs_high(i + self.MAX_ZS, segzs))
+                    returns.update(zs_low(i + self.MAX_ZS, segzs))
+                    returns.update(zs_mid(i + self.MAX_ZS, segzs))
+                    returns.update(zs_peak_high(i + self.MAX_ZS, segzs))
+                    returns.update(zs_peak_low(i + self.MAX_ZS, segzs))
                     for macd_algo in [
                         MACD_ALGO.SLOPE,
                         MACD_ALGO.AMP]:
                         bi_in_metric = segzs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
-                        bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-                        returns[f"bi_in_{macd_algo.name}{i + MAX_ZS}"] = bi_in_metric
-                        returns[f"bi_out_{macd_algo.name}{i + MAX_ZS}"] = bi_out_metric
-                        returns[f"divergence_{macd_algo.name}{i + MAX_ZS}"] = bi_out_metric / bi_in_metric - 1
+                        returns[f"bi_in_{macd_algo.name}{i + self.MAX_ZS}"] = bi_in_metric
+                        if segzs.bi_out:
+                            bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
+                            returns[f"bi_out_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric
+                            returns[f"divergence_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric / bi_in_metric - 1
         return returns
 
     ############################### 线段 ######################################
@@ -274,7 +281,7 @@ class FeatureFactors:
 
         returns = dict()
         if len(self.chan.seg_list) > 0:
-            for i in range(1, MAX_SEG + 1):
+            for i in range(1, self.MAX_SEG + 1):
                 if i < len(self.chan.seg_list):
                     seg = self.chan.seg_list[-i]
                     returns.update(seg_begin(i, seg))
@@ -288,18 +295,18 @@ class FeatureFactors:
                     returns.update(seg_macd(i, seg))
 
         if len(self.chan.segseg_list) > 0:
-            for i in range(1, MAX_SEGSEG + 1):
+            for i in range(1, self.MAX_SEGSEG + 1):
                 if i < len(self.chan.segseg_list):
                     segseg = self.chan.segseg_list[-i]
-                    returns.update(seg_begin(i + MAX_SEG, segseg))
-                    returns.update(seg_end(i + MAX_SEG, segseg))
-                    returns.update(seg_rate_slope(i + MAX_SEG, segseg))
-                    returns.update(seg_bi_cnt(i + MAX_SEG, segseg))
-                    returns.update(seg_low(i + MAX_SEG, segseg))
-                    returns.update(seg_high(i + MAX_SEG, segseg))
-                    returns.update(seg_is_down(i + MAX_SEG, segseg))
-                    returns.update(seg_klu_cnt(i + MAX_SEG, segseg))
-                    returns.update(seg_macd(i + MAX_SEG, segseg))
+                    returns.update(seg_begin(i + self.MAX_SEG, segseg))
+                    returns.update(seg_end(i + self.MAX_SEG, segseg))
+                    returns.update(seg_rate_slope(i + self.MAX_SEG, segseg))
+                    returns.update(seg_bi_cnt(i + self.MAX_SEG, segseg))
+                    returns.update(seg_low(i + self.MAX_SEG, segseg))
+                    returns.update(seg_high(i + self.MAX_SEG, segseg))
+                    # returns.update(seg_is_down(i + self.MAX_SEG, segseg))
+                    returns.update(seg_klu_cnt(i + self.MAX_SEG, segseg))
+                    returns.update(seg_macd(i + self.MAX_SEG, segseg))
         return returns
 
     def macd(self):
@@ -317,12 +324,9 @@ class FeatureFactors:
     def kdj(self):
         returns = dict()
         kdj = self.chan[-1][-1].kdj
-        for i in range(3):
-            returns[f"k{i + 1}"] = kdj.k
-            returns[f"d{i + 1}"] = kdj.d
-            returns[f"j{i + 1}"] = kdj.j
-            kdj = kdj.pre_kdj
-
+        returns["k"] = kdj.k
+        returns["d"] = kdj.d
+        returns["j"] = kdj.j
         return returns
 
     def boll(self):

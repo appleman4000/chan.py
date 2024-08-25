@@ -17,7 +17,7 @@ from CommonTools import period_name, period_seconds, server_timezone, local_time
 from CommonTools import robot_trade, reconnect_mt5, get_latest_bar
 from DataAPI.MT5ForexAPI import GetColumnNameFromFieldList, create_item_dict
 from KLine.KLine_Unit import CKLine_Unit
-from Messenger import send_message
+from Messenger import _send_message
 
 sys.setrecursionlimit(10000)
 config = CChanConfig({
@@ -99,7 +99,7 @@ def on_bar(symbol, period, bar, enable_send_message=False):
         app_secret = 'BvtLvfCEPEePrqdw4vddScwhKVWSCtAx'
         webhook_url = 'https://open.feishu.cn/open-apis/bot/v2/hook/b5d0499b-4082-4dd3-82a5-70528e548695'
 
-        send_message(app_id, app_secret, webhook_url, subject, message, [chans[symbol + str(p)] for p in periods])
+        _send_message(app_id, app_secret, webhook_url, subject, message, [chans[symbol + str(p)] for p in periods])
         comment = f"{','.join([t.name for t in last_bsp_h1.type])}"
         robot_trade(symbol, 0.01, last_bsp_h1.is_buy, comment)
 

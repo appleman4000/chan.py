@@ -44,18 +44,18 @@ plot_config = {
 plot_para = {
     "figure": {
         "w": 224 / 50,
-        "h": 224 / 50 / 2,
-        "x_range": 200,
+        "h": 224 / 50,
+        "x_range": 500,
     },
     "seg": {
         # "plot_trendline": True,
-        "disp_end": False,
+        "disp_end": True,
         "end_fontsize": 9,
         "width": 0.5
     },
     "bi": {
         "show_num": False,
-        "disp_end": False,
+        "disp_end": True,
         "end_fontsize": 9,
     },
     "zs": {
@@ -243,7 +243,7 @@ def send_mail(to_emails, subject, message, chans):
 
 
 # @asynchronous
-def send_message(app_id, app_secret, webhook_url, subject, message, chans):
+def _send_message(app_id, app_secret, webhook_url, subject, message, chans):
     matplotlib.use('Agg')  # 设置 matplotlib 后端为 Agg
     image_bytes_list = []
     for chan in chans:
