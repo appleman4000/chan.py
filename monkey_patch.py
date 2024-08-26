@@ -82,4 +82,4 @@ class LimitedList(MutableSequence):
 
 
 # Hot replace typing.List with LimitedList
-# typing.List = LimitedList
+typing.List = LimitedList
