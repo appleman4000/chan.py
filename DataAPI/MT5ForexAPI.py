@@ -1,6 +1,7 @@
 # cython: language_level=3
 # encoding:utf-8
 import datetime
+import time
 
 import MetaTrader5 as mt5
 import pandas as pd
@@ -30,17 +31,19 @@ class CMT5ForexAPI(CCommonForexApi):
         begin_date = datetime.datetime.strptime(self.begin_date, local_time_format)
         end_date = datetime.datetime.strptime(self.end_date, local_time_format)
         end_date = end_date + datetime.timedelta(hours=2)
-
-        bars = mt5.copy_rates_range(self.code, period_mt5_map[self.k_type], begin_date, end_date)
+        while True:
+            bars = mt5.copy_rates_range(self.code, period_mt5_map[self.k_type], begin_date, end_date)
+            if bars is None:
+                time.sleep(5)
+            else:
+                break
         mt5.shutdown()
         bars = pd.DataFrame(bars)
-        bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
         bars['time'] += datetime.timedelta(seconds=period_seconds[self.k_type])  # 开盘时间转收盘时间
         bars['time'] = bars['time'].dt.tz_localize(tz=server_timezone)
         bars['time'] = bars['time'].dt.tz_convert(tz=local_timezone).dt.tz_localize(None)
         bars['time'] = bars['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-        # bars.set_index('time', inplace=True)
         fields = "time,open,high,low,close,volume"
         for index, row in bars.iterrows():
             data = [

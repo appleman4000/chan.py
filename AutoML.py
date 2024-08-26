@@ -35,7 +35,7 @@ def predict_bsp(model, last_bsp: CBS_Point, feature_names):
     return model.predict_proba(feature_arr)[0][1]
 
 
-lv_list = [KL_TYPE.K_30M]
+lv_list = [KL_TYPE.K_10M]
 data_src = DATA_SRC.FOREX
 trade_param_grid = {
 }
@@ -113,12 +113,12 @@ def trade_objective(trial, code, begin_time, end_time, dataset_param_grid, model
     trade_param_grid.update({
         "bsp1_pred_long_open": trial.suggest_float('bsp1_pred_long_open', 0.6, 0.75, step=0.01),
         "bsp1_pred_short_open": trial.suggest_float('bsp1_pred_short_open', 0.6, 0.75, step=0.01),
-        "bsp1_pred_long_exit": trial.suggest_float('bsp1_pred_long_exit', 0.0, 0.6, step=0.01),
-        "bsp1_pred_short_exit": trial.suggest_float('bsp1_pred_short_exit', 0.0, 0.6, step=0.01),
+        "bsp1_pred_long_exit": trial.suggest_float('bsp1_pred_long_exit', 0.5, 0.6, step=0.01),
+        "bsp1_pred_short_exit": trial.suggest_float('bsp1_pred_short_exit', 0.5, 0.6, step=0.01),
         "tp_long": trial.suggest_float('tp_long', 0.002, 0.03, step=0.001),
-        "sl_long": trial.suggest_float('sl_long', 0.002, 0.03, step=0.001),
+        "sl_long": trial.suggest_float('sl_long', 0.002, 0.005, step=0.001),
         "tp_short": trial.suggest_float('tp_short', 0.002, 0.03, step=0.001),
-        "sl_short": trial.suggest_float('sl_short', 0.002, 0.03, step=0.001),
+        "sl_short": trial.suggest_float('sl_short', 0.002, 0.005, step=0.001),
     })
     capital = trade_from(code, begin_time, end_time, dataset_param_grid, model, feature_names,
                          trade_param_grid)
@@ -185,7 +185,7 @@ def model_objective(trial, X_train, X_val, y_train, y_val):
 
 dataset_param_grid = {
     "trigger_step": True,  # 打开开关！
-    "skip_step": 500,
+    "skip_step": 200,
     "divergence_rate": float("inf"),
     "bsp2_follow_1": False,
     "bsp3_follow_1": False,
@@ -263,18 +263,18 @@ def dataset_objective(trial, code, begin_time, end_time):
                                            {"fast": 15, "slow": 30, "signal": 10}]),
         "rsi_cycle": trial.suggest_int('rsi_cycle', 14, 26),
         "kdj_cycle": trial.suggest_int('kdj_cycle', 9, 26),
-        "MAX_BI": trial.suggest_int('MAX_BI', 0, 12),
-        "MAX_ZS": trial.suggest_int('MAX_ZS', 0, 3),
-        "MAX_SEG": trial.suggest_int('MAX_SEG', 0, 3),
-        "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 0, 3),
-        "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 0, 3),
+        "MAX_BI": trial.suggest_int('MAX_BI', 1, 12),
+        "MAX_ZS": trial.suggest_int('MAX_ZS', 1, 3),
+        "MAX_SEG": trial.suggest_int('MAX_SEG', 1, 3),
+        "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 1, 3),
+        "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 1, 3),
 
     })
     X_train, X_val, y_train, y_val, feature_names = dataset_from(code, begin_time, end_time, dataset_param_grid)
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda trial: model_objective(trial, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val),
-                   n_trials=200, n_jobs=-1)
+                   n_trials=500, n_jobs=-1)
     model_param_grid.update(study.best_params)
     print(f"{code} dataset AUC:{study.best_value}")
     trial.set_user_attr("dataset_param_grid", dataset_param_grid)
@@ -283,7 +283,7 @@ def dataset_objective(trial, code, begin_time, end_time):
 
 
 if __name__ == "__main__":
-    begin_time = "2019-01-01 00:00:00"
+    begin_time = "2020-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
@@ -328,9 +328,13 @@ if __name__ == "__main__":
         best_model_param_grid = study.best_trial.user_attrs["model_param_grid"]
         print(f"{code} dataset最优AUC:{best_auc} model:{best_dataset_param_grid}")
 
-        X_train, X_val, y_train, y_val, feature_names = dataset_from(best_dataset_param_grid)
+        X_train, X_val, y_train, y_val, feature_names = dataset_from(code, begin_time, end_time,
+                                                                     best_dataset_param_grid)
         model = model_from(best_model_param_grid, X_train, X_val, y_train, y_val)
-
+        y_pred = model.predict_proba(X_val)[:, 1]
+        # 计算 F1 分数（适用于二分类）
+        score = roc_auc_score(y_val, y_pred)
+        print(f"{code} 重新训练模型,AUC:{score}")
         # 优化参数开始,评价指标为交易模型赚钱最多时交易方法为最佳
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
