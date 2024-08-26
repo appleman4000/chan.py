@@ -1,0 +1,2 @@
+import AutoML
+AutoML.main()

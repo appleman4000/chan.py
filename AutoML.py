@@ -1,6 +1,8 @@
+# cython: language_level=3
 # encoding:utf-8
 import logging
 import warnings
+from concurrent.futures import ProcessPoolExecutor as ThreadPoolExecutor
 from typing import Dict
 
 import numpy as np
@@ -274,8 +276,8 @@ def optimize_dataset(trial, code, begin_time, end_time):
     return study.best_value
 
 
-if __name__ == "__main__":
-    begin_time = "2019-01-01 00:00:00"
+def main():
+    begin_time = "2017-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
@@ -308,12 +310,15 @@ if __name__ == "__main__":
         # "GBPJPY",
     ]
     for i, code in enumerate(symbols):
+
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
         # 优化参数开始,评价指标为训练模型AUC指标最优时因子数据集为最佳
-        study.optimize(lambda trial: optimize_dataset(trial, code=code, begin_time=begin_time, end_time=end_time),
-                       n_trials=100, n_jobs=-1,
-                       timeout=60 * 60)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for _ in range(8):
+                pool.submit(study.optimize,
+                            lambda trial: optimize_dataset(trial, code=code, begin_time=begin_time, end_time=end_time),
+                            n_trials=10)
         # 优化参数结束
         best_auc = study.best_value
         best_dataset_params = study.best_trial.user_attrs["dataset_params"]
@@ -331,11 +336,11 @@ if __name__ == "__main__":
         # 优化参数开始,评价指标为交易模型赚钱最多时交易方法为最佳
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-        study.optimize(
-            lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, best_dataset_params, model,
-                                         feature_names),
-            n_trials=100,
-            n_jobs=-1)
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for _ in range(8):
+                pool.submit(study.optimize,
+                            lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, best_dataset_params,
+                                                         model, feature_names), n_trials=10)
         trade_params.update(study.best_params)
         best_trade_params = trade_params.copy()
         history_profit = study.best_value
