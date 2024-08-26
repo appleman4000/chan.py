@@ -3,7 +3,6 @@
 import datetime
 
 import MetaTrader5 as mt5
-import baostock as bs
 import pandas as pd
 
 from CommonTools import period_mt5_map, period_seconds, period_name, create_item_dict, GetColumnNameFromFieldList, \
@@ -33,6 +32,7 @@ class CMT5ForexAPI(CCommonForexApi):
         end_date = end_date + datetime.timedelta(hours=2)
 
         bars = mt5.copy_rates_range(self.code, period_mt5_map[self.k_type], begin_date, end_date)
+        mt5.shutdown()
         bars = pd.DataFrame(bars)
         bars.dropna(inplace=True)
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
@@ -56,17 +56,6 @@ class CMT5ForexAPI(CCommonForexApi):
     def SetBasciInfo(self):
         self.name = self.code
         self.is_stock = False
-
-    @classmethod
-    def do_init(cls):
-        if not cls.is_connect:
-            cls.is_connect = bs.login()
-
-    @classmethod
-    def do_close(cls):
-        if cls.is_connect:
-            bs.logout()
-            cls.is_connect = None
 
     def __convert_type(self):
         return period_name[self.k_type]

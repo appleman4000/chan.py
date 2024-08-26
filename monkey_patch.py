@@ -1,15 +1,22 @@
 # cython: language_level=3
 # encoding:utf-8
+import inspect
+import sys
 import typing
 from collections.abc import MutableSequence
+
+from BuySellPoint.BSPointList import CBSPointList
 
 MAX_LEN = 500
 
 
 class LimitedList(MutableSequence):
     def __init__(self, maxlen=MAX_LEN, initial_list=None):
-        self.maxlen = maxlen
         self._list = list(initial_list) if initial_list is not None else []
+        if not self.is_part_of_cbspointlist():
+            self.maxlen = maxlen
+        else:
+            self.maxlen = sys.maxsize
 
     def append(self, item):
         if len(self._list) >= self.maxlen:
@@ -61,6 +68,18 @@ class LimitedList(MutableSequence):
     def copy(self):
         return LimitedList(self.maxlen, self._list.copy())
 
+    def is_part_of_cbspointlist(self):
+        # 获取当前堆栈帧
+        stack = inspect.stack()
+        for frame_info in stack:
+            # 获取堆栈中的局部变量
+            local_vars = frame_info.frame.f_locals
+            # 检查是否有 B 类的实例调用这个方法
+            for var in local_vars.values():
+                if isinstance(var, CBSPointList):
+                    return True
+        return False
+
 
 # Hot replace typing.List with LimitedList
-typing.List = LimitedList
+# typing.List = LimitedList
