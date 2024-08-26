@@ -65,7 +65,7 @@ def trade_from(code, begin_time, end_time, dataset_param_grid, model, feature_na
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
-        if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
+        if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
             factors = FeatureFactors(chan[0], MAX_BI=dataset_param_grid["MAX_BI"],
                                      MAX_ZS=dataset_param_grid["MAX_ZS"],
@@ -222,7 +222,7 @@ def dataset_from(code, begin_time, end_time, param_grid):
             continue
         last_bsp = bsp_list[-1]
 
-        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
+        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-2].idx:
             bsp_dict[last_bsp.klu.idx] = {
                 "feature": last_bsp.features,
             }
@@ -256,19 +256,16 @@ def dataset_from(code, begin_time, end_time, param_grid):
 
 def dataset_objective(trial, code, begin_time, end_time):
     dataset_param_grid.update({
-        "boll_n": trial.suggest_int('boll_n', 14, 26),
-        "macd": trial.suggest_categorical('macd',
-                                          [{"fast": 12, "slow": 26, "signal": 9}, {"fast": 5, "slow": 35, "signal": 5},
-                                           {"fast": 8, "slow": 17, "signal": 9}, {"fast": 3, "slow": 10, "signal": 16},
-                                           {"fast": 15, "slow": 30, "signal": 10}]),
-        "rsi_cycle": trial.suggest_int('rsi_cycle', 14, 26),
-        "kdj_cycle": trial.suggest_int('kdj_cycle', 9, 26),
+        "macd": {
+            "fast": trial.suggest_int('fast', 3, 10),
+            "slow": trial.suggest_int('slow', 11, 30),
+            "signal": trial.suggest_int('signal', 5, 16),
+        },
         "MAX_BI": trial.suggest_int('MAX_BI', 1, 12),
         "MAX_ZS": trial.suggest_int('MAX_ZS', 1, 3),
         "MAX_SEG": trial.suggest_int('MAX_SEG', 1, 3),
         "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 1, 3),
         "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 1, 3),
-
     })
     X_train, X_val, y_train, y_val, feature_names = dataset_from(code, begin_time, end_time, dataset_param_grid)
     storage = optuna.storages.InMemoryStorage()
@@ -330,6 +327,7 @@ if __name__ == "__main__":
 
         X_train, X_val, y_train, y_val, feature_names = dataset_from(code, begin_time, end_time,
                                                                      best_dataset_param_grid)
+        print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
         model = model_from(best_model_param_grid, X_train, X_val, y_train, y_val)
         y_pred = model.predict_proba(X_val)[:, 1]
         # 计算 F1 分数（适用于二分类）
