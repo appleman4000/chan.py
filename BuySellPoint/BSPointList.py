@@ -1,5 +1,6 @@
 # cython: language_level=3
 # encoding:utf-8
+import typing
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi
@@ -18,9 +19,9 @@ LINE_LIST_TYPE = TypeVar('LINE_LIST_TYPE', CBiList, CSegListComm[CBi])
 
 class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
     def __init__(self, bs_point_config: CBSPointConfig):
-        self.lst: List[CBS_Point[LINE_TYPE]] = []
+        self.lst: typing.List[CBS_Point[LINE_TYPE]] = []
         self.bsp_dict: Dict[int, CBS_Point[LINE_TYPE]] = {}
-        self.bsp1_lst: List[CBS_Point[LINE_TYPE]] = []
+        self.bsp1_lst: typing.List[CBS_Point[LINE_TYPE]] = []
         self.config = bs_point_config
         self.last_sure_pos = -1
 

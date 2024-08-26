@@ -3,7 +3,7 @@
 import copy
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Union
-
+# from monkey_patch import  LimitedList as List
 from BuySellPoint.BS_Point import CBS_Point
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
@@ -13,7 +13,6 @@ from Common.func_util import check_kltype_order, kltype_lte_day
 from DataAPI.CommonStockAPI import CCommonStockApi
 from KLine.KLine_List import CKLine_List
 from KLine.KLine_Unit import CKLine_Unit
-
 
 # 缠论实现类
 class CChan:
