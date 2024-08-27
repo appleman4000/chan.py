@@ -318,7 +318,7 @@ class FeatureFactors:
 
     def rsi(self):
         returns = dict()
-        returns["rsi"] = self.chan[-1][-1].rsi
+        returns["rsi"] = self.chan[-1][-1].rsi / 100.0
         return returns
 
     def kdj(self):

@@ -289,6 +289,10 @@ def run_code(code):
 
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
+    class_weights = class_weight.compute_class_weight(
+        "balanced", classes=np.unique(y_train), y=y_train
+    )
+    print(class_weights)
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda trial: optimize_model(trial, X_train, X_val, y_train, y_val), n_trials=500, n_jobs=-1)
