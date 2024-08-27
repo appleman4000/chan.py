@@ -3,7 +3,6 @@
 import copy
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Union
-# from monkey_patch import  LimitedList as List
 from BuySellPoint.BS_Point import CBS_Point
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE

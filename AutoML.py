@@ -257,7 +257,7 @@ dataset_params = {
 
 def optimize_dataset(trial, code, begin_time, end_time):
     dataset_params.update({
-        "divergence_rate": trial.suggest_float('divergence_rate', 0.7, 1.0, step=0.02),
+        "divergence_rate": trial.suggest_float('divergence_rate', 0.7, 1.0, step=0.05),
         "macd_algo": trial.suggest_categorical('macd_algo', ["area", "peak", "full_area", "diff", "slope", "amp"]),
     })
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
@@ -271,7 +271,7 @@ def optimize_dataset(trial, code, begin_time, end_time):
 
 def run_code(code):
     print(f"{code} started")
-    begin_time = "2019-01-01 00:00:00"
+    begin_time = "2021-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
@@ -280,15 +280,14 @@ def run_code(code):
     print(f"{code} 找最优的缠论参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(lambda trial: optimize_dataset(trial, code, begin_time, end_time), n_trials=50, n_jobs=-1)
+    study.optimize(lambda trial: optimize_dataset(trial, code, begin_time, end_time), n_trials=15, n_jobs=-1)
     dataset_params.update(study.best_params)
     print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
-    print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(y_train), y=y_train
     )
-    print(class_weights)
+    print(f"{code} Training data: {X_train.shape}, Validation data: {X_val.shape} class_weights:{class_weights}")
     print(f"{code} 找最优测模型参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
@@ -299,13 +298,13 @@ def run_code(code):
     model = get_model(model_params, X_train, X_val, y_train, y_val)
     y_pred = model.predict_proba(X_val)[:, 1]
     auc_score = roc_auc_score(y_val, y_pred)
-    print(f"{code} 模型,AUC:{auc_score}")
+    print(f"{code} 模型 AUC:{auc_score}")
     print(f"{code} 找最优的交易参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(
         lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, dataset_params, model, feature_names),
-        n_trials=50,
+        n_trials=20,
         n_jobs=-1)
     trade_params.update(study.best_params)
     print(f"{code} {study.best_params}")

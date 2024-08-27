@@ -1,9 +1,11 @@
 # cython: language_level=3
+
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, BSP_TYPE, DATA_SRC, FX_TYPE, KL_TYPE
 
 if __name__ == "__main__":
+
     """
     一个极其弱智的策略，只交易一类买卖点，底分型形成后就开仓，直到一类卖点顶分型形成后平仓
     只用做展示如何自己实现策略，做回测用~
@@ -42,6 +44,7 @@ if __name__ == "__main__":
     profit = 0
     for chan_snapshot in chan.step_load():  # 每增加一根K线，返回当前静态精算结果
         bsp_list = chan_snapshot.get_bsp()  # 获取买卖点列表
+        print(len(chan[0].bi_list))
         if not bsp_list:  # 为空
             continue
         last_bsp = bsp_list[-1]  # 最后一个买卖点
@@ -59,3 +62,4 @@ if __name__ == "__main__":
             profit += (sell_price - last_buy_price) / last_buy_price * 100
             print(f'{cur_lv_chan[-1][-1].time}:sell price = {sell_price}, profit rate = {profit:.2f}%')
             is_hold = False
+    print(len(chan.get_bsp()))
