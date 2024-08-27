@@ -13,6 +13,7 @@ from Seg.Seg import CSeg
 from Seg.SegConfig import CSegConfig
 from Seg.SegListComm import CSegListComm
 from ZS.ZSList import CZSList
+
 from .KLine import CKLine
 from .KLine_Unit import CKLine_Unit
 
@@ -88,12 +89,10 @@ class CKLine_List:
         return new_obj
 
     @overload
-    def __getitem__(self, index: int) -> CKLine:
-        ...
+    def __getitem__(self, index: int) -> CKLine: ...
 
     @overload
-    def __getitem__(self, index: slice) -> List[CKLine]:
-        ...
+    def __getitem__(self, index: slice) -> List[CKLine]: ...
 
     def __getitem__(self, index: Union[slice, int]) -> Union[List[CKLine], CKLine]:
         return self.lst[index]
@@ -131,8 +130,7 @@ class CKLine_List:
                     self.lst[-2].update_fx(self.lst[-3], self.lst[-1])
                 if self.bi_list.update_bi(self.lst[-2], self.lst[-1], self.step_calculation) and self.step_calculation:
                     self.cal_seg_and_zs()
-            elif self.step_calculation and self.bi_list.try_add_virtual_bi(self.lst[-1],
-                                                                           need_del_end=True):  # 这里的必要性参见issue#175
+            elif self.step_calculation and self.bi_list.try_add_virtual_bi(self.lst[-1], need_del_end=True):  # 这里的必要性参见issue#175
                 self.cal_seg_and_zs()
 
     def klu_iter(self, klc_begin_idx=0):
@@ -145,11 +143,9 @@ def cal_seg(bi_list, seg_list):
     # 计算每一笔属于哪个线段
     bi_seg_idx_dict = {}
     for seg_idx, seg in enumerate(seg_list):
-        # if seg_idx >= len(seg_list) - 10:
-        for i in range(seg.start_bi.idx, seg.end_bi.idx + 1):
+        for i in range(seg.start_bi.idx, seg.end_bi.idx+1):
             bi_seg_idx_dict[i] = seg_idx
-    for bi_idx, bi in enumerate(bi_list):
-        # if bi_idx>=len(bi_list)-10:
+    for bi in bi_list:
         bi.set_seg_idx(bi_seg_idx_dict.get(bi.idx, len(seg_list)))  # 找不到的应该都是最后一个线段的
 
 
@@ -167,10 +163,10 @@ def update_zs_in_seg(bi_list, seg_list, zs_list):
             if zs.is_inside(seg):
                 seg.add_zs(zs)
             assert zs.begin_bi.idx > 0
-            zs.set_bi_in(bi_list[zs.begin_bi.idx - 1])
-            if zs.end_bi.idx + 1 < len(bi_list):
-                zs.set_bi_out(bi_list[zs.end_bi.idx + 1])
-            zs.set_bi_lst(list(bi_list[zs.begin_bi.idx:zs.end_bi.idx + 1]))
+            zs.set_bi_in(bi_list[zs.begin_bi.idx-1])
+            if zs.end_bi.idx+1 < len(bi_list):
+                zs.set_bi_out(bi_list[zs.end_bi.idx+1])
+            zs.set_bi_lst(list(bi_list[zs.begin_bi.idx:zs.end_bi.idx+1]))
 
         if sure_seg_cnt > 2:
             if not seg.ele_inside_is_sure:
