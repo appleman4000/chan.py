@@ -241,7 +241,7 @@ dataset_params = {
     "bsp2_follow_1": False,
     "bsp3_follow_1": False,
     "min_zs_cnt": 0,
-    "macd_algo": "diff",
+    "macd_algo": "peak",
     "bs_type": '1,1p',
     "cal_rsi": True,
     "cal_kdj": True,
@@ -257,23 +257,14 @@ dataset_params = {
 
 def optimize_dataset(trial, code, begin_time, end_time):
     dataset_params.update({
-        "macd": {
-            "fast": trial.suggest_int('fast', 3, 10),
-            "slow": trial.suggest_int('slow', 11, 30),
-            "signal": trial.suggest_int('signal', 5, 16),
-        },
-        # "MAX_BI": trial.suggest_int('MAX_BI', 1, 10),
-        # "MAX_ZS": trial.suggest_int('MAX_ZS', 1, 3),
-        # "MAX_SEG": trial.suggest_int('MAX_SEG', 1, 3),
-        # "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 1, 3),
-        # "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 1, 3),
+        "divergence_rate": trial.suggest_float('divergence_rate', 0.7, 1.0, step=0.02),
+        "macd_algo": trial.suggest_categorical('macd_algo', ["area", "peak", "full_area", "diff", "slope", "amp"]),
     })
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val),
                    n_trials=200, n_jobs=-1)
-    model_params.update(study.best_params)
     print(f"{code} dataset AUC:{study.best_value}")
     return study.best_value
 
@@ -286,39 +277,47 @@ def run_code(code):
     val_end_time = "2023-01-01 00:00:00"
     test_begin_time = "2023-01-01 00:00:00"
     test_end_time = "2024-01-01 00:00:00"
-
+    print(f"{code} 找最优的缠论参数")
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    study.optimize(lambda trial: optimize_dataset(trial, code, begin_time, end_time), n_trials=50, n_jobs=-1)
+    dataset_params.update(study.best_params)
+    print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
     print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
     class_weights = class_weight.compute_class_weight(
         "balanced", classes=np.unique(y_train), y=y_train
     )
     print(class_weights)
+    print(f"{code} 找最优测模型参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda trial: optimize_model(trial, X_train, X_val, y_train, y_val), n_trials=500, n_jobs=-1)
     model_params.update(study.best_params)
+    print(f"{code} {study.best_params}")
+    print(f"{code} 训练模型")
     model = get_model(model_params, X_train, X_val, y_train, y_val)
     y_pred = model.predict_proba(X_val)[:, 1]
     auc_score = roc_auc_score(y_val, y_pred)
     print(f"{code} 模型,AUC:{auc_score}")
-    # 优化参数开始,评价指标为交易模型赚钱最多时交易方法为最佳
+    print(f"{code} 找最优的交易参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(
         lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, dataset_params, model, feature_names),
         n_trials=50,
         n_jobs=-1)
-
     trade_params.update(study.best_params)
-    history_profit = study.best_value
-    print(f"{code} 优化后交易历史盈利:{history_profit} trade:{trade_params}")
+    print(f"{code} {study.best_params}")
+    best_value = study.best_value
+    print(f"{code} 优化后交易历史盈利:{best_value}")
 
     capital = run_trade(code, test_begin_time, test_end_time, dataset_params, model, feature_names, trade_params)
 
     print(f"{code} 实战盈利:{capital}")
     print(f"chan:{dataset_params},model:{model_params},trade:{trade_params}")
     with open("./report.log", mode="a") as file:
-        seq = [f"{code} dataset AUC:{auc_score}", f"{code} 优化后交易历史盈利:{history_profit}",
+        seq = [f"{code} dataset AUC:{auc_score}", f"{code} 优化后交易历史盈利:{best_value}",
                f"{code} 实战盈利:{capital}",
                f"dataset:{dataset_params},model:{model_params},trade:{trade_params}"]
         file.writelines(seq)

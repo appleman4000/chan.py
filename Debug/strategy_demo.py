@@ -9,7 +9,7 @@ if __name__ == "__main__":
     只用做展示如何自己实现策略，做回测用~
     """
     code = "EURUSD"
-    begin_time = "2021-01-01 00:00:00"
+    begin_time = "2020-01-01 00:00:00"
     end_time = "2024-01-01 00:00:00"
     data_src = DATA_SRC.FOREX
     lv_list = [KL_TYPE.K_1H]
