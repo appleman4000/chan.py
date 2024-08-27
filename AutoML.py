@@ -2,9 +2,9 @@
 # encoding:utf-8
 import logging
 import warnings
-from concurrent.futures import ProcessPoolExecutor as ThreadPoolExecutor
 from typing import Dict
 
+import joblib
 import numpy as np
 import optuna
 import pandas as pd
@@ -17,7 +17,6 @@ from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE, BSP_TYPE
-from CommonTools import reconnect_mt5
 from FeatureEngineering import FeatureFactors
 from GenerateDataset import T_SAMPLE_INFO
 
@@ -64,7 +63,7 @@ def run_trade(code, begin_time, end_time, dataset_params, model, feature_names, 
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
-        if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
+        if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
             factors = FeatureFactors(chan[0], MAX_BI=dataset_params["MAX_BI"],
                                      MAX_ZS=dataset_params["MAX_ZS"],
@@ -110,10 +109,10 @@ def run_trade(code, begin_time, end_time, dataset_params, model, feature_names, 
 
 def optimize_trade(trial, code, begin_time, end_time, dataset_params, model, feature_names):
     trade_params.update({
-        "bsp1_pred_long_open": trial.suggest_float('bsp1_pred_long_open', 0.6, 0.75, step=0.01),
-        "bsp1_pred_short_open": trial.suggest_float('bsp1_pred_short_open', 0.6, 0.75, step=0.01),
-        "bsp1_pred_long_exit": trial.suggest_float('bsp1_pred_long_exit', 0.5, 0.6, step=0.01),
-        "bsp1_pred_short_exit": trial.suggest_float('bsp1_pred_short_exit', 0.5, 0.6, step=0.01),
+        "bsp1_pred_long_open": trial.suggest_float('bsp1_pred_long_open', 0.6, 0.75, step=0.02),
+        "bsp1_pred_short_open": trial.suggest_float('bsp1_pred_short_open', 0.6, 0.75, step=0.02),
+        "bsp1_pred_long_exit": trial.suggest_float('bsp1_pred_long_exit', 0.5, 0.6, step=0.02),
+        "bsp1_pred_short_exit": trial.suggest_float('bsp1_pred_short_exit', 0.5, 0.6, step=0.02),
         "tp_long": trial.suggest_float('tp_long', 0.001, 0.03, step=0.001),
         "sl_long": trial.suggest_float('sl_long', 0.001, 0.005, step=0.001),
         "tp_short": trial.suggest_float('tp_short', 0.001, 0.03, step=0.001),
@@ -146,7 +145,7 @@ def optimize_model(trial, X_train, X_val, y_train, y_val):
         'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=10),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 500),
         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
         'subsample': trial.suggest_float('subsample', 0.6, 1.0, step=0.05),
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
@@ -180,22 +179,6 @@ def optimize_model(trial, X_train, X_val, y_train, y_val):
     return score
 
 
-dataset_params = {
-    "trigger_step": True,  # 打开开关！
-    "skip_step": 500,
-    "divergence_rate": float("inf"),
-    "bsp2_follow_1": False,
-    "bsp3_follow_1": False,
-    "min_zs_cnt": 0,
-    "macd_algo": "peak",
-    "bs_type": '1,1p',
-    "cal_rsi": True,
-    "cal_kdj": True,
-    "cal_demark": False,
-    "kl_data_check": False
-}
-
-
 def get_dataset(code, begin_time, end_time, params):
     config = CChanConfig(conf=params.copy())
 
@@ -219,7 +202,7 @@ def get_dataset(code, begin_time, end_time, params):
             continue
         last_bsp = bsp_list[-1]
 
-        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-2].idx:
+        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
             bsp_dict[last_bsp.klu.idx] = {
                 "feature": last_bsp.features,
             }
@@ -251,6 +234,27 @@ def get_dataset(code, begin_time, end_time, params):
     return X_train, X_val, y_train, y_val, feature_names
 
 
+dataset_params = {
+    "trigger_step": True,  # 打开开关！
+    "skip_step": 500,
+    "divergence_rate": 0.9,
+    "bsp2_follow_1": False,
+    "bsp3_follow_1": False,
+    "min_zs_cnt": 0,
+    "macd_algo": "diff",
+    "bs_type": '1,1p',
+    "cal_rsi": True,
+    "cal_kdj": True,
+    "cal_demark": False,
+    "kl_data_check": False,
+    "MAX_BI": 7,
+    "MAX_ZS": 2,
+    "MAX_SEG": 2,
+    "MAX_SEGSEG": 2,
+    "MAX_SEGZS": 2,
+}
+
+
 def optimize_dataset(trial, code, begin_time, end_time):
     dataset_params.update({
         "macd": {
@@ -258,32 +262,65 @@ def optimize_dataset(trial, code, begin_time, end_time):
             "slow": trial.suggest_int('slow', 11, 30),
             "signal": trial.suggest_int('signal', 5, 16),
         },
-        "MAX_BI": trial.suggest_int('MAX_BI', 1, 12),
-        "MAX_ZS": trial.suggest_int('MAX_ZS', 1, 3),
-        "MAX_SEG": trial.suggest_int('MAX_SEG', 1, 3),
-        "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 1, 3),
-        "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 1, 3),
+        # "MAX_BI": trial.suggest_int('MAX_BI', 1, 10),
+        # "MAX_ZS": trial.suggest_int('MAX_ZS', 1, 3),
+        # "MAX_SEG": trial.suggest_int('MAX_SEG', 1, 3),
+        # "MAX_SEGSEG": trial.suggest_int('MAX_SEGSEG', 1, 3),
+        # "MAX_SEGZS": trial.suggest_int('MAX_SEGZS', 1, 3),
     })
     X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(lambda trial: optimize_model(trial, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val),
-                   n_trials=500, n_jobs=-1)
+    study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val),
+                   n_trials=200, n_jobs=-1)
     model_params.update(study.best_params)
     print(f"{code} dataset AUC:{study.best_value}")
-    trial.set_user_attr("dataset_params", dataset_params)
-    trial.set_user_attr("model_params", model_params)
     return study.best_value
 
 
-def main():
-    begin_time = "2017-01-01 00:00:00"
+def run_code(code):
+    print(f"{code} started")
+    begin_time = "2019-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
     test_begin_time = "2023-01-01 00:00:00"
     test_end_time = "2024-01-01 00:00:00"
-    reconnect_mt5()
+
+    X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
+    print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    study.optimize(lambda trial: optimize_model(trial, X_train, X_val, y_train, y_val), n_trials=500, n_jobs=-1)
+    model_params.update(study.best_params)
+    model = get_model(model_params, X_train, X_val, y_train, y_val)
+    y_pred = model.predict_proba(X_val)[:, 1]
+    auc_score = roc_auc_score(y_val, y_pred)
+    print(f"{code} 模型,AUC:{auc_score}")
+    # 优化参数开始,评价指标为交易模型赚钱最多时交易方法为最佳
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    study.optimize(
+        lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, dataset_params, model, feature_names),
+        n_trials=50,
+        n_jobs=-1)
+
+    trade_params.update(study.best_params)
+    history_profit = study.best_value
+    print(f"{code} 优化后交易历史盈利:{history_profit} trade:{trade_params}")
+
+    capital = run_trade(code, test_begin_time, test_end_time, dataset_params, model, feature_names, trade_params)
+
+    print(f"{code} 实战盈利:{capital}")
+    print(f"chan:{dataset_params},model:{model_params},trade:{trade_params}")
+    with open("./report.log", mode="a") as file:
+        seq = [f"{code} dataset AUC:{auc_score}", f"{code} 优化后交易历史盈利:{history_profit}",
+               f"{code} 实战盈利:{capital}",
+               f"dataset:{dataset_params},model:{model_params},trade:{trade_params}"]
+        file.writelines(seq)
+
+
+def main():
     symbols = [
         # Major
         "EURUSD",
@@ -294,65 +331,26 @@ def main():
         "USDCAD",
         "USDCHF",
         # Crosses
-        # "AUDCHF",
-        # "AUDJPY",
-        # "AUDNZD",
-        # "CADCHF",
-        # "CADJPY",
-        # "CHFJPY",
-        # "EURAUD",
-        # "EURCAD",
-        # "AUDCAD",
-        # "EURCHF",
-        # "GBPNZD",
-        # "GBPCAD",
-        # "GBPCHF",
-        # "GBPJPY",
+        "AUDCHF",
+        "AUDJPY",
+        "AUDNZD",
+        "CADCHF",
+        "CADJPY",
+        "CHFJPY",
+        "EURAUD",
+        "EURCAD",
+        "AUDCAD",
+        "EURCHF",
+        "GBPNZD",
+        "GBPCAD",
+        "GBPCHF",
+        "GBPJPY",
     ]
-    for i, code in enumerate(symbols):
+    joblib.Parallel(8, backend="multiprocessing")(
+        joblib.delayed(run_code)(symbols[i])
+        for i in range(len(symbols))
+    )
 
-        storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-        # 优化参数开始,评价指标为训练模型AUC指标最优时因子数据集为最佳
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            for _ in range(8):
-                pool.submit(study.optimize,
-                            lambda trial: optimize_dataset(trial, code=code, begin_time=begin_time, end_time=end_time),
-                            n_trials=10)
-        # 优化参数结束
-        best_auc = study.best_value
-        best_dataset_params = study.best_trial.user_attrs["dataset_params"]
-        best_model_params = study.best_trial.user_attrs["model_params"]
-        print(f"{code} dataset最优AUC:{best_auc} model:{best_dataset_params}")
 
-        X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time,
-                                                                    best_dataset_params)
-        print(f"Training data: {X_train.shape}, Validation data: {X_val.shape}")
-        model = get_model(best_model_params, X_train, X_val, y_train, y_val)
-        y_pred = model.predict_proba(X_val)[:, 1]
-        # 计算 AUC 分数（适用于二分类）
-        auc_score = roc_auc_score(y_val, y_pred)
-        print(f"{code} 重新训练模型,AUC:{auc_score}")
-        # 优化参数开始,评价指标为交易模型赚钱最多时交易方法为最佳
-        storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            for _ in range(8):
-                pool.submit(study.optimize,
-                            lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, best_dataset_params,
-                                                         model, feature_names), n_trials=10)
-        trade_params.update(study.best_params)
-        best_trade_params = trade_params.copy()
-        history_profit = study.best_value
-        print(f"{code} 优化后交易历史盈利:{history_profit} trade:{trade_params}")
-
-        capital = run_trade(code, test_begin_time, test_end_time, best_dataset_params, model,
-                            feature_names, best_trade_params)
-
-        print(f"{code} 实战盈利:{capital}")
-        print(f"chan:{best_dataset_params},model:{best_model_params},trade:{best_trade_params}")
-        with open("./report.log", mode="a") as file:
-            seq = [f"{code} dataset AUC:{auc_score}", f"{code} 优化后交易历史盈利:{history_profit}",
-                   f"{code} 实战盈利:{capital}",
-                   f"dataset:{best_dataset_params},model:{best_model_params},trade:{best_trade_params}"]
-            file.writelines(seq)
+if __name__ == "__main__":
+    main()
