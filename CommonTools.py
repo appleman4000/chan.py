@@ -156,13 +156,10 @@ def initialize_mt5():
 def reconnect_mt5(retry_interval=5, max_retries=5):
     retries = 0
     while retries < max_retries:
-        print(f"尝试重新连接 MT5 (第 {retries + 1} 次尝试)...")
         if initialize_mt5():
-            print("重新连接 MT5 成功")
             return True
         retries += 1
         time.sleep(retry_interval)
-    print("重新连接 MT5 失败")
     return False
 
 

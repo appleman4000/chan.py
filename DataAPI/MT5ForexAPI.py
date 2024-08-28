@@ -23,7 +23,7 @@ class CMT5ForexAPI(CCommonForexApi):
             print("initialize() failed")
             mt5.shutdown()
             exit(0)
-        time.sleep(100)
+        time.sleep(5)
 
     def get_kl_data(self):
         local_time_format = '%Y-%m-%d %H:%M:%S'
@@ -38,7 +38,7 @@ class CMT5ForexAPI(CCommonForexApi):
                 mt5.shutdown()
                 if not reconnect_mt5():
                     break
-                time.sleep(10)
+                time.sleep(5)
             else:
                 break
         mt5.shutdown()

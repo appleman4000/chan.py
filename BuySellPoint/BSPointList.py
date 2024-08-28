@@ -1,6 +1,5 @@
 # cython: language_level=3
 # encoding:utf-8
-import typing
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi
@@ -46,10 +45,15 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
         self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
         self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
-
-        self.cal_seg_bs1point(seg_list, bi_list)
-        self.cal_seg_bs2point(seg_list, bi_list)
-        self.cal_seg_bs3point(seg_list, bi_list)
+        if BSP_TYPE.T1 in self.config.b_conf.target_types or BSP_TYPE.T1 in self.config.s_conf.target_types or \
+                BSP_TYPE.T1P in self.config.b_conf.target_types or BSP_TYPE.T1P in self.config.s_conf.target_types:
+            self.cal_seg_bs1point(seg_list, bi_list)
+        if BSP_TYPE.T2 in self.config.b_conf.target_types or BSP_TYPE.T2 in self.config.s_conf.target_types or \
+                BSP_TYPE.T2S in self.config.b_conf.target_types or BSP_TYPE.T2S in self.config.s_conf.target_types:
+            self.cal_seg_bs2point(seg_list, bi_list)
+        if BSP_TYPE.T3A in self.config.b_conf.target_types or BSP_TYPE.T3A in self.config.s_conf.target_types or \
+                BSP_TYPE.T3B in self.config.b_conf.target_types or BSP_TYPE.T3B in self.config.s_conf.target_types:
+            self.cal_seg_bs3point(seg_list, bi_list)
 
         self.update_last_pos(seg_list)
 
@@ -235,7 +239,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
                 'bsp2s_retrace_rate': retrace_rate,
                 'bsp2s_break_bi_amp': break_bi.amp(),
                 'bsp2s_bi_amp': bsp2s_bi.amp(),
-                'bsp2s_lv': bias/2,
+                'bsp2s_lv': bias / 2,
             }
             self.add_bs(bs_type=BSP_TYPE.T2S, bi=bsp2s_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore
@@ -356,7 +360,7 @@ def bsp3_back2zs(bsp3_bi: LINE_TYPE, zs: CZS) -> bool:
 
 def bsp3_break_zspeak(bsp3_bi: LINE_TYPE, zs: CZS) -> bool:
     return (bsp3_bi.is_down() and bsp3_bi._high() >= zs.peak_high) or (
-                bsp3_bi.is_up() and bsp3_bi._low() <= zs.peak_low)
+            bsp3_bi.is_up() and bsp3_bi._low() <= zs.peak_low)
 
 
 def cal_bsp3_bi_end_idx(seg: Optional[CSeg[LINE_TYPE]]):

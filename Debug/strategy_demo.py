@@ -26,7 +26,7 @@ if __name__ == "__main__":
         "bi_end_is_peak": True,
         "bsp2_follow_1": True,
         "bsp3_follow_1": True,
-        "bs_type": '1,1p,2,2s,3a,3b',
+        "bs_type": '1,1p',
     })
 
     chan = CChan(
@@ -44,7 +44,6 @@ if __name__ == "__main__":
     profit = 0
     for chan_snapshot in chan.step_load():  # 每增加一根K线，返回当前静态精算结果
         bsp_list = chan_snapshot.get_bsp()  # 获取买卖点列表
-        print(len(chan[0].bi_list))
         if not bsp_list:  # 为空
             continue
         last_bsp = bsp_list[-1]  # 最后一个买卖点

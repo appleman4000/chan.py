@@ -33,13 +33,12 @@ def predict_bsp(model, last_bsp: CBS_Point, feature_names):
     return model.predict_proba(features)[0][1]
 
 
-lv_list = [KL_TYPE.K_10M]
 data_src = DATA_SRC.FOREX
 trade_params = {
 }
 
 
-def run_trade(code, begin_time, end_time, dataset_params, model, feature_names, trade_params):
+def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params):
     config = CChanConfig(conf=dataset_params.copy())
     chan = CChan(
         code=code,
@@ -79,46 +78,46 @@ def run_trade(code, begin_time, end_time, dataset_params, model, feature_names, 
             # 止盈
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            exit_rule = bsp1_pred > trade_params["bsp1_pred_long_exit"] and not last_bsp.is_buy
+            exit_rule = bsp1_pred > trade_params["bsp1_long_exit"] and not last_bsp.is_buy
             # 最大止盈止损保护
-            tp = long_profit > trade_params["tp_long"]
-            sl = long_profit < -trade_params["sl_long"]
+            tp = long_profit > trade_params["bsp1_tp_long"]
+            sl = long_profit < -trade_params["bsp1_sl_long"]
             if tp or sl or exit_rule:
                 long_order = 0
                 profit += round(long_profit * money, 2)
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
-            exit_rule = bsp1_pred > trade_params["bsp1_pred_short_exit"] and last_bsp.is_buy
+            exit_rule = bsp1_pred > trade_params["bsp1_short_exit"] and last_bsp.is_buy
             # 最大止盈止损保护
-            tp = short_profit > trade_params["tp_short"]
-            sl = short_profit < -trade_params["sl_short"]
+            tp = short_profit > trade_params["bsp1_tp_short"]
+            sl = short_profit < -trade_params["bsp1_sl_short"]
             if tp or sl or exit_rule:
                 short_order = 0
                 profit += round(short_profit * money, 2)
 
         if long_order == 0 and short_order == 0:
-            if bsp1_pred > trade_params["bsp1_pred_long_open"] and last_bsp.is_buy:
+            if bsp1_pred > trade_params["bsp1_long_open"] and last_bsp.is_buy:
                 long_order = round(lv_chan[-1][-1].close * fee, 5)
-            if bsp1_pred > trade_params["bsp1_pred_short_open"] and not last_bsp.is_buy:
+            if bsp1_pred > trade_params["bsp1_short_open"] and not last_bsp.is_buy:
                 short_order = round(lv_chan[-1][-1].close / fee, 5)
 
         capital += profit
     return capital
 
 
-def optimize_trade(trial, code, begin_time, end_time, dataset_params, model, feature_names):
+def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names):
     trade_params.update({
-        "bsp1_pred_long_open": trial.suggest_float('bsp1_pred_long_open', 0.6, 0.75, step=0.02),
-        "bsp1_pred_short_open": trial.suggest_float('bsp1_pred_short_open', 0.6, 0.75, step=0.02),
-        "bsp1_pred_long_exit": trial.suggest_float('bsp1_pred_long_exit', 0.5, 0.6, step=0.02),
-        "bsp1_pred_short_exit": trial.suggest_float('bsp1_pred_short_exit', 0.5, 0.6, step=0.02),
-        "tp_long": trial.suggest_float('tp_long', 0.001, 0.03, step=0.001),
-        "sl_long": trial.suggest_float('sl_long', 0.001, 0.005, step=0.001),
-        "tp_short": trial.suggest_float('tp_short', 0.001, 0.03, step=0.001),
-        "sl_short": trial.suggest_float('sl_short', 0.001, 0.005, step=0.001),
+        "bsp1_long_open": trial.suggest_float('bsp1_long_open', 0.6, 0.75, step=0.02),
+        "bsp1_short_open": trial.suggest_float('bsp1_short_open', 0.6, 0.75, step=0.02),
+        "bsp1_long_exit": trial.suggest_float('bsp1_long_exit', 0.5, 0.6, step=0.02),
+        "bsp1_short_exit": trial.suggest_float('bsp1_short_exit', 0.5, 0.6, step=0.02),
+        "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.001, 0.03, step=0.001),
+        "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.001, 0.005, step=0.001),
+        "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.001, 0.03, step=0.001),
+        "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.001, 0.005, step=0.001),
     })
-    score = run_trade(code, begin_time, end_time, dataset_params, model, feature_names, trade_params)
+    score = run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params)
     return score
 
 
@@ -130,21 +129,30 @@ model_params = {
     'min_child_weight': 1e-3,
     'boosting_type': 'gbdt',
     'verbose': -1,
-    'num_threads': -1
+    'num_threads': 2,
+    'learning_rate': 0.05
 }
 
 
-def get_model(params, X_train, X_val, y_train, y_val):
+def get_model(params, X_train, X_val, y_train, y_val, class_weights):
+    params.update(
+        {
+            "class_weight": {
+                0: class_weights[0],
+                1: class_weights[1],
+            }
+        }
+    )
     model = LGBMClassifier(**params)
     model.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric="auc")
     return model
 
 
-def optimize_model(trial, X_train, X_val, y_train, y_val):
+def optimize_model(trial, X_train, X_val, y_train, y_val, class_weights):
     model_params.update({
         'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
+        # 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
         'n_estimators': trial.suggest_int('n_estimators', 100, 500),
         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
         'subsample': trial.suggest_float('subsample', 0.6, 1.0, step=0.05),
@@ -156,30 +164,20 @@ def optimize_model(trial, X_train, X_val, y_train, y_val):
         'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0, step=0.05),
 
     })
-    class_weights = class_weight.compute_class_weight(
-        "balanced", classes=np.unique(y_train), y=y_train
-    )
+
     model_params["random_state"] = model_params["seed"]
     model_params["bagging_seed"] = model_params["seed"]
     model_params["feature_fraction_seed"] = model_params["seed"]
-    model_params["gpu_device_id"] = 0
-    model_params["gpu_platform_id"] = 0
+    # model_params["gpu_device_id"] = trial_number % 2
+    # model_params["gpu_platform_id"] = 0
     # 计算每个类别的权重
-    model_params.update(
-        {
-            "class_weight": {
-                0: class_weights[0],
-                1: class_weights[1],
-            }
-        }
-    )
-    model = get_model(model_params, X_train, X_val, y_train, y_val)
+    model = get_model(model_params, X_train, X_val, y_train, y_val, class_weights)
     y_pred = model.predict_proba(X_val)[:, 1]
     score = roc_auc_score(y_val, y_pred)
     return score
 
 
-def get_dataset(code, begin_time, end_time, params):
+def get_dataset(code, lv_list, begin_time, end_time, params):
     config = CChanConfig(conf=params.copy())
 
     chan = CChan(
@@ -231,7 +229,10 @@ def get_dataset(code, begin_time, end_time, params):
     feature_names = df.columns[1:].tolist()
 
     X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.2, shuffle=False)
-    return X_train, X_val, y_train, y_val, feature_names
+    class_weights = class_weight.compute_class_weight(
+        "balanced", classes=np.unique(y_train), y=y_train
+    )
+    return X_train, X_val, y_train, y_val, feature_names, class_weights
 
 
 dataset_params = {
@@ -255,15 +256,17 @@ dataset_params = {
 }
 
 
-def optimize_dataset(trial, code, begin_time, end_time):
+def optimize_dataset(trial, code, lv_list, begin_time, end_time):
     dataset_params.update({
         "divergence_rate": trial.suggest_float('divergence_rate', 0.7, 1.0, step=0.05),
         "macd_algo": trial.suggest_categorical('macd_algo', ["area", "peak", "full_area", "diff", "slope", "amp"]),
     })
-    X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
+    X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
+                                                                               dataset_params)
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val),
+    study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
+                                            class_weights=class_weights),
                    n_trials=200, n_jobs=-1)
     print(f"{code} dataset AUC:{study.best_value}")
     return study.best_value
@@ -271,39 +274,45 @@ def optimize_dataset(trial, code, begin_time, end_time):
 
 def run_code(code):
     print(f"{code} started")
-    begin_time = "2021-01-01 00:00:00"
+    lv_list = [KL_TYPE.K_10M]
+    begin_time = "2019-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
     test_begin_time = "2023-01-01 00:00:00"
     test_end_time = "2024-01-01 00:00:00"
     print(f"{code} 找最优的缠论参数")
+    search_space = {
+        "divergence_rate": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+        "macd_algo": ["area", "peak", "full_area", "diff", "slope", "amp"],
+    }
     storage = optuna.storages.InMemoryStorage()
-    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(lambda trial: optimize_dataset(trial, code, begin_time, end_time), n_trials=15, n_jobs=-1)
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.GridSampler(search_space),
+                                storage=storage)
+    study.optimize(lambda trial: optimize_dataset(trial, code, lv_list, begin_time, end_time), n_trials=36, n_jobs=-1)
     dataset_params.update(study.best_params)
     print(f"{code} {study.best_params}")
-    X_train, X_val, y_train, y_val, feature_names = get_dataset(code, begin_time, end_time, dataset_params)
-    class_weights = class_weight.compute_class_weight(
-        "balanced", classes=np.unique(y_train), y=y_train
-    )
+    X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
+                                                                               dataset_params)
     print(f"{code} Training data: {X_train.shape}, Validation data: {X_val.shape} class_weights:{class_weights}")
-    print(f"{code} 找最优测模型参数")
+    print(f"{code} 找最优模型参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(lambda trial: optimize_model(trial, X_train, X_val, y_train, y_val), n_trials=500, n_jobs=-1)
+    study.optimize(lambda trial: optimize_model(trial, X_train, X_val, y_train, y_val, class_weights), n_trials=500,
+                   n_jobs=-1)
     model_params.update(study.best_params)
     print(f"{code} {study.best_params}")
     print(f"{code} 训练模型")
-    model = get_model(model_params, X_train, X_val, y_train, y_val)
+    model = get_model(model_params, X_train, X_val, y_train, y_val, class_weights)
     y_pred = model.predict_proba(X_val)[:, 1]
     auc_score = roc_auc_score(y_val, y_pred)
     print(f"{code} 模型 AUC:{auc_score}")
-    print(f"{code} 找最优的交易参数")
+    print(f"{code} 找最优交易参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(
-        lambda trial: optimize_trade(trial, code, val_begin_time, val_end_time, dataset_params, model, feature_names),
+        lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
+                                     feature_names),
         n_trials=20,
         n_jobs=-1)
     trade_params.update(study.best_params)
@@ -311,7 +320,8 @@ def run_code(code):
     best_value = study.best_value
     print(f"{code} 优化后交易历史盈利:{best_value}")
 
-    capital = run_trade(code, test_begin_time, test_end_time, dataset_params, model, feature_names, trade_params)
+    capital = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params, model, feature_names,
+                        trade_params)
 
     print(f"{code} 实战盈利:{capital}")
     print(f"chan:{dataset_params},model:{model_params},trade:{trade_params}")
@@ -348,9 +358,9 @@ def main():
         "GBPCHF",
         "GBPJPY",
     ]
-    joblib.Parallel(8, backend="multiprocessing")(
-        joblib.delayed(run_code)(symbols[i])
-        for i in range(len(symbols))
+    joblib.Parallel(6, backend="multiprocessing")(
+        joblib.delayed(run_code)(code)
+        for code in symbols
     )
 
 
