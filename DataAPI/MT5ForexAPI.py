@@ -7,7 +7,7 @@ import MetaTrader5 as mt5
 import pandas as pd
 
 from CommonTools import period_mt5_map, period_seconds, period_name, create_item_dict, GetColumnNameFromFieldList, \
-    server_timezone, local_timezone
+    server_timezone, local_timezone, reconnect_mt5
 from DataAPI.CommonForexAPI import CCommonForexApi
 from KLine.KLine_Unit import CKLine_Unit
 
@@ -19,10 +19,11 @@ class CMT5ForexAPI(CCommonForexApi):
         super(CMT5ForexAPI, self).__init__(code, k_type, begin_date, end_date)
         # 建立MetaTrader 5到指定交易账户的连接
         # connect to MetaTrader 5
-        if not mt5.initialize(server="Swissquote-Server", login=6150644, password="Sj!i2zHy"):
+        if not reconnect_mt5():
             print("initialize() failed")
             mt5.shutdown()
             exit(0)
+        time.sleep(100)
 
     def get_kl_data(self):
         local_time_format = '%Y-%m-%d %H:%M:%S'
@@ -34,7 +35,10 @@ class CMT5ForexAPI(CCommonForexApi):
         while True:
             bars = mt5.copy_rates_range(self.code, period_mt5_map[self.k_type], begin_date, end_date)
             if bars is None:
-                time.sleep(5)
+                mt5.shutdown()
+                if not reconnect_mt5():
+                    break
+                time.sleep(10)
             else:
                 break
         mt5.shutdown()
