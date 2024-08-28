@@ -30,13 +30,20 @@ class CandleIterator:
         current = datetime.datetime.now() + datetime.timedelta(hours=2)
         current -= datetime.timedelta(seconds=current.timestamp() % period_seconds[self.period])
         current -= datetime.timedelta(seconds=period_seconds[self.period])
+        while True:
+            bars = mt5.copy_rates_range(self.symbol, period_mt5_map[self.period], start_date, current)
+            if bars is None:
+                if mt5.connection_status()[0] != mt5.TRADE_RETCODE_DONE:
+                    mt5.shutdown()
+                    if not reconnect_mt5():
+                        return None
+                    time.sleep(5)
+                else:
+                    return None
+            else:
+                break
 
-        bars = mt5.copy_rates_range(self.symbol, period_mt5_map[self.period], start_date, current)
-        if bars is None:
-            print(f"获取数据失败: {mt5.last_error()}")
-            return None
         bars = pd.DataFrame(bars)
-
         bars['time'] = pd.to_datetime(bars['time'], unit='s')
         bars['time'] += datetime.timedelta(seconds=period_seconds[self.period])  # 开盘时间转收盘时间
         bars['time'] = bars['time'].dt.tz_localize(tz=server_timezone)
