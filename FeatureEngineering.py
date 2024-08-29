@@ -24,10 +24,6 @@ class FeatureFactors:
         returns.update(self.seg())
         returns.update(self.open_klu_rate())
         returns.update(self.fx())
-        # returns.update(self.macd())
-        # returns.update(self.rsi())
-        # returns.update(self.kdj())
-        # returns.update(self.boll())
         returns.update(self.indicators())
         return returns
 
