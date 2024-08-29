@@ -24,7 +24,11 @@ class FeatureFactors:
         returns.update(self.seg())
         returns.update(self.open_klu_rate())
         returns.update(self.fx())
-        returns.update(self.indicators())
+        returns.update(self.macd())
+        returns.update(self.rsi())
+        returns.update(self.kdj())
+        returns.update(self.boll())
+        # returns.update(self.indicators())
         return returns
 
     # 最后K线涨跌率
@@ -315,33 +319,33 @@ class FeatureFactors:
                     returns.update(seg_macd(i + self.MAX_SEG, segseg))
         return returns
 
-    # def macd(self):
-    #     returns = dict()
-    #     returns["macd"] = self.chan[-1][-1].macd.macd
-    #     returns["DIF"] = self.chan[-1][-1].macd.DIF
-    #     returns["DEA"] = self.chan[-1][-1].macd.DEA
-    #     return returns
-    #
-    # def rsi(self):
-    #     returns = dict()
-    #     returns["rsi"] = self.chan[-1][-1].rsi / 100.0
-    #     return returns
-    #
-    # def kdj(self):
-    #     returns = dict()
-    #     kdj = self.chan[-1][-1].kdj
-    #     returns["k"] = kdj.k
-    #     returns["d"] = kdj.d
-    #     returns["j"] = kdj.j
-    #     return returns
-    #
-    # def boll(self):
-    #     returns = dict()
-    #     boll = self.chan[-1][-1].boll
-    #     returns["UP"] = boll.UP / self.chan[-1][-1].close
-    #     returns["MID"] = boll.MID / self.chan[-1][-1].close
-    #     returns["DOWN"] = boll.DOWN / self.chan[-1][-1].close
-    #     return returns
+    def macd(self):
+        returns = dict()
+        returns["macd"] = self.chan[-1][-1].macd.macd
+        returns["DIF"] = self.chan[-1][-1].macd.DIF
+        returns["DEA"] = self.chan[-1][-1].macd.DEA
+        return returns
+
+    def rsi(self):
+        returns = dict()
+        returns["rsi"] = self.chan[-1][-1].rsi / 100.0
+        return returns
+
+    def kdj(self):
+        returns = dict()
+        kdj = self.chan[-1][-1].kdj
+        returns["k"] = kdj.k
+        returns["d"] = kdj.d
+        returns["j"] = kdj.j
+        return returns
+
+    def boll(self):
+        returns = dict()
+        boll = self.chan[-1][-1].boll
+        returns["UP"] = boll.UP / self.chan[-1][-1].close
+        returns["MID"] = boll.MID / self.chan[-1][-1].close
+        returns["DOWN"] = boll.DOWN / self.chan[-1][-1].close
+        return returns
 
     def indicators(self):
         return self.chan[-1][-1].indicators

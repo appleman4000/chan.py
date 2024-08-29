@@ -9,7 +9,7 @@ import numpy as np
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
@@ -26,10 +26,8 @@ warnings.filterwarnings("ignore")
 
 
 def predict_bsp(model, last_bsp: CBS_Point, feature_names):
-    empty = pd.DataFrame(data=[], columns=feature_names)
     features = [dict(last_bsp.features.items())]
-    features = pd.DataFrame(features)
-    features = pd.concat([empty, features]).to_numpy()
+    features = pd.DataFrame(features, columns=feature_names).to_numpy()
     return model.predict_proba(features)[0][1]
 
 
@@ -61,15 +59,14 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
-        if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
+        if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
             factors = FeatureFactors(chan[0], MAX_BI=dataset_params["MAX_BI"],
                                      MAX_ZS=dataset_params["MAX_ZS"],
                                      MAX_SEG=dataset_params["MAX_SEG"],
                                      MAX_SEGSEG=dataset_params["MAX_SEGSEG"],
                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
-            for key in factors.keys():
-                last_bsp.features.add_feat(key, float(factors[key]))
+            last_bsp.features.add_feat(factors)
             bsp1_pred = predict_bsp(model=model, last_bsp=last_bsp, feature_names=feature_names)
         else:
             bsp1_pred = 0.0
@@ -107,14 +104,15 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
 def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names):
     trade_params.update({
-        "bsp1_long_open": trial.suggest_float('bsp1_long_open', 0.6, 0.75, step=0.05),
-        "bsp1_short_open": trial.suggest_float('bsp1_short_open', 0.6, 0.75, step=0.05),
+        "bsp1_long_open": trial.suggest_float('bsp1_long_open', 0.5, 0.8, step=0.01),
+        "bsp1_short_open": trial.suggest_float('bsp1_short_open', 0.5, 0.8, step=0.01),
         "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.005, 0.02, step=0.001),
         "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.001, 0.005, step=0.001),
         "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.005, 0.02, step=0.001),
         "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.001, 0.005, step=0.001),
     })
     score = run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params)
+    print(f"{code} score: {score} {trade_params}")
     return score
 
 
@@ -140,37 +138,35 @@ def get_model(params, X_train, X_val, y_train, y_val, class_weights):
         }
     )
     model = LGBMClassifier(**params)
-    model.fit(X_train, y_train, eval_set=(X_val, y_val), eval_metric="auc")
+    model.fit(X_train, y_train)
     return model
 
 
 def optimize_model(trial, X_train, X_val, y_train, y_val, class_weights):
     model_params.update({
         'max_depth': trial.suggest_int('max_depth', 3, 5),
-        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 31),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
+        'n_estimators': trial.suggest_int('n_estimators', 25, 200),
         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
-        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0, step=0.1),
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 50.0),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 50.0),
-        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0),
-        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0, step=0.05),
+        'reg_alpha': trial.suggest_int('reg_alpha', 0, 100),
+        'reg_lambda': trial.suggest_int('reg_lambda', 0, 100),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0, step=0.05),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0, step=0.05),
 
     })
 
     model_params["random_state"] = model_params["seed"]
     model_params["bagging_seed"] = model_params["seed"]
     model_params["feature_fraction_seed"] = model_params["seed"]
-    # model_params["gpu_device_id"] = trial_number % 2
-    # model_params["gpu_platform_id"] = 0
     # 计算每个类别的权重
     model = get_model(model_params, X_train, X_val, y_train, y_val, class_weights)
     y_pred = model.predict_proba(X_val)[:, 1]
-    score = roc_auc_score(y_val, y_pred)
-    return score
+    auc = roc_auc_score(y_val, y_pred)
+    return auc
 
 
 def get_dataset(code, lv_list, begin_time, end_time, params):
@@ -196,9 +192,9 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
             continue
         last_bsp = bsp_list[-1]
 
-        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-2].idx:
+        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
             bsp_dict[last_bsp.klu.idx] = {
-                "feature": last_bsp.features,
+                "feature": last_bsp.features.items(),
             }
             factors = FeatureFactors(chan_snapshot[0],
                                      MAX_BI=params["MAX_BI"],
@@ -207,8 +203,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                                      MAX_SEGSEG=params["MAX_SEGSEG"],
                                      MAX_SEGZS=params["MAX_SEGZS"]
                                      ).get_factors()
-            for key in factors.keys():
-                bsp_dict[last_bsp.klu.idx]['feature'].add_feat(key, float(factors[key]))
+            bsp_dict[last_bsp.klu.idx]['feature'].update(factors)
 
     bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0)]
     rows = []
@@ -216,8 +211,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
         label = int(bsp_klu_idx in bsp_academy)
         feature = feature_info["feature"]
         row = {"label": label}
-        for feature_name, value in feature.items():
-            row.update({feature_name: value})
+        row.update(feature)
         rows.append(row)
     df = pd.DataFrame(rows)
     labels = df["label"].to_numpy(dtype=int)
@@ -244,7 +238,7 @@ dataset_params = {
     "cal_kdj": False,
     "cal_demark": False,
     "kl_data_check": False,
-    "MAX_BI": 4,
+    "MAX_BI": 7,
     "MAX_ZS": 2,
     "MAX_SEG": 2,
     "MAX_SEGSEG": 2,
@@ -263,14 +257,14 @@ def optimize_dataset(trial, code, lv_list, begin_time, end_time):
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
                                             class_weights=class_weights),
-                   n_trials=500, n_jobs=-1)
-    print(f"{code} dataset AUC:{study.best_value}")
+                   n_trials=500, n_jobs=4)
+    print(f"{code} dataset auc:{study.best_value}")
     return study.best_value
 
 
 def run_code(code):
     print(f"{code} started")
-    lv_list = [KL_TYPE.K_10M]
+    lv_list = [KL_TYPE.K_15M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
@@ -279,13 +273,13 @@ def run_code(code):
     test_end_time = "2024-01-01 00:00:00"
     # print(f"{code} 找最优的缠论参数")
     # search_space = {
-    #     "divergence_rate": [0.6, 0.65, 0.7, 0.75],
+    #     "divergence_rate": [0.6, 0.65, 0.7, 0.75，0.8],
     #     "macd_algo": ["area", "peak", "full_area", "diff", "slope", "amp"],
     # }
     # storage = optuna.storages.InMemoryStorage()
     # study = optuna.create_study(direction='maximize', sampler=optuna.samplers.GridSampler(search_space),
     #                             storage=storage)
-    # study.optimize(lambda trial: optimize_dataset(trial, code, lv_list, begin_time, end_time), n_trials=24, n_jobs=-1)
+    # study.optimize(lambda trial: optimize_dataset(trial, code, lv_list, begin_time, end_time), n_trials=30, n_jobs=-1)
     # dataset_params.update(study.best_params)
     # print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
@@ -301,14 +295,15 @@ def run_code(code):
     print(f"{code} 训练模型")
     model = get_model(model_params, X_train, X_val, y_train, y_val, class_weights)
     y_pred = model.predict_proba(X_val)[:, 1]
-    auc_score = roc_auc_score(y_val, y_pred)
-    print(f"{code} 模型 AUC:{auc_score}")
+
+    auc = roc_auc_score(y_val, y_pred)
+    print(f"{code} 模型 auc:{auc}")
     print(f"{code} 找最优交易参数")
     storage = optuna.storages.InMemoryStorage()
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(
         lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                     feature_names), n_trials=100, n_jobs=-1)
+                                     feature_names), n_trials=100, n_jobs=4)
     trade_params.update(study.best_params)
     print(f"{code} {study.best_params}")
     best_value = study.best_value
@@ -320,7 +315,7 @@ def run_code(code):
     print(f"{code} 实战盈利:{capital}")
     print(f"chan:{dataset_params},model:{model_params},trade:{trade_params}")
     with open("./report.log", mode="a") as file:
-        seq = [f"{code} dataset AUC:{auc_score}", f"{code} 优化后交易历史盈利:{best_value}",
+        seq = [f"{code} dataset ap:{auc}", f"{code} 优化后交易历史盈利:{best_value}",
                f"{code} 实战盈利:{capital}",
                f"dataset:{dataset_params},model:{model_params},trade:{trade_params}"]
         file.writelines(seq)

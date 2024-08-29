@@ -94,7 +94,7 @@ plot_para = {
 
 class T_SAMPLE_INFO(TypedDict):
     bsp_type: list[BSP_TYPE]
-    feature: CFeatures
+    feature: dict
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):
