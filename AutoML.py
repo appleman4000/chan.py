@@ -61,7 +61,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
-        if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
+        if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
             factors = FeatureFactors(chan[0], MAX_BI=dataset_params["MAX_BI"],
                                      MAX_ZS=dataset_params["MAX_ZS"],
@@ -127,7 +127,6 @@ model_params = {
     'boosting_type': 'gbdt',
     'verbose': -1,
     'num_threads': 2,
-    'learning_rate': 0.05
 }
 
 
@@ -147,18 +146,18 @@ def get_model(params, X_train, X_val, y_train, y_val, class_weights):
 
 def optimize_model(trial, X_train, X_val, y_train, y_val, class_weights):
     model_params.update({
-        'max_depth': trial.suggest_int('max_depth', 4, 6),
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-        # 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 100, 500),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
         'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
-        'subsample': trial.suggest_float('subsample', 0.6, 1.0, step=0.05),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
         'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0, step=0.05),
-        'reg_alpha': trial.suggest_int('reg_alpha', 0, 50),
-        'reg_lambda': trial.suggest_int('reg_lambda', 0, 50),
-        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0, step=0.05),
-        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0, step=0.05),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 50.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 50.0),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0),
 
     })
 
@@ -197,7 +196,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
             continue
         last_bsp = bsp_list[-1]
 
-        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
+        if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-2].idx:
             bsp_dict[last_bsp.klu.idx] = {
                 "feature": last_bsp.features,
             }
@@ -241,8 +240,8 @@ dataset_params = {
     "min_zs_cnt": 0,
     "macd_algo": "area",
     "bs_type": '1,1p',
-    "cal_rsi": True,
-    "cal_kdj": True,
+    "cal_rsi": False,
+    "cal_kdj": False,
     "cal_demark": False,
     "kl_data_check": False,
     "MAX_BI": 4,
@@ -291,7 +290,6 @@ def run_code(code):
     # print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
                                                                                dataset_params)
-    print(f"{code} 最大值:{np.max(X_train)}")
     print(f"{code} Training data: {X_train.shape}, Validation data: {X_val.shape} class_weights:{class_weights}")
     print(f"{code} 找最优模型参数")
     storage = optuna.storages.InMemoryStorage()

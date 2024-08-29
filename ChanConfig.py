@@ -9,6 +9,7 @@ from Common.ChanException import CChanException, ErrCode
 from Common.func_util import _parse_inf
 from Math.BOLL import BollModel
 from Math.Demark import CDemarkEngine
+from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
 from Math.MACD import CMACD
 from Math.RSI import RSI
@@ -102,6 +103,7 @@ class CChanConfig:
             res.append(RSI(self.rsi_cycle))
         if self.cal_kdj:
             res.append(KDJ(self.kdj_cycle))
+        res.append(TaIndicators(N=200))
         return res
 
     def set_bsp_config(self, conf):

@@ -8,6 +8,7 @@ from Common.ChanException import CChanException, ErrCode
 from Common.CTime import CTime
 from Math.BOLL import BOLL_Metric, BollModel
 from Math.Demark import CDemarkEngine, CDemarkIndex
+from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
 from Math.MACD import CMACD, CMACD_item
 from Math.RSI import RSI
@@ -69,6 +70,7 @@ class CKLine_Unit:
             obj.rsi = copy.deepcopy(self.rsi, memo)
         if hasattr(self, "kdj"):
             obj.kdj = copy.deepcopy(self.kdj, memo)
+        obj.indicators = copy.deepcopy(self.indicators, memo)
         obj.set_idx(self.idx)
         memo[id(self)] = obj
         return obj
@@ -134,6 +136,8 @@ class CKLine_Unit:
                 self.rsi = metric_model.add(self.close)
             elif isinstance(metric_model, KDJ):
                 self.kdj = metric_model.add(self.high, self.low, self.close)
+            elif isinstance(metric_model, TaIndicators):
+                self.indicators = metric_model.add(self.high, self.low, self.close)
 
     def get_parent_klc(self):
         assert self.sup_kl is not None
