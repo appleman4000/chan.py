@@ -145,7 +145,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if not is_diver:
             is_target_bsp = False
         feature_dict = {
-            'divergence_rate': divergence_rate,
+            # 'divergence_rate': divergence_rate,
             # 'zs_cnt': len(seg.zs_lst),
         }
         self.add_bs(bs_type=BSP_TYPE.T1, bi=seg.end_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
@@ -170,7 +170,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if isinstance(bi_list, CBiList):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
         feature_dict = {
-            'divergence_rate': divergence_rate,
+            # 'divergence_rate': divergence_rate,
             # 'bsp1_bi_amp': last_bi.amp(),
         }
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
@@ -208,7 +208,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         bsp2_flag = retrace_rate <= BSP_CONF.max_bs2_rate
         if bsp2_flag:
             feature_dict = {
-                'bsp2_retrace_rate': retrace_rate,
+                # 'bsp2_retrace_rate': retrace_rate,
                 # 'bsp2_break_bi_amp': break_bi.amp(),
                 # 'bsp2_bi_amp': bsp2_bi.amp(),
             }
@@ -252,10 +252,10 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             if retrace_rate > BSP_CONF.max_bs2_rate:
                 break
             feature_dict = {
-                'bsp2s_retrace_rate': retrace_rate,
-                'bsp2s_break_bi_amp': break_bi.amp(),
-                'bsp2s_bi_amp': bsp2s_bi.amp(),
-                'bsp2s_lv': bias / 2,
+                # 'bsp2s_retrace_rate': retrace_rate,
+                # 'bsp2s_break_bi_amp': break_bi.amp(),
+                # 'bsp2s_bi_amp': bsp2s_bi.amp(),
+                # 'bsp2s_lv': bias / 2,
             }
             self.add_bs(bs_type=BSP_TYPE.T2S, bi=bsp2s_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore
@@ -319,8 +319,8 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if BSP_CONF.bsp3_peak and not bsp3_peak_zs:
             return
         feature_dict = {
-            'bsp3_zs_height': (first_zs.high - first_zs.low) / first_zs.low,
-            'bsp3_bi_amp': bsp3_bi.amp(),
+            # 'bsp3_zs_height': (first_zs.high - first_zs.low) / first_zs.low,
+            # 'bsp3_bi_amp': bsp3_bi.amp(),
         }
         self.add_bs(bs_type=BSP_TYPE.T3A, bi=bsp3_bi, relate_bsp1=real_bsp1, feature_dict=feature_dict)  # type: ignore
 
@@ -352,8 +352,8 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             if bsp3_back2zs(bsp3_bi, cmp_zs):  # type: ignore
                 continue
             feature_dict = {
-                'bsp3_zs_height': (cmp_zs.high - cmp_zs.low) / cmp_zs.low,
-                'bsp3_bi_amp': bsp3_bi.amp(),
+                # 'bsp3_zs_height': (cmp_zs.high - cmp_zs.low) / cmp_zs.low,
+                # 'bsp3_bi_amp': bsp3_bi.amp(),
             }
             self.add_bs(bs_type=BSP_TYPE.T3B, bi=bsp3_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore

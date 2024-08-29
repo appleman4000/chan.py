@@ -245,7 +245,7 @@ dataset_params = {
     "cal_kdj": True,
     "cal_demark": False,
     "kl_data_check": False,
-    "MAX_BI": 7,
+    "MAX_BI": 4,
     "MAX_ZS": 2,
     "MAX_SEG": 2,
     "MAX_SEGSEG": 2,
@@ -291,6 +291,7 @@ def run_code(code):
     # print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
                                                                                dataset_params)
+    print(f"{code} 最大值:{np.max(X_train)}")
     print(f"{code} Training data: {X_train.shape}, Validation data: {X_val.shape} class_weights:{class_weights}")
     print(f"{code} 找最优模型参数")
     storage = optuna.storages.InMemoryStorage()

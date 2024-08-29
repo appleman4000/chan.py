@@ -74,6 +74,7 @@ class FeatureFactors:
         def bi_high(i, bi):
             klu = self.chan[-1][-1]
             returns = dict()
+            returns[f"bi_high{i}"] = bi._high() / bi._low() - 1
             returns[f"bi_high_rate{i}"] = bi._high() / klu.close - 1
             return returns
 
@@ -89,8 +90,9 @@ class FeatureFactors:
             returns[f"bi_mid_rate{i}"] = bi._mid() / klu.close - 1
             return returns
 
-        def bi_rate_slope(i, bi):
+        def bi_amp(i, bi):
             returns = dict()
+            returns[f"bi_amp{i}"] = bi.get_end_val() - bi.get_begin_val()
             returns[f"bi_rate{i}"] = bi.get_end_val() / bi.get_begin_val() - 1
             returns[f"bi_slope{i}"] = (bi.get_end_val() - bi.get_begin_val()) / bi.get_klu_cnt()
             return returns
@@ -117,7 +119,7 @@ class FeatureFactors:
                 returns.update(bi_high(i, bi))
                 returns.update(bi_low(i, bi))
                 returns.update(bi_mid(i, bi))
-                returns.update(bi_rate_slope(i, bi))
+                returns.update(bi_amp(i, bi))
                 returns.update(bi_klu_cnt(i, bi))
                 returns.update(bi_klc_cnt(i, bi))
         return returns
@@ -139,6 +141,7 @@ class FeatureFactors:
         def zs_high(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
+            returns[f"zs_high{i}"] = zs.high / zs.low - 1
             returns[f"zs_high_rate{i}"] = zs.high / klu.close - 1
             return returns
 
@@ -157,6 +160,7 @@ class FeatureFactors:
         def zs_peak_high(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
+            returns[f"zs_peak_high{i}"] = zs.peak_high / zs.peak_low - 1
             returns[f"zs_peak_high_rate{i}"] = zs.peak_high / klu.close - 1
             return returns
 
@@ -220,7 +224,7 @@ class FeatureFactors:
                             bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
                             returns[f"bi_out_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric
                             returns[f"divergence_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric / (
-                                        bi_in_metric + 1e-7) - 1
+                                    bi_in_metric + 1e-7) - 1
         return returns
 
     ############################### 线段 ######################################
@@ -243,8 +247,9 @@ class FeatureFactors:
                     klu.idx - seg.get_end_klu().idx + 1)
             return returns
 
-        def seg_rate_slope(i, seg):
+        def seg_amp(i, seg):
             returns = dict()
+            returns[f"seg_amp{i}"] = seg.get_end_val() - seg.get_begin_val()
             returns[f"seg_rate{i}"] = seg.get_end_val() / seg.get_begin_val() - 1
             returns[f"seg_slope{i}"] = (seg.get_end_val() - seg.get_begin_val()) / (
                     seg.get_end_klu().idx - seg.get_begin_klu().idx)
@@ -255,16 +260,17 @@ class FeatureFactors:
             returns[f"seg_bi_cnt{i}"] = seg.cal_bi_cnt()
             return returns
 
+        def seg_high(i, seg):
+            klu = self.chan[-1][-1]
+            returns = dict()
+            returns[f"seg_high{i}"] = seg._high() / seg._low() - 1
+            returns[f"seg_high_rate{i}"] = seg._high() / klu.close - 1
+            return returns
+
         def seg_low(i, seg):
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"seg_low_rate{i}"] = seg._low() / klu.close - 1
-            return returns
-
-        def seg_high(i, seg):
-            klu = self.chan[-1][-1]
-            returns = dict()
-            returns[f"seg_high_rate{i}"] = seg._high() / klu.close - 1
             return returns
 
         def seg_is_down(i, seg):
@@ -290,7 +296,7 @@ class FeatureFactors:
                     seg = self.chan.seg_list[-i]
                     returns.update(seg_begin(i, seg))
                     returns.update(seg_end(i, seg))
-                    returns.update(seg_rate_slope(i, seg))
+                    returns.update(seg_amp(i, seg))
                     returns.update(seg_bi_cnt(i, seg))
                     returns.update(seg_low(i, seg))
                     returns.update(seg_high(i, seg))
@@ -304,7 +310,7 @@ class FeatureFactors:
                     segseg = self.chan.segseg_list[-i]
                     returns.update(seg_begin(i + self.MAX_SEG, segseg))
                     returns.update(seg_end(i + self.MAX_SEG, segseg))
-                    returns.update(seg_rate_slope(i + self.MAX_SEG, segseg))
+                    returns.update(seg_amp(i + self.MAX_SEG, segseg))
                     returns.update(seg_bi_cnt(i + self.MAX_SEG, segseg))
                     returns.update(seg_low(i + self.MAX_SEG, segseg))
                     returns.update(seg_high(i + self.MAX_SEG, segseg))
