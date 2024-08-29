@@ -9,11 +9,10 @@ import numpy as np
 import optuna
 import pandas as pd
 from lightgbm import LGBMClassifier
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
-from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE, BSP_TYPE
@@ -25,8 +24,8 @@ optuna.logging.set_verbosity(optuna.logging.ERROR)
 warnings.filterwarnings("ignore")
 
 
-def predict_bsp(model, last_bsp: CBS_Point, feature_names):
-    features = [dict(last_bsp.features.items())]
+def predict_bsp(model, feature: dict, feature_names):
+    features = [feature]
     features = pd.DataFrame(features, columns=feature_names).to_numpy()
     return model.predict_proba(features)[0][1]
 
@@ -67,7 +66,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                                      MAX_SEGSEG=dataset_params["MAX_SEGSEG"],
                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
             last_bsp.features.add_feat(factors)
-            bsp1_pred = predict_bsp(model=model, last_bsp=last_bsp, feature_names=feature_names)
+            bsp1_pred = predict_bsp(model=model, feature=dict(last_bsp.features.items()), feature_names=feature_names)
         else:
             bsp1_pred = 0.0
         if long_order > 0:
@@ -194,7 +193,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
         if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-1].idx:
             bsp_dict[last_bsp.klu.idx] = {
-                "feature": last_bsp.features.items(),
+                "feature": dict(last_bsp.features.items()),
             }
             factors = FeatureFactors(chan_snapshot[0],
                                      MAX_BI=params["MAX_BI"],
@@ -210,9 +209,8 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
     for bsp_klu_idx, feature_info in bsp_dict.items():
         label = int(bsp_klu_idx in bsp_academy)
         feature = feature_info["feature"]
-        row = {"label": label}
-        row.update(feature)
-        rows.append(row)
+        feature.update({"label": label})
+        rows.append(feature)
     df = pd.DataFrame(rows)
     labels = df["label"].to_numpy(dtype=int)
     features = df.iloc[:, 1:].to_numpy(dtype=np.float32)
@@ -234,8 +232,8 @@ dataset_params = {
     "min_zs_cnt": 0,
     "macd_algo": "area",
     "bs_type": '1,1p',
-    "cal_rsi": False,
-    "cal_kdj": False,
+    "cal_rsi": True,
+    "cal_kdj": True,
     "cal_demark": False,
     "kl_data_check": False,
     "MAX_BI": 7,
@@ -264,7 +262,7 @@ def optimize_dataset(trial, code, lv_list, begin_time, end_time):
 
 def run_code(code):
     print(f"{code} started")
-    lv_list = [KL_TYPE.K_15M]
+    lv_list = [KL_TYPE.K_10M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
