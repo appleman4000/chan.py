@@ -1,5 +1,6 @@
 # cython: language_level=3
 # encoding:utf-8
+import numpy as np
 import talib
 
 
@@ -9,16 +10,16 @@ class TaIndicators:
         self.N = N
         self.arr = []
 
-    def add(self, high, low, close) -> list:
+    def add(self, high, low, close) -> dict:
         if len(self.arr) == 0:
-            self.arr = [high, low, close] * self.N
+            self.arr = [[high, low, close]] * self.N
         else:
             self.arr.append([high, low, close])
         if len(self.arr) > self.N:
             del self.arr[0]
-        highest = self.arr[:, 0]
-        lowest = self.arr[:, 1]
-        closing = self.arr[:, 2]
+        highest = np.array(self.arr)[:, 0].astype(np.float64)
+        lowest = np.array(self.arr)[:, 1].astype(np.float64)
+        closing = np.array(self.arr)[:, 2].astype(np.float64)
         returns = dict()
         returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]
         returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1]
