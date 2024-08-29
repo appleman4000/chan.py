@@ -237,10 +237,10 @@ dataset_params = {
     "cal_demark": False,
     "kl_data_check": False,
     "MAX_BI": 7,
-    "MAX_ZS": 2,
-    "MAX_SEG": 2,
-    "MAX_SEGSEG": 2,
-    "MAX_SEGZS": 2,
+    "MAX_ZS": 1,
+    "MAX_SEG": 1,
+    "MAX_SEGSEG": 1,
+    "MAX_SEGZS": 1,
 }
 
 
