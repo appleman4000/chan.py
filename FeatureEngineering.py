@@ -195,16 +195,6 @@ class FeatureFactors:
                     returns.update(zs_mid(i + self.MAX_ZS, segzs))
                     returns.update(zs_peak_high(i + self.MAX_ZS, segzs))
                     returns.update(zs_peak_low(i + self.MAX_ZS, segzs))
-                    for macd_algo in [
-                        MACD_ALGO.SLOPE,
-                        MACD_ALGO.AMP]:
-                        bi_in_metric = segzs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
-                        returns[f"bi_in_{macd_algo.name}{i + self.MAX_ZS}"] = bi_in_metric
-                        if segzs.bi_out:
-                            bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-                            returns[f"bi_out_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric
-                            returns[f"divergence_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric / (
-                                    bi_in_metric + 1e-7) - 1
         return returns
 
     ############################### 线段 ######################################
@@ -269,58 +259,6 @@ class FeatureFactors:
             returns[f"seg_macd_amp{i}"] = seg.Cal_MACD_amp()
             return returns
 
-        def divergence(i, seg):
-            returns = dict()
-
-            for macd_algo in [MACD_ALGO.AREA,
-                              MACD_ALGO.PEAK,
-                              MACD_ALGO.FULL_AREA,
-                              MACD_ALGO.DIFF,
-                              MACD_ALGO.SLOPE,
-                              MACD_ALGO.AMP,
-                              MACD_ALGO.VOLUMN,
-                              MACD_ALGO.VOLUMN_AVG]:
-                last_bi = seg.end_bi
-                pre_bi = self.chan.bi_list[last_bi.idx - 2]
-                if last_bi.seg_idx != pre_bi.seg_idx:
-                    break
-                if last_bi.dir != seg.dir:
-                    break
-                if last_bi.is_down() and last_bi._low() > pre_bi._low():  # 创新低
-                    break
-                if last_bi.is_up() and last_bi._high() < pre_bi._high():  # 创新高
-                    break
-                in_metric = pre_bi.cal_macd_metric(macd_algo, is_reverse=False)
-                out_metric = last_bi.cal_macd_metric(macd_algo, is_reverse=True)
-                divergence_rate = out_metric / (in_metric + 1e-7)
-                returns[f"bi_in_{macd_algo.name}{i}"] = in_metric
-                returns[f"bi_out_{macd_algo.name}{i}"] = out_metric
-                returns[f"divergence_{macd_algo.name}{i}"] = divergence_rate
-            return returns
-
-        def segseg_divergence(i, seg):
-            returns = dict()
-
-            for macd_algo in [MACD_ALGO.SLOPE,
-                              MACD_ALGO.AMP]:
-                last_bi = seg.end_bi
-                pre_bi = self.chan.bi_list[last_bi.idx - 2]
-                if last_bi.seg_idx != pre_bi.seg_idx:
-                    break
-                if last_bi.dir != seg.dir:
-                    break
-                if last_bi.is_down() and last_bi._low() > pre_bi._low():  # 创新低
-                    break
-                if last_bi.is_up() and last_bi._high() < pre_bi._high():  # 创新高
-                    break
-                in_metric = pre_bi.cal_macd_metric(macd_algo, is_reverse=False)
-                out_metric = last_bi.cal_macd_metric(macd_algo, is_reverse=True)
-                divergence_rate = out_metric / (in_metric + 1e-7)
-                returns[f"bi_in_{macd_algo.name}{i}"] = in_metric
-                returns[f"bi_out_{macd_algo.name}{i}"] = out_metric
-                returns[f"divergence_{macd_algo.name}{i}"] = divergence_rate
-            return returns
-
         returns = dict()
         if len(self.chan.seg_list) > 0:
             for i in range(1, self.MAX_SEG + 1):
@@ -335,7 +273,6 @@ class FeatureFactors:
                     returns.update(seg_is_down(i, seg))
                     returns.update(seg_klu_cnt(i, seg))
                     returns.update(seg_macd(i, seg))
-                    returns.update(divergence(i, seg))
 
         if len(self.chan.segseg_list) > 0:
             for i in range(1, self.MAX_SEGSEG + 1):
@@ -350,7 +287,6 @@ class FeatureFactors:
                     returns.update(seg_is_down(i + self.MAX_SEG, segseg))
                     returns.update(seg_klu_cnt(i + self.MAX_SEG, segseg))
                     returns.update(seg_macd(i + self.MAX_SEG, segseg))
-                    returns.update(segseg_divergence(i + self.MAX_SEG, segseg))
         return returns
 
     def macd(self):
