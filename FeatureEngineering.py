@@ -1,6 +1,6 @@
 # cython: language_level=3
 # encoding:utf-8
-from Common.CEnum import MACD_ALGO, BI_DIR, FX_TYPE
+from Common.CEnum import BI_DIR, FX_TYPE
 
 
 class FeatureFactors:
