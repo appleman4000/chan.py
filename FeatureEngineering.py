@@ -27,7 +27,7 @@ class FeatureFactors:
         returns.update(self.rsi())
         returns.update(self.kdj())
         returns.update(self.boll())
-        # returns.update(self.fx())
+        returns.update(self.fx())
         return returns
 
     # 最后K线涨跌率
@@ -112,8 +112,8 @@ class FeatureFactors:
                 returns.update(bi_begin(i, bi))
                 if i > 1:
                     returns.update(bi_end(i, bi))
-                # returns.update(bi_dir(i, bi))
-                # returns.update(bi_is_sure(i, bi))
+                returns.update(bi_dir(i, bi))
+                returns.update(bi_is_sure(i, bi))
                 returns.update(bi_high(i, bi))
                 returns.update(bi_low(i, bi))
                 returns.update(bi_mid(i, bi))
@@ -174,13 +174,16 @@ class FeatureFactors:
                               MACD_ALGO.FULL_AREA,
                               MACD_ALGO.DIFF,
                               MACD_ALGO.SLOPE,
-                              MACD_ALGO.AMP]:
+                              MACD_ALGO.AMP,
+                              MACD_ALGO.RSI,
+                              MACD_ALGO.VOLUMN,
+                              MACD_ALGO.VOLUMN_AVG]:
                 bi_in_metric = zs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
                 returns[f"bi_in_{macd_algo.name}{i}"] = bi_in_metric
                 if zs.bi_out:
                     bi_out_metric = zs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
                     returns[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric
-                    returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / bi_in_metric
+                    returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / (bi_in_metric + 1e-7)
             return returns
 
         returns = dict()
@@ -216,7 +219,8 @@ class FeatureFactors:
                         if segzs.bi_out:
                             bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
                             returns[f"bi_out_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric
-                            returns[f"divergence_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric / bi_in_metric - 1
+                            returns[f"divergence_{macd_algo.name}{i + self.MAX_ZS}"] = bi_out_metric / (
+                                        bi_in_metric + 1e-7) - 1
         return returns
 
     ############################### 线段 ######################################
@@ -290,7 +294,7 @@ class FeatureFactors:
                     returns.update(seg_bi_cnt(i, seg))
                     returns.update(seg_low(i, seg))
                     returns.update(seg_high(i, seg))
-                    # returns.update(seg_is_down(i, seg))
+                    returns.update(seg_is_down(i, seg))
                     returns.update(seg_klu_cnt(i, seg))
                     returns.update(seg_macd(i, seg))
 
@@ -304,7 +308,7 @@ class FeatureFactors:
                     returns.update(seg_bi_cnt(i + self.MAX_SEG, segseg))
                     returns.update(seg_low(i + self.MAX_SEG, segseg))
                     returns.update(seg_high(i + self.MAX_SEG, segseg))
-                    # returns.update(seg_is_down(i + self.MAX_SEG, segseg))
+                    returns.update(seg_is_down(i + self.MAX_SEG, segseg))
                     returns.update(seg_klu_cnt(i + self.MAX_SEG, segseg))
                     returns.update(seg_macd(i + self.MAX_SEG, segseg))
         return returns

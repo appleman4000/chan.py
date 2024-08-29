@@ -42,9 +42,25 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         return self.lst[index]
 
     def cal(self, bi_list: LINE_LIST_TYPE, seg_list: CSegListComm[LINE_TYPE]):
-        self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
-        self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
-        self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
+        # self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
+        # self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
+        # self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
+        for i in range(len(self.lst) - 1, -1, -1):
+            if self.lst[i].klu.idx > self.last_sure_pos:
+                if self.lst[i].bi.get_end_klu().idx in self.bsp_dict:
+                    del self.bsp_dict[self.lst[i].bi.get_end_klu().idx]
+                del self.lst[i]
+            else:
+                if self.lst[i].bi.get_end_klu().idx not in self.bsp_dict:
+                    self.bsp_dict[self.lst[i].bi.get_end_klu().idx] = self.lst[i]
+                else:
+                    break
+        for i in range(len(self.bsp1_lst) - 1, -1, -1):
+            if self.bsp1_lst[i].klu.idx > self.last_sure_pos:
+                del self.bsp1_lst[i]
+            else:
+                break
+
         if BSP_TYPE.T1 in self.config.b_conf.target_types or BSP_TYPE.T1 in self.config.s_conf.target_types or \
                 BSP_TYPE.T1P in self.config.b_conf.target_types or BSP_TYPE.T1P in self.config.s_conf.target_types:
             self.cal_seg_bs1point(seg_list, bi_list)

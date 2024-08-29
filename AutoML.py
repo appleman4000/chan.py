@@ -33,7 +33,6 @@ def predict_bsp(model, last_bsp: CBS_Point, feature_names):
     return model.predict_proba(features)[0][1]
 
 
-data_src = DATA_SRC.FOREX
 trade_params = {
 }
 
@@ -42,7 +41,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     config = CChanConfig(conf=dataset_params.copy())
     chan = CChan(
         code=code,
-        data_src=data_src,
+        data_src=DATA_SRC.FOREX,
         lv_list=lv_list,
         config=config,
         begin_time=begin_time,
@@ -78,7 +77,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 止盈
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            exit_rule = bsp1_pred > trade_params["bsp1_long_exit"] and not last_bsp.is_buy
+            exit_rule = bsp1_pred > 0 and not last_bsp.is_buy
             # 最大止盈止损保护
             tp = long_profit > trade_params["bsp1_tp_long"]
             sl = long_profit < -trade_params["bsp1_sl_long"]
@@ -88,7 +87,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
-            exit_rule = bsp1_pred > trade_params["bsp1_short_exit"] and last_bsp.is_buy
+            exit_rule = bsp1_pred > 0 and last_bsp.is_buy
             # 最大止盈止损保护
             tp = short_profit > trade_params["bsp1_tp_short"]
             sl = short_profit < -trade_params["bsp1_sl_short"]
@@ -108,13 +107,11 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
 def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names):
     trade_params.update({
-        "bsp1_long_open": trial.suggest_float('bsp1_long_open', 0.6, 0.75, step=0.02),
-        "bsp1_short_open": trial.suggest_float('bsp1_short_open', 0.6, 0.75, step=0.02),
-        "bsp1_long_exit": trial.suggest_float('bsp1_long_exit', 0.5, 0.6, step=0.02),
-        "bsp1_short_exit": trial.suggest_float('bsp1_short_exit', 0.5, 0.6, step=0.02),
-        "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.001, 0.03, step=0.001),
+        "bsp1_long_open": trial.suggest_float('bsp1_long_open', 0.6, 0.75, step=0.05),
+        "bsp1_short_open": trial.suggest_float('bsp1_short_open', 0.6, 0.75, step=0.05),
+        "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.005, 0.02, step=0.001),
         "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.001, 0.005, step=0.001),
-        "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.001, 0.03, step=0.001),
+        "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.005, 0.02, step=0.001),
         "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.001, 0.005, step=0.001),
     })
     score = run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params)
@@ -150,7 +147,7 @@ def get_model(params, X_train, X_val, y_train, y_val, class_weights):
 
 def optimize_model(trial, X_train, X_val, y_train, y_val, class_weights):
     model_params.update({
-        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'max_depth': trial.suggest_int('max_depth', 4, 6),
         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
         # 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
         'n_estimators': trial.suggest_int('n_estimators', 100, 500),
@@ -184,7 +181,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
         code=code,
         begin_time=begin_time,
         end_time=end_time,
-        data_src=data_src,
+        data_src=DATA_SRC.FOREX,
         lv_list=lv_list,
         config=config,
         autype=AUTYPE.NONE,
@@ -238,11 +235,11 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 dataset_params = {
     "trigger_step": True,  # 打开开关！
     "skip_step": 500,
-    "divergence_rate": 0.9,
+    "divergence_rate": float("inf"),
     "bsp2_follow_1": False,
     "bsp3_follow_1": False,
     "min_zs_cnt": 0,
-    "macd_algo": "peak",
+    "macd_algo": "area",
     "bs_type": '1,1p',
     "cal_rsi": True,
     "cal_kdj": True,
@@ -258,7 +255,7 @@ dataset_params = {
 
 def optimize_dataset(trial, code, lv_list, begin_time, end_time):
     dataset_params.update({
-        "divergence_rate": trial.suggest_float('divergence_rate', 0.7, 1.0, step=0.05),
+        "divergence_rate": trial.suggest_float('divergence_rate', 0.6, 0.8, step=0.05),
         "macd_algo": trial.suggest_categorical('macd_algo', ["area", "peak", "full_area", "diff", "slope", "amp"]),
     })
     X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
@@ -267,7 +264,7 @@ def optimize_dataset(trial, code, lv_list, begin_time, end_time):
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(lambda t: optimize_model(t, X_train=X_train, X_val=X_val, y_train=y_train, y_val=y_val,
                                             class_weights=class_weights),
-                   n_trials=200, n_jobs=-1)
+                   n_trials=500, n_jobs=-1)
     print(f"{code} dataset AUC:{study.best_value}")
     return study.best_value
 
@@ -275,23 +272,23 @@ def optimize_dataset(trial, code, lv_list, begin_time, end_time):
 def run_code(code):
     print(f"{code} started")
     lv_list = [KL_TYPE.K_10M]
-    begin_time = "2019-01-01 00:00:00"
+    begin_time = "2010-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
     val_begin_time = "2022-01-01 00:00:00"
     val_end_time = "2023-01-01 00:00:00"
     test_begin_time = "2023-01-01 00:00:00"
     test_end_time = "2024-01-01 00:00:00"
-    print(f"{code} 找最优的缠论参数")
-    search_space = {
-        "divergence_rate": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
-        "macd_algo": ["area", "peak", "full_area", "diff", "slope", "amp"],
-    }
-    storage = optuna.storages.InMemoryStorage()
-    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.GridSampler(search_space),
-                                storage=storage)
-    study.optimize(lambda trial: optimize_dataset(trial, code, lv_list, begin_time, end_time), n_trials=36, n_jobs=-1)
-    dataset_params.update(study.best_params)
-    print(f"{code} {study.best_params}")
+    # print(f"{code} 找最优的缠论参数")
+    # search_space = {
+    #     "divergence_rate": [0.6, 0.65, 0.7, 0.75],
+    #     "macd_algo": ["area", "peak", "full_area", "diff", "slope", "amp"],
+    # }
+    # storage = optuna.storages.InMemoryStorage()
+    # study = optuna.create_study(direction='maximize', sampler=optuna.samplers.GridSampler(search_space),
+    #                             storage=storage)
+    # study.optimize(lambda trial: optimize_dataset(trial, code, lv_list, begin_time, end_time), n_trials=24, n_jobs=-1)
+    # dataset_params.update(study.best_params)
+    # print(f"{code} {study.best_params}")
     X_train, X_val, y_train, y_val, feature_names, class_weights = get_dataset(code, lv_list, begin_time, end_time,
                                                                                dataset_params)
     print(f"{code} Training data: {X_train.shape}, Validation data: {X_val.shape} class_weights:{class_weights}")
@@ -312,9 +309,7 @@ def run_code(code):
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
     study.optimize(
         lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                     feature_names),
-        n_trials=20,
-        n_jobs=-1)
+                                     feature_names), n_trials=100, n_jobs=-1)
     trade_params.update(study.best_params)
     print(f"{code} {study.best_params}")
     best_value = study.best_value
