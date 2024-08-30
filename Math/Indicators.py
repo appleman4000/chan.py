@@ -62,7 +62,7 @@ class TaIndicators:
         periods = [6, 20]
         for period in periods:
             returns[f"ROCP{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
-        periods = [10, 20]
+        periods = [10, 20, 40, 80]
         for period in periods:
             returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close - 1
             returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close - 1

@@ -1,10 +1,11 @@
 # cython: language_level=3
 # encoding:utf-8
+import copy
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi
 from Bi.BiList import CBiList
-from Common.CEnum import BSP_TYPE
+from Common.CEnum import BSP_TYPE, MACD_ALGO
 from Common.func_util import has_overlap
 from Seg.Seg import CSeg
 from Seg.SegListComm import CSegListComm
@@ -42,24 +43,24 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         return self.lst[index]
 
     def cal(self, bi_list: LINE_LIST_TYPE, seg_list: CSegListComm[LINE_TYPE]):
-        # self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
-        # self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
-        # self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
-        for i in range(len(self.lst) - 1, -1, -1):
-            if self.lst[i].klu.idx > self.last_sure_pos:
-                if self.lst[i].bi.get_end_klu().idx in self.bsp_dict:
-                    del self.bsp_dict[self.lst[i].bi.get_end_klu().idx]
-                del self.lst[i]
-            else:
-                if self.lst[i].bi.get_end_klu().idx not in self.bsp_dict:
-                    self.bsp_dict[self.lst[i].bi.get_end_klu().idx] = self.lst[i]
-                else:
-                    break
-        for i in range(len(self.bsp1_lst) - 1, -1, -1):
-            if self.bsp1_lst[i].klu.idx > self.last_sure_pos:
-                del self.bsp1_lst[i]
-            else:
-                break
+        self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
+        self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
+        self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
+        # for i in range(len(self.lst) - 1, -1, -1):
+        #     if self.lst[i].klu.idx > self.last_sure_pos:
+        #         if self.lst[i].bi.get_end_klu().idx in self.bsp_dict:
+        #             del self.bsp_dict[self.lst[i].bi.get_end_klu().idx]
+        #         del self.lst[i]
+        #     else:
+        #         if self.lst[i].bi.get_end_klu().idx not in self.bsp_dict:
+        #             self.bsp_dict[self.lst[i].bi.get_end_klu().idx] = self.lst[i]
+        #         else:
+        #             break
+        # for i in range(len(self.bsp1_lst) - 1, -1, -1):
+        #     if self.bsp1_lst[i].klu.idx > self.last_sure_pos:
+        #         del self.bsp1_lst[i]
+        #     else:
+        #         break
 
         if BSP_TYPE.T1 in self.config.b_conf.target_types or BSP_TYPE.T1 in self.config.s_conf.target_types or \
                 BSP_TYPE.T1P in self.config.b_conf.target_types or BSP_TYPE.T1P in self.config.s_conf.target_types:
@@ -141,13 +142,24 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         break_peak, _ = last_zs.out_bi_is_peak(seg.end_bi.idx)
         if BSP_CONF.bs1_peak and not break_peak:
             is_target_bsp = False
-        is_diver, divergence_rate = last_zs.is_divergence(BSP_CONF, out_bi=seg.end_bi)
-        if not is_diver:
-            is_target_bsp = False
-        feature_dict = {
-            'divergence_rate': divergence_rate,
+        feature_dict = {}
+        bsp_conf_copy = copy.deepcopy(BSP_CONF)
+        for macd_algo in [MACD_ALGO.AREA, MACD_ALGO.PEAK, MACD_ALGO.FULL_AREA, MACD_ALGO.DIFF, MACD_ALGO.SLOPE,
+                          MACD_ALGO.AMP]:
+
+            bsp_conf_copy.macd_algo = macd_algo
+            try:
+                is_diver, divergence_rate = last_zs.is_divergence(bsp_conf_copy, out_bi=seg.end_bi)
+                feature_dict.update({
+                    f'divergence_rate_{macd_algo.name}': divergence_rate,
+                })
+                if not is_diver:
+                    is_target_bsp = False
+            except:
+                pass
+        feature_dict.update({
             'zs_cnt': len(seg.zs_lst),
-        }
+        })
         self.add_bs(bs_type=BSP_TYPE.T1, bi=seg.end_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
 
@@ -162,17 +174,26 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             return
         if last_bi.is_up() and last_bi._high() < pre_bi._high():  # 创新高
             return
-        in_metric = pre_bi.cal_macd_metric(BSP_CONF.macd_algo, is_reverse=False)
-        out_metric = last_bi.cal_macd_metric(BSP_CONF.macd_algo, is_reverse=True)
-        is_diver, divergence_rate = out_metric <= BSP_CONF.divergence_rate * in_metric, out_metric / (in_metric + 1e-7)
-        if not is_diver:
-            is_target_bsp = False
+        feature_dict = {}
+        for macd_algo in [MACD_ALGO.AREA, MACD_ALGO.PEAK, MACD_ALGO.FULL_AREA, MACD_ALGO.DIFF, MACD_ALGO.SLOPE,
+                          MACD_ALGO.AMP]:
+            try:
+                in_metric = pre_bi.cal_macd_metric(macd_algo, is_reverse=False)
+                out_metric = last_bi.cal_macd_metric(macd_algo, is_reverse=True)
+                is_diver, divergence_rate = out_metric <= BSP_CONF.divergence_rate * in_metric, out_metric / (
+                            in_metric + 1e-7)
+                if not is_diver:
+                    is_target_bsp = False
+                feature_dict.update({
+                    f'divergence_rate_{macd_algo.name}': divergence_rate,
+                })
+            except:
+                pass
         if isinstance(bi_list, CBiList):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
-        feature_dict = {
-            'divergence_rate': divergence_rate,
+        feature_dict.update({
             'bsp1_bi_amp': last_bi.amp(),
-        }
+        })
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
 
