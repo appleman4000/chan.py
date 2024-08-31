@@ -1,5 +1,3 @@
-# cython: language_level=3
-# encoding:utf-8
 import copy
 from typing import List, Union, overload
 
@@ -13,6 +11,7 @@ from Seg.Seg import CSeg
 from Seg.SegConfig import CSegConfig
 from Seg.SegListComm import CSegListComm
 from ZS.ZSList import CZSList
+
 from .KLine import CKLine
 from .KLine_Unit import CKLine_Unit
 
@@ -88,12 +87,10 @@ class CKLine_List:
         return new_obj
 
     @overload
-    def __getitem__(self, index: int) -> CKLine:
-        ...
+    def __getitem__(self, index: int) -> CKLine: ...
 
     @overload
-    def __getitem__(self, index: slice) -> List[CKLine]:
-        ...
+    def __getitem__(self, index: slice) -> List[CKLine]: ...
 
     def __getitem__(self, index: Union[slice, int]) -> Union[List[CKLine], CKLine]:
         return self.lst[index]
@@ -131,8 +128,7 @@ class CKLine_List:
                     self.lst[-2].update_fx(self.lst[-3], self.lst[-1])
                 if self.bi_list.update_bi(self.lst[-2], self.lst[-1], self.step_calculation) and self.step_calculation:
                     self.cal_seg_and_zs()
-            elif self.step_calculation and self.bi_list.try_add_virtual_bi(self.lst[-1],
-                                                                           need_del_end=True):  # 这里的必要性参见issue#175
+            elif self.step_calculation and self.bi_list.try_add_virtual_bi(self.lst[-1], need_del_end=True):  # 这里的必要性参见issue#175
                 self.cal_seg_and_zs()
 
     def klu_iter(self, klc_begin_idx=0):
@@ -140,7 +136,7 @@ class CKLine_List:
             yield from klc.lst
 
 
-def cal_seg(bi_list, seg_list):
+def cal_seg(bi_list, seg_list: CSegListComm):
     seg_list.update(bi_list)
 
     sure_seg_cnt = 0
@@ -163,16 +159,12 @@ def cal_seg(bi_list, seg_list):
         if bi.seg_idx is not None and bi.idx < begin_seg.start_bi.idx:
             break
         if bi.idx > cur_seg.end_bi.idx:
-            bi.set_seg_idx(cur_seg.idx + 1)
+            bi.set_seg_idx(cur_seg.idx+1)
             continue
-        if bi.idx >= cur_seg.start_bi.idx:
-            bi.set_seg_idx(cur_seg.idx)
-            continue
-
-        else:
+        if bi.idx < cur_seg.start_bi.idx:
             assert cur_seg.pre
             cur_seg = cur_seg.pre
-            bi.set_seg_idx(cur_seg.idx)
+        bi.set_seg_idx(cur_seg.idx)
 
 
 def update_zs_in_seg(bi_list, seg_list, zs_list):
@@ -189,10 +181,10 @@ def update_zs_in_seg(bi_list, seg_list, zs_list):
             if zs.is_inside(seg):
                 seg.add_zs(zs)
             assert zs.begin_bi.idx > 0
-            zs.set_bi_in(bi_list[zs.begin_bi.idx - 1])
-            if zs.end_bi.idx + 1 < len(bi_list):
-                zs.set_bi_out(bi_list[zs.end_bi.idx + 1])
-            zs.set_bi_lst(list(bi_list[zs.begin_bi.idx:zs.end_bi.idx + 1]))
+            zs.set_bi_in(bi_list[zs.begin_bi.idx-1])
+            if zs.end_bi.idx+1 < len(bi_list):
+                zs.set_bi_out(bi_list[zs.end_bi.idx+1])
+            zs.set_bi_lst(list(bi_list[zs.begin_bi.idx:zs.end_bi.idx+1]))
 
         if sure_seg_cnt > 2:
             if not seg.ele_inside_is_sure:
