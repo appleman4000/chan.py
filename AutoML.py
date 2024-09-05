@@ -15,7 +15,7 @@ from joblib import Parallel, delayed
 from lightgbm import LGBMClassifier
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score, accuracy_score, recall_score, f1_score, make_scorer
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import cross_val_score, KFold
 from sklearn.utils import class_weight
 
 from Chan import CChan
@@ -43,8 +43,9 @@ def max_draw_down(return_list):
 
 def plot(chan, plot_marker, name):
     plot_config = {
-        "plot_kline": True,
-        "plot_bi": False,
+        "plot_kline": False,
+        "plot_kline_combine": True,
+        "plot_bi": True,
         "plot_seg": True,
         "plot_zs": True,
         "plot_bsp": False,
@@ -52,7 +53,9 @@ def plot(chan, plot_marker, name):
     }
     plot_para = {
         "figure": {
-            "x_range": 8000,
+            "w": 30,
+            "h": 10,
+            "x_range": 10000,
         },
         "marker": {
             "markers": plot_marker
@@ -92,7 +95,6 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     trades = []
     plot_marker = {}
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    bsp1_pred = 0
     for chan_snapshot in chan.step_load():
 
         lv_chan = chan_snapshot[0]
@@ -113,8 +115,6 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             bsp1_pred = predict_bsp(model=model, feature=dict(last_bsp.features.items()), feature_names=feature_names)
         else:
             bsp1_pred = 0
-        # if last_bsp.klu.klc.idx - lv_chan[-1].idx <= -3:
-        #     bsp1_pred = 0
         if long_order > 0:
             # 止盈
             close_price = round(lv_chan[-1][-1].close, 5)
@@ -160,10 +160,12 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp()]
     for bsp_klu_idx, feature_info in bsp_dict.items():
         label = int(bsp_klu_idx in bsp_academy)  # 以买卖点识别是否准确为label
+        label = "b1" if feature_info["is_buy"] else "s1" + "√" if label else "×"
+
         plot_marker[feature_info["open_time"].to_str()] = (
-            "√" if label else "×", "down" if feature_info["is_buy"] else "up")
+            label, "down" if feature_info["is_buy"] else "up")
     plot(chan, plot_marker,
-         name=f"{begin_time.replace(':', '_').replace(' ', '_').replace('-', '_')} {end_time.replace(':', '_').replace(' ', '_').replace('-', '_')}")
+         name=f"{end_time.replace(':', '_').replace(' ', '_').replace('-', '_')}")
     trades = np.asarray(trades)
 
     if len(trades) == 0:
@@ -221,7 +223,7 @@ def optimize_model(trial, X_dataset, y_dataset):
         'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 15, 63),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
+        'n_estimators': trial.suggest_int('n_estimators', 100, 5000),
         'min_child_samples': trial.suggest_int('min_child_samples', 20, 200),
         'min_split_gain': trial.suggest_float('min_split_gain', 0.0, 10.0, step=0.01),
         'min_child_weight': trial.suggest_float('min_child_weight', 0.001, 100.0, step=0.001),
@@ -250,13 +252,13 @@ def optimize_model(trial, X_dataset, y_dataset):
         }
     )
     model = get_model(model_params, X_dataset, y_dataset)
-    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
     auc_scorer = make_scorer(roc_auc_score, needs_proba=True)
     scores = cross_val_score(model, X_dataset, y_dataset, cv=kf,
                              scoring=auc_scorer)
 
-    # y_pred = model.predict_proba(X_val)[:, 1]
-    # score = roc_auc_score(y_val, y_pred)
+    # y_pred = model.predict_proba(X_test1)[:, 1]
+    # score = roc_auc_score(y_test1, y_pred)
     score = scores.mean()
     trial.set_user_attr("model_params", model_params)
     return score
@@ -350,13 +352,13 @@ def run_code(code):
     lv_list = [KL_TYPE.K_30M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2022-01-01 00:00:00"
-    val_begin_time = "2022-01-01 00:00:00"
-    val_end_time = "2023-01-01 00:00:00"
-    test_begin_time = "2023-01-01 00:00:00"
-    test_end_time = "2024-01-01 00:00:00"
+    test1_begin_time = "2022-01-01 00:00:00"
+    test1_end_time = "2023-01-01 00:00:00"
+    test2_begin_time = "2023-01-01 00:00:00"
+    test2_end_time = "2024-01-01 00:00:00"
     dataset_params = {
         "trigger_step": True,  # 打开开关！
-        "skip_step": 500,
+        "skip_step": 1000,
         "bsp2_follow_1": False,
         "bsp3_follow_1": False,
         "min_zs_cnt": 0,
@@ -396,19 +398,30 @@ def run_code(code):
     print(f"{study.best_trial.value} {model_params}")
     print(f"训练模型")
     model = get_model(model_params, X_dataset, y_dataset)
-
-    if not os.path.exists(f"{code}.val"):
-        X_dataset_val, y_dataset_val, feature_names = get_dataset(code, lv_list, val_begin_time, val_end_time,
-                                                                  dataset_params,
-                                                                  feature_names)
-        with open(f"{code}.val", "wb") as fid:
-            pickle.dump((X_dataset_val, y_dataset_val, feature_names), fid)
+    print("制作2022年测试集")
+    if not os.path.exists(f"{code}.test1"):
+        X_dataset_test1, y_dataset_test1, feature_names = get_dataset(code, lv_list, test1_begin_time, test1_end_time,
+                                                                      dataset_params,
+                                                                      feature_names)
+        with open(f"{code}.test1", "wb") as fid:
+            pickle.dump((X_dataset_test1, y_dataset_test1, feature_names), fid)
     else:
-        with open(f"{code}.val", "rb") as fid:
-            X_dataset_val, y_dataset_val, feature_names = pickle.load(fid)
-    y_prob = np.array(model.predict_proba(X_dataset_val)[:, 1])
-    auc = roc_auc_score(y_dataset_val, y_prob)
-    print(f"测试集模型 auc:{auc}")
+        with open(f"{code}.test1", "rb") as fid:
+            X_dataset_test1, y_dataset_test1, feature_names = pickle.load(fid)
+    print("制作2023年测试集")
+    if not os.path.exists(f"{code}.test2"):
+        X_dataset_test2, y_dataset_test2, feature_names = get_dataset(code, lv_list, test2_begin_time, test2_end_time,
+                                                                      dataset_params,
+                                                                      feature_names)
+        with open(f"{code}.test2", "wb") as fid:
+            pickle.dump((X_dataset_test2, y_dataset_test2, feature_names), fid)
+    else:
+        with open(f"{code}.test2", "rb") as fid:
+            X_dataset_test2, y_dataset_test2, feature_names = pickle.load(fid)
+
+    y_prob = np.array(model.predict_proba(X_dataset_test1)[:, 1])
+    auc = roc_auc_score(y_dataset_test1, y_prob)
+    print(f"{code} 2022年测试集模型 auc:{auc}")
     thresholds = np.linspace(0, 1, 100)
     accuracies = []
     recalls = []
@@ -417,9 +430,9 @@ def run_code(code):
     # 计算每个阈值下的正确率、召回率和F1分数
     for t in thresholds:
         y_pred = (y_prob >= t).astype(int)
-        accuracy = accuracy_score(y_dataset_val, y_pred)
-        recall = recall_score(y_dataset_val, y_pred)
-        f1 = f1_score(y_dataset_val, y_pred)
+        accuracy = accuracy_score(y_dataset_test1, y_pred)
+        recall = recall_score(y_dataset_test1, y_pred)
+        f1 = f1_score(y_dataset_test1, y_pred)
         accuracies.append(accuracy)
         recalls.append(recall)
         f1_scores.append(f1)
@@ -436,37 +449,68 @@ def run_code(code):
     plt.title('Threshold vs Accuracy, Recall, and F1 Score')
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"./{code}.png")
+    plt.savefig(f"./{code}_2023.png")
     plt.clf()
     matplotlib.use('Agg')
-    # feature_importances = model.feature_importances_
-    # # 特征名称
-    # # 创建特征重要性数据框
-    # importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': feature_importances})
-    # importance_df = importance_df.sort_values(by='Importance', ascending=False)
-    # pd.set_option('display.max_rows', None)
-    # print(importance_df)
+
     trade_params = {
         "bsp1_open": 0.6,
         "bsp1_close": 0.5,
         "bsp1_tp_long": 0.003,
-        "bsp1_sl_long": 0.003,
+        "bsp1_sl_long": 0.002,
         "bsp1_tp_short": 0.003,
-        "bsp1_sl_short": 0.003,
+        "bsp1_sl_short": 0.002,
     }
-    score1, capital1 = run_trade(code, lv_list, val_begin_time, val_end_time, dataset_params, model,
+    score1, capital1 = run_trade(code, lv_list, test1_begin_time, test1_end_time, dataset_params, model,
                                  feature_names,
                                  trade_params)
 
-    print(f"{code} 第一年实战盈利:{score1} {capital1} {trade_params}")
+    print(f"{code} 2022实战盈利:{score1} {capital1} {trade_params}")
+    print(f"补充2022年数据重新训练模型")
 
-    score2, capital2 = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params, model, feature_names,
+    model = get_model(model_params, np.concatenate([X_dataset, X_dataset_test1]),
+                      np.concatenate([y_dataset, y_dataset_test1]))
+    y_prob = np.array(model.predict_proba(X_dataset_test2)[:, 1])
+    auc = roc_auc_score(y_dataset_test2, y_prob)
+    print(f"{code} 2023测试集模型 auc:{auc}")
+    thresholds = np.linspace(0, 1, 100)
+    accuracies = []
+    recalls = []
+    f1_scores = []
+
+    # 计算每个阈值下的正确率、召回率和F1分数
+    for t in thresholds:
+        y_pred = (y_prob >= t).astype(int)
+        accuracy = accuracy_score(y_dataset_test2, y_pred)
+        recall = recall_score(y_dataset_test2, y_pred)
+        f1 = f1_score(y_dataset_test2, y_pred)
+        accuracies.append(accuracy)
+        recalls.append(recall)
+        f1_scores.append(f1)
+
+    # 绘制曲线
+    matplotlib.use('Agg')
+    plt.figure(figsize=(12, 8))
+    plt.plot(thresholds, accuracies, marker='o', label='Accuracy')
+    plt.plot(thresholds, recalls, marker='x', label='Recall', linestyle='--')
+    plt.plot(thresholds, f1_scores, marker='s', label='F1 Score', linestyle='-.')
+
+    plt.xlabel('Probability Threshold')
+    plt.ylabel('Score')
+    plt.title('Threshold vs Accuracy, Recall, and F1 Score')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f"./{code}_2024.png")
+    plt.clf()
+    matplotlib.use('Agg')
+
+    score2, capital2 = run_trade(code, lv_list, test2_begin_time, test2_end_time, dataset_params, model, feature_names,
                                  trade_params)
 
-    print(f"{code} 第二年实战盈利:{score2} {capital2}")
+    print(f"{code} 2024年实战盈利:{score2} {capital2}")
     print(f"chan:{dataset_params},model:{model_params},trade:{trade_params}")
     with open("./report.log", mode="a") as file:
-        seq = f"{code} auc:{auc} 第一年实战盈利:{capital1} 第二年实战盈利:{capital2},dataset:{dataset_params},model:{model_params},trade:{trade_params}\n"
+        seq = f"{code} auc:{auc} 第一年实战盈利:{score1} {capital1} 第二年实战盈利:{score2} {capital2},dataset:{dataset_params},model:{model_params},trade:{trade_params}\n"
         file.writelines(seq)
 
 
