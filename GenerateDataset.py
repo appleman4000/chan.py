@@ -8,8 +8,8 @@ import pandas
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
+from Common.CTime import CTime
 from FeatureEngineering import FeatureFactors
 
 matplotlib.use('Agg')
@@ -95,6 +95,9 @@ plot_para = {
 class T_SAMPLE_INFO(TypedDict):
     bsp_type: list[BSP_TYPE]
     feature: dict
+    price: float
+    is_buy: bool
+    open_time: CTime
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):

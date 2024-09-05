@@ -46,33 +46,10 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         self.lst = [bsp for bsp in self.lst if bsp.klu.idx <= self.last_sure_pos]
         self.bsp_dict = {bsp.bi.get_end_klu().idx: bsp for bsp in self.lst}
         self.bsp1_lst = [bsp for bsp in self.bsp1_lst if bsp.klu.idx <= self.last_sure_pos]
-        # for i in range(len(self.lst) - 1, -1, -1):
-        #     if self.lst[i].klu.idx > self.last_sure_pos:
-        #         if self.lst[i].bi.get_end_klu().idx in self.bsp_dict:
-        #             del self.bsp_dict[self.lst[i].bi.get_end_klu().idx]
-        #         del self.lst[i]
-        #     else:
-        #         if self.lst[i].bi.get_end_klu().idx not in self.bsp_dict:
-        #             self.bsp_dict[self.lst[i].bi.get_end_klu().idx] = self.lst[i]
-        #         else:
-        #             break
-        # for i in range(len(self.bsp1_lst) - 1, -1, -1):
-        #     if self.bsp1_lst[i].klu.idx > self.last_sure_pos:
-        #         del self.bsp1_lst[i]
-        #     else:
-        #         break
 
-        if BSP_TYPE.T1 in self.config.b_conf.target_types or BSP_TYPE.T1 in self.config.s_conf.target_types or \
-                BSP_TYPE.T1P in self.config.b_conf.target_types or BSP_TYPE.T1P in self.config.s_conf.target_types:
-            self.cal_seg_bs1point(seg_list, bi_list)
-        if BSP_TYPE.T2 in self.config.b_conf.target_types or BSP_TYPE.T2 in self.config.s_conf.target_types or \
-                BSP_TYPE.T2S in self.config.b_conf.target_types or BSP_TYPE.T2S in self.config.s_conf.target_types:
-            self.cal_seg_bs2point(seg_list, bi_list)
-        if BSP_TYPE.T3A in self.config.b_conf.target_types or BSP_TYPE.T3A in self.config.s_conf.target_types or \
-                BSP_TYPE.T3B in self.config.b_conf.target_types or BSP_TYPE.T3B in self.config.s_conf.target_types:
-            self.cal_seg_bs3point(seg_list, bi_list)
-
-        self.update_last_pos(seg_list)
+        self.cal_seg_bs1point(seg_list, bi_list)
+        self.cal_seg_bs2point(seg_list, bi_list)
+        self.cal_seg_bs3point(seg_list, bi_list)
 
     def update_last_pos(self, seg_list: CSegListComm):
         self.last_sure_pos = -1
@@ -192,7 +169,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if isinstance(bi_list, CBiList):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
         feature_dict.update({
-            'bsp1_bi_amp': last_bi.amp(),
+            # 'bsp1_bi_amp': last_bi.amp(),
         })
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
