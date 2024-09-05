@@ -457,15 +457,6 @@ def run_code(code):
     score1, capital1 = run_trade(code, lv_list, val_begin_time, val_end_time, dataset_params, model,
                                  feature_names,
                                  trade_params)
-    # print(f"{code} 找最优交易参数")
-    # storage = optuna.storages.InMemoryStorage()
-    # study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    # study.optimize(
-    #     lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-    #                                  feature_names), n_trials=100, n_jobs=-1)
-    # trade_params = study.best_trial.user_attrs["trade_params"]
-    # his_capital = study.best_trial.user_attrs["capital"]
-    # best_value = study.best_trial.value
 
     print(f"{code} 第一年实战盈利:{score1} {capital1} {trade_params}")
 
