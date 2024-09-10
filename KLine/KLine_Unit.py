@@ -4,8 +4,8 @@ import copy
 from typing import Dict, Optional
 
 from Common.CEnum import DATA_FIELD, TRADE_INFO_LST, TREND_TYPE
-from Common.ChanException import CChanException, ErrCode
 from Common.CTime import CTime
+from Common.ChanException import CChanException, ErrCode
 from Math.BOLL import BOLL_Metric, BollModel
 from Math.Demark import CDemarkEngine, CDemarkIndex
 from Math.Indicators import TaIndicators
@@ -13,7 +13,6 @@ from Math.KDJ import KDJ
 from Math.MACD import CMACD, CMACD_item
 from Math.RSI import RSI
 from Math.TrendModel import CTrendModel
-
 from .TradeInfo import CTradeInfo
 
 
@@ -98,12 +97,16 @@ class CKLine_Unit:
             if autofix:
                 self.low = min([self.low, self.open, self.high, self.close])
             else:
-                raise CChanException(f"{self.time} low price={self.low} is not min of [low={self.low}, open={self.open}, high={self.high}, close={self.close}]", ErrCode.KL_DATA_INVALID)
+                raise CChanException(
+                    f"{self.time} low price={self.low} is not min of [low={self.low}, open={self.open}, high={self.high}, close={self.close}]",
+                    ErrCode.KL_DATA_INVALID)
         if self.high < max([self.low, self.open, self.high, self.close]):
             if autofix:
                 self.high = max([self.low, self.open, self.high, self.close])
             else:
-                raise CChanException(f"{self.time} high price={self.high} is not max of [low={self.low}, open={self.open}, high={self.high}, close={self.close}]", ErrCode.KL_DATA_INVALID)
+                raise CChanException(
+                    f"{self.time} high price={self.high} is not max of [low={self.low}, open={self.open}, high={self.high}, close={self.close}]",
+                    ErrCode.KL_DATA_INVALID)
 
     def add_children(self, child):
         self.sub_kl_list.append(child)
@@ -137,7 +140,7 @@ class CKLine_Unit:
             elif isinstance(metric_model, KDJ):
                 self.kdj = metric_model.add(self.high, self.low, self.close)
             elif isinstance(metric_model, TaIndicators):
-                self.indicators = metric_model.add(self.high, self.low, self.close)
+                self.indicators = metric_model.add(self.open, self.high, self.low, self.close)
 
     def get_parent_klc(self):
         assert self.sup_kl is not None
