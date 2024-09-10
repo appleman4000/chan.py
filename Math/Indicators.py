@@ -4,22 +4,44 @@ import numpy as np
 import talib
 
 
+def calculate_all_cdl_patterns(opening, highest, lowest, closing):
+    """
+    计算所有 TA-Lib 提供的形态指标。
+
+    参数:
+    - data: pd.DataFrame，包含 'open', 'high', 'low', 'close' 列的 DataFrame。
+
+    返回:
+    - pd.DataFrame，包含所有形态指标计算结果的 DataFrame。
+    """
+    cdl_patterns = {}
+    # 获取所有 TA-Lib 形态识别函数名称
+    pattern_functions = [func for func in dir(talib) if func.startswith('CDL')]
+
+    # 对每个形态识别函数计算结果
+    for pattern in pattern_functions:
+        pattern_function = getattr(talib, pattern)
+        cdl_patterns[pattern] = pattern_function(opening, highest, lowest, closing)[-1] / 100.0
+    return cdl_patterns
+
+
 class TaIndicators:
     def __init__(self, N=200):
         assert N > 1
         self.N = N
         self.arr = []
 
-    def add(self, high, low, close) -> dict:
+    def add(self, open, high, low, close) -> dict:
         if len(self.arr) == 0:
-            self.arr = [[high, low, close]] * self.N
+            self.arr = [[open, high, low, close]] * self.N
         else:
-            self.arr.append([high, low, close])
+            self.arr.append([open, high, low, close])
         if len(self.arr) > self.N:
             del self.arr[0]
-        highest = np.array(self.arr)[:, 0].astype(np.float64)
-        lowest = np.array(self.arr)[:, 1].astype(np.float64)
-        closing = np.array(self.arr)[:, 2].astype(np.float64)
+        opening = np.array(self.arr)[:, 0].astype(np.float64)
+        highest = np.array(self.arr)[:, 1].astype(np.float64)
+        lowest = np.array(self.arr)[:, 2].astype(np.float64)
+        closing = np.array(self.arr)[:, 3].astype(np.float64)
         returns = dict()
         returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]
         returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1]
@@ -62,8 +84,9 @@ class TaIndicators:
         periods = [6, 20]
         for period in periods:
             returns[f"ROCP{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
-        periods = [10, 20, 40, 80]
+        periods = [10, 20, 40]
         for period in periods:
             returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close - 1
             returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close - 1
+        # returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
         return returns

@@ -6,6 +6,7 @@ from typing import Dict, TypedDict
 import matplotlib
 import pandas
 
+from BuySellPoint.BS_Point import CBS_Point
 from Chan import CChan
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE, BSP_TYPE
@@ -98,6 +99,10 @@ class T_SAMPLE_INFO(TypedDict):
     price: float
     is_buy: bool
     open_time: CTime
+    state: int
+    close_time: CTime
+    profit: float
+    bsp: CBS_Point
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):

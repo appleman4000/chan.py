@@ -1,11 +1,10 @@
 # cython: language_level=3
 # encoding:utf-8
-import copy
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi
 from Bi.BiList import CBiList
-from Common.CEnum import BSP_TYPE, MACD_ALGO
+from Common.CEnum import BSP_TYPE
 from Common.func_util import has_overlap
 from Seg.Seg import CSeg
 from Seg.SegListComm import CSegListComm
@@ -120,20 +119,12 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if BSP_CONF.bs1_peak and not break_peak:
             is_target_bsp = False
         feature_dict = {}
-        bsp_conf_copy = copy.deepcopy(BSP_CONF)
-        for macd_algo in [MACD_ALGO.AREA, MACD_ALGO.PEAK, MACD_ALGO.FULL_AREA, MACD_ALGO.DIFF, MACD_ALGO.SLOPE,
-                          MACD_ALGO.AMP]:
-
-            bsp_conf_copy.macd_algo = macd_algo
-            try:
-                is_diver, divergence_rate = last_zs.is_divergence(bsp_conf_copy, out_bi=seg.end_bi)
-                feature_dict.update({
-                    f'divergence_rate_{macd_algo.name}': divergence_rate,
-                })
-                if not is_diver:
-                    is_target_bsp = False
-            except:
-                pass
+        is_diver, divergence_rate = last_zs.is_divergence(BSP_CONF, out_bi=seg.end_bi)
+        feature_dict.update({
+            'divergence_rate': divergence_rate,
+        })
+        if not is_diver:
+            is_target_bsp = False
         feature_dict.update({
             'zs_cnt': len(seg.zs_lst),
         })
@@ -152,20 +143,15 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if last_bi.is_up() and last_bi._high() < pre_bi._high():  # 创新高
             return
         feature_dict = {}
-        for macd_algo in [MACD_ALGO.AREA, MACD_ALGO.PEAK, MACD_ALGO.FULL_AREA, MACD_ALGO.DIFF, MACD_ALGO.SLOPE,
-                          MACD_ALGO.AMP]:
-            try:
-                in_metric = pre_bi.cal_macd_metric(macd_algo, is_reverse=False)
-                out_metric = last_bi.cal_macd_metric(macd_algo, is_reverse=True)
-                is_diver, divergence_rate = out_metric <= BSP_CONF.divergence_rate * in_metric, out_metric / (
-                            in_metric + 1e-7)
-                if not is_diver:
-                    is_target_bsp = False
-                feature_dict.update({
-                    f'divergence_rate_{macd_algo.name}': divergence_rate,
-                })
-            except:
-                pass
+        in_metric = pre_bi.cal_macd_metric(BSP_CONF.macd_algo, is_reverse=False)
+        out_metric = last_bi.cal_macd_metric(BSP_CONF.macd_algo, is_reverse=True)
+        is_diver, divergence_rate = out_metric <= BSP_CONF.divergence_rate * in_metric, out_metric / (
+                in_metric + 1e-7)
+        if not is_diver:
+            is_target_bsp = False
+        feature_dict.update({
+            'divergence_rate': divergence_rate,
+        })
         if isinstance(bi_list, CBiList):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
         feature_dict.update({
