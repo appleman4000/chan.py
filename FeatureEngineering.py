@@ -5,7 +5,7 @@ from Common.CEnum import BI_DIR, FX_TYPE, MACD_ALGO
 
 class FeatureFactors:
     def __init__(self, chan,
-                 pip_value=1e-5,
+                 pip_value,
                  MAX_BI=2,
                  MAX_ZS=1,
                  MAX_SEG=1,
@@ -24,22 +24,14 @@ class FeatureFactors:
         returns.update(self.bi())
         returns.update(self.zs())
         returns.update(self.seg())
-        returns.update(self.open_klu_rate())
+        # returns.update(self.open_klu_rate())
         # returns.update(self.fx())
-        # returns.update(self.macd())
-        # returns.update(self.rsi())
-        # returns.update(self.kdj())
-        # returns.update(self.boll())
-        # returns.update(self.indicators())
         return returns
-
-    # 最后K线涨跌率
-    def open_klu_rate(self):
-        returns = dict()
-        klu = self.chan[-1][-1]
-        returns[f"open_klu_rate"] = (klu.close - klu.open) / self.pip_value
-        return returns
-
+    # def open_klu_rate(self):
+    #     returns = dict()
+    #     klu = self.chan[-1][-1]
+    #     returns[f"open_klu_rate"] = (klu.close - klu.open) / self.pip_value
+    #     return returns
     # 最后一个分型
     def fx(self):
         fx = self.chan[-1].fx
@@ -110,31 +102,10 @@ class FeatureFactors:
             returns[f"bi_klc_cnt{i}"] = bi.get_klc_cnt()
             return returns
 
-        def macd(i, bi):
+        def indicators(i, klu):
             returns = dict()
-            returns[f"macd{i}"] = bi.get_end_klu().macd.macd
-            returns[f"dif{i}"] = bi.get_end_klu().macd.DIF
-            returns[f"dea{i}"] = bi.get_end_klu().macd.DEA
-
-            return returns
-
-        def rsi(i, bi):
-            returns = dict()
-            returns[f"rsi{i}"] = bi.get_end_klu().rsi
-            return returns
-
-        def kdj(i, bi):
-            returns = dict()
-            returns[f"k{i}"] = bi.get_end_klu().kdj.k
-            returns[f"d{i}"] = bi.get_end_klu().kdj.d
-            returns[f"j{i}"] = bi.get_end_klu().kdj.j
-            return returns
-
-        def boll(i, bi):
-            returns = dict()
-            returns[f"up{i}"] = (bi.get_end_klu().boll.UP - bi.get_end_klu().close) / self.pip_value
-            returns[f"mid{i}"] = (bi.get_end_klu().boll.MID - bi.get_end_klu().close) / self.pip_value
-            returns[f"down{i}"] = (bi.get_end_klu().boll.DOWN - bi.get_end_klu().close) / self.pip_value
+            for key, value in klu.indicators.items():
+                returns[f"bi_end_{key}{i}"] = value
             return returns
 
         returns = dict()
@@ -152,10 +123,7 @@ class FeatureFactors:
                 returns.update(bi_rate(i, bi))
                 returns.update(bi_klu_cnt(i, bi))
                 returns.update(bi_klc_cnt(i, bi))
-                returns.update(macd(i, bi))
-                returns.update(rsi(i, bi))
-                returns.update(kdj(i, bi))
-                returns.update(boll(i, bi))
+                returns.update(indicators(i, bi.end_klc[-1]))
         return returns
 
     ############################### 中枢 ####################################
@@ -164,12 +132,21 @@ class FeatureFactors:
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"zs_begin{i}"] = klu.idx - zs.begin.idx + 1
+            for key, value in zs.begin.indicators.items():
+                returns[f"zs_begin_{key}{i}"] = value
             return returns
 
         def zs_end(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_end{i}"] = klu.idx - zs.end.idx + 1
+            returns[f"zs_end{i}"] = zs.begin.idx - zs.end.idx + 1
+            for key, value in zs.end.indicators.items():
+                returns[f"zs_end_{key}{i}"] = value
+            return returns
+
+        def zs_length(i, zs):
+            returns = dict()
+            returns[f"zs_length{i}"] = zs.end.idx - zs.begin.idx + 1
             return returns
 
         def zs_high(i, zs):
@@ -228,6 +205,7 @@ class FeatureFactors:
                     zs = self.chan.zs_list[-i]
                     returns.update(zs_begin(i, zs))
                     returns.update(zs_end(i, zs))
+                    returns.update(zs_length(i, zs))
                     returns.update(zs_high(i, zs))
                     returns.update(zs_low(i, zs))
                     returns.update(zs_mid(i, zs))
@@ -346,6 +324,3 @@ class FeatureFactors:
                     returns.update(seg_klu_cnt(f"_segseg{i}", segseg))
                     returns.update(seg_macd(f"_segseg{i}", segseg))
         return returns
-
-    def indicators(self):
-        return self.chan[-1][-1].indicators

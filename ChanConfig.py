@@ -11,6 +11,7 @@ from Math.BOLL import BollModel
 from Math.Demark import CDemarkEngine
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
+from Math.MA import CrossIndicators
 from Math.MACD import CMACD
 from Math.RSI import RSI
 from Math.TrendModel import CTrendModel
@@ -19,9 +20,10 @@ from ZS.ZSConfig import CZSConfig
 
 
 class CChanConfig:
-    def __init__(self, conf=None):
+    def __init__(self, code, conf=None):
         if conf is None:
             conf = {}
+        self.code = code
         conf = ConfigWithCheck(conf)
         self.bi_conf = CBiConfig(
             bi_algo=conf.get("bi_algo", "normal"),
@@ -103,7 +105,8 @@ class CChanConfig:
             res.append(RSI(self.rsi_cycle))
         if self.cal_kdj:
             res.append(KDJ(self.kdj_cycle))
-        res.append(TaIndicators(N=200))
+        res.append(TaIndicators(self.code, N=120))
+        res.append(CrossIndicators(T=120))
         return res
 
     def set_bsp_config(self, conf):
