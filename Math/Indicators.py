@@ -54,21 +54,21 @@ class TaIndicators:
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1]
         periods = [6, 20]
         for period in periods:
-            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1] * 100
+            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1]
         periods = [10, 20, 40]
         for period in periods:
-            returns[f"MAX{period}"] = (talib.MAX(highest, timeperiod=period)[-1] - close) / pip_value
-            returns[f"MIN{period}"] = (talib.MIN(lowest, timeperiod=period)[-1] - close) / pip_value
+            returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close
+            returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close
         UPPERBAND, MIDDLEBAND, LOWERBAND = \
             talib.BBANDS(closing, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-        returns["UPPERBAND"] = (UPPERBAND[-1] - close) / pip_value
-        returns["MIDDLEBAND"] = (MIDDLEBAND[-1] - close) / pip_value
-        returns["LOWERBAND"] = (LOWERBAND[-1] - close) / pip_value
+        returns["UPPERBAND"] = UPPERBAND[-1] / close
+        returns["MIDDLEBAND"] = MIDDLEBAND[-1] / close
+        returns["LOWERBAND"] = LOWERBAND[-1] / close
         MACD_DIF, MACD_DEA, MACD_BAR = talib.MACD(closing, fastperiod=12, slowperiod=26, signalperiod=9)
         returns["MACD_DIF"] = MACD_DIF[-1]
         returns["MACD_DEA"] = MACD_DEA[-1]
         returns["MACD_BAR"] = MACD_BAR[-1]
-        returns["RSI"] = talib.RSI(closing, timeperiod=14)[-1]
+        returns["RSI"] = talib.RSI(closing, timeperiod=14)[-1] / 100
         # returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
 
         # returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]

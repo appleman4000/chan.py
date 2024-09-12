@@ -43,8 +43,8 @@ class FeatureFactors:
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"bi_begin{i}"] = (klu.idx - bi.get_begin_klu().idx + 1)
-            returns[f"bi_begin_rate{i}"] = (bi.get_begin_val() - klu.close) / self.pip_value
-            returns[f"bi_begin_slope{i}"] = (bi.get_begin_val() - klu.close) / self.pip_value / (
+            returns[f"bi_begin_rate{i}"] = (bi.get_begin_val() / klu.close)
+            returns[f"bi_begin_slope{i}"] = (bi.get_begin_val() - klu.close) / (
                     klu.idx - bi.get_begin_klu().idx + 1)
             return returns
 
@@ -52,8 +52,8 @@ class FeatureFactors:
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"bi_end{i}"] = (klu.idx - bi.get_end_klu().idx + 1)
-            returns[f"bi_end_rate{i}"] = (bi.get_end_val() - klu.close) / self.pip_value
-            returns[f"bi_end_slope{i}"] = (bi.get_end_val() - klu.close) / self.pip_value / (
+            returns[f"bi_end_rate{i}"] = bi.get_end_val() / klu.close
+            returns[f"bi_end_slope{i}"] = (bi.get_end_val() - klu.close) / (
                     klu.idx - bi.get_end_klu().idx + 1)
             return returns
 
@@ -70,26 +70,26 @@ class FeatureFactors:
         def bi_high(i, bi):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"bi_high{i}"] = (bi._high() - bi._low()) / self.pip_value
-            returns[f"bi_high_rate{i}"] = (bi._high() - klu.close) / self.pip_value
+            returns[f"bi_high{i}"] = bi._high() / bi._low()
+            returns[f"bi_high_rate{i}"] = bi._high() / klu.close
             return returns
 
         def bi_low(i, bi):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"bi_low_rate{i}"] = (bi._low() - klu.close) / self.pip_value
+            returns[f"bi_low_rate{i}"] = bi._low() / klu.close
             return returns
 
         def bi_mid(i, bi):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"bi_mid_rate{i}"] = (bi._mid() - klu.close) / self.pip_value
+            returns[f"bi_mid_rate{i}"] = bi._mid() / klu.close
             return returns
 
         def bi_rate(i, bi):
             returns = dict()
-            returns[f"bi_rate{i}"] = (bi.get_end_val() - bi.get_begin_val()) / self.pip_value
-            returns[f"bi_slope{i}"] = (bi.get_end_val() - bi.get_begin_val()) / self.pip_value / bi.get_klu_cnt()
+            returns[f"bi_rate{i}"] = bi.get_end_val() / bi.get_begin_val()
+            returns[f"bi_slope{i}"] = (bi.get_end_val() - bi.get_begin_val())/ bi.get_klu_cnt()
             return returns
 
         def bi_klu_cnt(i, bi):
@@ -152,33 +152,33 @@ class FeatureFactors:
         def zs_high(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_high{i}"] = (zs.high - zs.low) / self.pip_value
-            returns[f"zs_high_rate{i}"] = (zs.high - klu.close) / self.pip_value
+            returns[f"zs_high{i}"] = zs.high / zs.low
+            returns[f"zs_high_rate{i}"] = zs.high / klu.close
             return returns
 
         def zs_low(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_low_rate{i}"] = (zs.low - klu.close) / self.pip_value
+            returns[f"zs_low_rate{i}"] = zs.low / klu.close
             return returns
 
         def zs_mid(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_mid_rate{i}"] = (zs.mid - klu.close) / self.pip_value
+            returns[f"zs_mid_rate{i}"] = zs.mid / klu.close
             return returns
 
         def zs_peak_high(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_peak_high{i}"] = (zs.peak_high - zs.peak_low) / self.pip_value
-            returns[f"zs_peak_high_rate{i}"] = (zs.peak_high - klu.close) / self.pip_value
+            returns[f"zs_peak_high{i}"] = zs.peak_high / zs.peak_low
+            returns[f"zs_peak_high_rate{i}"] = zs.peak_high / klu.close
             return returns
 
         def zs_peak_low(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_peak_low_rate{i}"] = (zs.peak_low - klu.close) / self.pip_value
+            returns[f"zs_peak_low_rate{i}"] = zs.peak_low / klu.close
             return returns
 
         def divergence(i, zs):
@@ -195,7 +195,7 @@ class FeatureFactors:
                 if zs.bi_out:
                     bi_out_metric = zs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
                     returns[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric
-                    returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric - bi_in_metric
+                    returns[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / (bi_in_metric+1e-7)
             return returns
 
         returns = dict()
@@ -240,8 +240,8 @@ class FeatureFactors:
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"seg_begin{i}"] = klu.idx - seg.get_begin_klu().idx + 1
-            returns[f"seg_begin_rate{i}"] = (seg.get_begin_val() - klu.close) / self.pip_value
-            returns[f"seg_begin_slope{i}"] = (seg.get_begin_val() - klu.close) / self.pip_value / (
+            returns[f"seg_begin_rate{i}"] = seg.get_begin_val() / klu.close
+            returns[f"seg_begin_slope{i}"] = (seg.get_begin_val() - klu.close) / (
                     klu.idx - seg.get_begin_klu().idx + 1)
             return returns
 
@@ -249,15 +249,15 @@ class FeatureFactors:
             klu = self.chan[-1][-1]
             returns = dict()
             returns[f"seg_end{i}"] = klu.idx - seg.get_end_klu().idx + 1
-            returns[f"seg_end_val_rate{i}"] = (seg.get_end_val() - klu.close) / self.pip_value
-            returns[f"seg_end_val_slope{i}"] = (seg.get_end_val() - klu.close) / self.pip_value / (
+            returns[f"seg_end_val_rate{i}"] = seg.get_end_val() / klu.close
+            returns[f"seg_end_val_slope{i}"] = (seg.get_end_val() - klu.close) / (
                     klu.idx - seg.get_end_klu().idx + 1)
             return returns
 
         def seg_rate(i, seg):
             returns = dict()
-            returns[f"seg_rate{i}"] = (seg.get_end_val() - seg.get_begin_val()) / self.pip_value
-            returns[f"seg_slope{i}"] = (seg.get_end_val() - seg.get_begin_val()) / self.pip_value / (
+            returns[f"seg_rate{i}"] = seg.get_end_val() / seg.get_begin_val()
+            returns[f"seg_slope{i}"] = (seg.get_end_val() - seg.get_begin_val()) / (
                     seg.get_end_klu().idx - seg.get_begin_klu().idx)
             return returns
 
@@ -269,14 +269,14 @@ class FeatureFactors:
         def seg_high(i, seg):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"seg_high{i}"] = (seg._high() - seg._low()) / self.pip_value
-            returns[f"seg_high_rate{i}"] = (seg._high() - klu.close) / self.pip_value
+            returns[f"seg_high{i}"] = seg._high() / seg._low()
+            returns[f"seg_high_rate{i}"] = seg._high() / klu.close
             return returns
 
         def seg_low(i, seg):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"seg_low_rate{i}"] = (seg._low() - klu.close) / self.pip_value
+            returns[f"seg_low_rate{i}"] = seg._low() / klu.close
             return returns
 
         def seg_is_down(i, seg):

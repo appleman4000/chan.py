@@ -4,6 +4,7 @@ import logging
 import math
 import os.path
 import pickle
+import sys
 import warnings
 from typing import Dict
 
@@ -29,6 +30,7 @@ from Plot.PlotDriver import CPlotDriver
 logging.getLogger('LGBMClassifier').setLevel(logging.CRITICAL)
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 warnings.filterwarnings("ignore")
+sys.setrecursionlimit(100000)
 
 
 def max_draw_down(return_list):
@@ -54,9 +56,9 @@ def plot(chan, plot_marker, name):
     }
     plot_para = {
         "figure": {
-            "w": 100,
+            "w": 50,
             "h": 10,
-            "x_range": 10000,
+            "x_range": 5000,
         },
         "marker": {
             "markers": plot_marker
@@ -128,12 +130,12 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 止盈
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
-            exit_rule = cross == -1
+            # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
+            # exit_rule = cross == 1
             # 最大止盈止损保护
-            # tp = long_profit > trade_params["bsp1_tp_long"]
-            sl = long_profit < -trade_params["bsp1_sl_long"]
-            if sl or exit_rule:
+            tp = long_profit >= trade_params["bsp1_tp_long"]
+            sl = long_profit <= -trade_params["bsp1_tp_long"] / trade_params["profit_loss_radio"]
+            if tp or sl:
                 long_order = 0
                 bsp_dict[long_klu_idx]["close_time"] = lv_chan[-1][-1].time
                 bsp_dict[long_klu_idx]["profit"] = round(long_profit * money, 2)
@@ -143,12 +145,12 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             short_profit = short_order / close_price - 1
             # exit_rule = lv_chan[-2][-1].indicators["EMA26"] < 0 <= lv_chan[-1][-1].indicators["EMA26"]
             # exit_rule = bsp1_pred > trade_params["bsp1_close"] and last_bsp.is_buy
-            cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
-            exit_rule = cross == 1
+            # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
+            # exit_rule = cross == -1
             # 最大止盈止损保护
-            # tp = short_profit > trade_params["bsp1_tp_short"]
-            sl = short_profit < -trade_params["bsp1_sl_short"]
-            if sl or exit_rule:
+            tp = short_profit >= trade_params["bsp1_tp_short"]
+            sl = short_profit <= -trade_params["bsp1_tp_short"] / trade_params["profit_loss_radio"]
+            if tp or sl:
                 short_order = 0
                 bsp_dict[short_klu_idx]["close_time"] = lv_chan[-1][-1].time
                 bsp_dict[short_klu_idx]["profit"] = round(short_profit * money, 2)
@@ -220,15 +222,16 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     return code, score, capital
 
 
-def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names, bsp1_open):
+def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names):
     trade_params = {
-        "bsp1_open": bsp1_open,  # trial.suggest_float('bsp1_open', 0.2, 0.8, step=0.01),
+        "bsp1_open": trial.suggest_float('bsp1_open', 0.1, 0.8, step=0.01),
+        "profit_loss_radio": trial.suggest_float('profit_loss_radio', 0.5, 3.0, step=0.1),
         # "bsp1_close": trial.suggest_float('bsp1_close', 0.0, bsp1_open, step=0.01),
-        "cross_period": trial.suggest_int('cross_period', 8, 30),
-        # "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.005, 0.02, step=0.001),
-        "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
-        # "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.005, 0.02, step=0.001),
-        "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
+        # "cross_period": trial.suggest_int('cross_period', 8, 30),
+        "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.003, 0.02, step=0.001),
+        # "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
+        "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.003, 0.02, step=0.001),
+        # "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
     }
     code, score, capital = run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names,
                                      trade_params)
@@ -258,7 +261,7 @@ def get_model(code, params, X_train, X_test, y_train, y_test):
     model = lgb.LGBMClassifier(**params)
     X_train, y_train, sample_weight = shuffle(X_train, y_train, sample_weight, random_state=42)
     model.fit(X=X_train, y=y_train, eval_set=[(X_test, y_test)], sample_weight=sample_weight,
-              callbacks=[early_stopping(stopping_rounds=50, verbose=False)])
+              callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
     test_probs = model.predict_proba(X_test)[:, 1]
     auc = roc_auc_score(y_test, test_probs)
     print(f"{code} AUC {auc}")
@@ -316,20 +319,20 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "random_state": seed,
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
-        'max_depth': trial.suggest_int('max_depth', 3, 4),
-        'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-        'learning_rate': trial.suggest_float('learning_rate', 0.1, 0.3, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
-        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
-        'min_split_gain': trial.suggest_float('min_split_gain', 0.001, 1.0, step=0.001),
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 8, 31),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.01),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
+        'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
+        'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
         'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
-        'subsample': trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
-        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
+        'subsample': 0.8,  # trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
+        'subsample_freq': 5,  # trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': 0.8,  # trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
         'reg_alpha': trial.suggest_int('reg_alpha', 0, 100),
         'reg_lambda': trial.suggest_int('reg_lambda', 0, 100),
-        'feature_fraction': trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
-        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
+        # 'feature_fraction': 0.95,  # trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
+        # 'bagging_fraction': 0.95,  # trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
         'gpu_platform_id': 0,  # 可选，通常为 0
         'gpu_device_id': trial.number % 2  # 可选，通常为 0
 
@@ -363,7 +366,7 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
     #     cv_aucs.append(auc)
     # score = np.mean(cv_aucs)
     model.fit(X=X_train, y=y_train, eval_set=[(X_test, y_test)], sample_weight=sample_weight,
-              callbacks=[early_stopping(stopping_rounds=50, verbose=False)])
+              callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
     val_probs = model.predict_proba(X_test)[:, 1]
     # 计算AUC并记录
     score = roc_auc_score(y_test, val_probs)
@@ -418,6 +421,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                 "price": lv_chan[-1][-1].close,
                 "is_buy": last_bsp.is_buy,
                 "state": 0,
+                "bsp": last_bsp
             }
 
     bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0) if bsp.bi.next is not None]
@@ -434,7 +438,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 def run_codes(codes):
     lv_list = [KL_TYPE.K_30M]
-    begin_time = "2018-01-01 00:00:00"
+    begin_time = "2020-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     val_begin_time = "2023-01-01 00:00:00"
     val_end_time = "2024-01-01 00:00:00"
@@ -500,21 +504,20 @@ def run_codes(codes):
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
         study.optimize(
-            lambda trial: optimize_model(trial, all_x_train, X_test[code], all_y_train, y_test[code], seed=42),
-            n_trials=1000,
+            lambda trial: optimize_model(trial, X_train[code], X_test[code], y_train[code], y_test[code], seed=42),
+            n_trials=2000,
             n_jobs=-1)
         model_params = study.best_trial.user_attrs["model_params"]
-        print(f"{code} AUC {study.best_trial.value}")
+        print(f"{code} AUC {study.best_trial.value} {model_params}")
         print(f"{code} 重新训练模型")
-        model, threshold = get_model(code, model_params, all_x_train, X_test[code], all_y_train,
-                                     y_test[code])
+        model, threshold = get_model(code, model_params, X_train[code], X_test[code], y_train[code], y_test[code])
         print(f"{code}找最优交易参数")
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
         study.optimize(
             lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                         feature_names[code], threshold),
-            n_trials=100,
+                                         feature_names[code]),
+            n_trials=30,
             n_jobs=4)
         trade_params = study.best_trial.user_attrs["trade_params"]
         capital = study.best_trial.user_attrs["capital"]
