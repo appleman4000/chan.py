@@ -11,7 +11,10 @@ class CrossIndicators:
         self.arr = []
 
     def add(self, value) -> float:
+        if len(self.arr) == 0:
+            self.arr = [value] * self.T
         self.arr.append(value)
+
         if len(self.arr) > self.T:
             self.arr = self.arr[-self.T:]
         periods = np.arange(8, 31)

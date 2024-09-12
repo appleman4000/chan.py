@@ -10,7 +10,7 @@ from Math.BOLL import BOLL_Metric, BollModel
 from Math.Demark import CDemarkEngine, CDemarkIndex
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
-from Math.MA import CrossIndicators
+from Math.Cross import CrossIndicators
 from Math.MACD import CMACD, CMACD_item
 from Math.RSI import RSI
 from Math.TrendModel import CTrendModel

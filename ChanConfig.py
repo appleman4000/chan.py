@@ -11,7 +11,7 @@ from Math.BOLL import BollModel
 from Math.Demark import CDemarkEngine
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
-from Math.MA import CrossIndicators
+from Math.Cross import CrossIndicators
 from Math.MACD import CMACD
 from Math.RSI import RSI
 from Math.TrendModel import CTrendModel
