@@ -27,7 +27,7 @@ def calculate_all_cdl_patterns(opening, highest, lowest, closing):
 
 
 class TaIndicators:
-    def __init__(self,N):
+    def __init__(self, N):
         assert N > 1
         self.N = N
         self.arr = []
@@ -49,16 +49,16 @@ class TaIndicators:
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1]
         periods = [6, 20]
         for period in periods:
-            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1]
-        periods = [10, 20, 40]
+            returns[f"ROCP{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
+        periods = [10, 20]
         for period in periods:
             returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close
             returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close
-        UPPERBAND, MIDDLEBAND, LOWERBAND = \
-            talib.BBANDS(closing, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-        returns["UPPERBAND"] = UPPERBAND[-1] / close
-        returns["MIDDLEBAND"] = MIDDLEBAND[-1] / close
-        returns["LOWERBAND"] = LOWERBAND[-1] / close
+        # UPPERBAND, MIDDLEBAND, LOWERBAND = \
+        #     talib.BBANDS(closing, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+        # returns["UPPERBAND"] = UPPERBAND[-1] / close
+        # returns["MIDDLEBAND"] = MIDDLEBAND[-1] / close
+        # returns["LOWERBAND"] = LOWERBAND[-1] / close
         MACD_DIF, MACD_DEA, MACD_BAR = talib.MACD(closing, fastperiod=12, slowperiod=26, signalperiod=9)
         returns["MACD_DIF"] = MACD_DIF[-1]
         returns["MACD_DEA"] = MACD_DEA[-1]
@@ -66,14 +66,18 @@ class TaIndicators:
         returns["RSI"] = talib.RSI(closing, timeperiod=14)[-1] / 100
         returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]
         returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1]
-        returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
-
+        returns["K"], returns["D"] = talib.STOCH(highest, lowest, closing,
+                                                 fastk_period=9,  # K 线的周期
+                                                 slowk_period=3,  # K 线的平滑周期
+                                                 slowk_matype=0,  # 使用简单移动平均
+                                                 slowd_period=3,  # D 线的周期
+                                                 slowd_matype=0)  # 使用简单移动平均
+        returns["J"] = 3 * returns["K"] - 2 * returns["D"]
+        returns["AROONOSC"] = talib.AROONOSC(highest, lowest, timeperiod=14)[-1]
         # returns["APO"] = talib.APO(closing, fastperiod=12, slowperiod=26)[-1]
         # AROONDOWN, AROONUP = talib.AROON(highest, lowest, timeperiod=14)
         # returns["AROONDOWN"] = AROONDOWN[-1]
         # returns["AROONUP"] = AROONUP[-1]
-        # returns["AROONOSC"] = talib.AROONOSC(highest, lowest, timeperiod=14)[-1]
-
         # returns["PPO"] = talib.PPO(closing, fastperiod=12, slowperiod=26, matype=0)[-1]
 
         # returns["SAR"] = talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close - 1

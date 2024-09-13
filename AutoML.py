@@ -44,7 +44,7 @@ def max_draw_down(return_list):
     return round(return_list[j] - return_list[i])
 
 
-def plot(chan, plot_marker, name):
+def plot(chan, plot_marker):
     plot_config = {
         "plot_kline": False,
         "plot_kline_combine": False,
@@ -99,6 +99,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
     factors = None
     bsp1_pred = 0
+    long_klu_idx = 0
+    short_klu_idx = 0
     for chan_snapshot in chan.step_load():
 
         lv_chan = chan_snapshot[0]
@@ -128,9 +130,6 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 止盈
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
-            # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
-            # exit_rule = lv_chan[-1][-1].idx - long_klu_idx >= 7 and lv_chan[-1].fx == FX_TYPE.TOP
-            # exit_rule = lv_chan[-1][-1].rsi >= 0.7
             # 最大止盈止损保护
             tp = long_profit >= trade_params["bsp1_tp_long"]
             sl = long_profit <= -trade_params["bsp1_tp_long"] / trade_params["long_profit_loss_radio"]
@@ -142,12 +141,6 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if short_order > 0:
             close_price = round(lv_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
-            # exit_rule = lv_chan[-2][-1].indicators["EMA26"] < 0 <= lv_chan[-1][-1].indicators["EMA26"]
-            # exit_rule = bsp1_pred > trade_params["bsp1_close"] and last_bsp.is_buy
-            # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
-            # exit_rule = cross == -1
-            # exit_rule = lv_chan[-1][-1].idx - short_klu_idx >= 7 and lv_chan[-1].fx == FX_TYPE.BOTTOM
-            # exit_rule = lv_chan[-1][-1].rsi <= 0.3
             # 最大止盈止损保护
             tp = short_profit >= trade_params["bsp1_tp_short"]
             sl = short_profit <= -trade_params["bsp1_tp_short"] / trade_params["short_profit_loss_radio"]
@@ -191,14 +184,15 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # print(f"{profit} {capital}")
         capitals.append(capital)
     for bsp_klc_idx, feature_info in bsp_dict.items():
-        label = feature_info["profit"] > 0
-        bs = "b1" if feature_info["is_buy"] else "s1"
-        error = "√" if label else "×"
+        bs = "B" if feature_info["is_buy"] else "S"
+        error = "√" if feature_info["profit"] > 0 else "×"
         label = bs + error
 
         plot_marker[feature_info["open_time"].to_str()] = (
             label, "down" if feature_info["is_buy"] else "up")
-    plot_driver = plot(chan, plot_marker, name=f"{code}")
+        plot_marker[feature_info["close_time"].to_str()] = (
+            "C" + error, "up" if feature_info["is_buy"] else "down")
+    plot_driver = plot(chan, plot_marker)
     trades = np.asarray(trades)
 
     if len(trades) == 0:
@@ -478,7 +472,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 def run_codes(codes):
     lv_list = [KL_TYPE.K_30M]
-    begin_time = "2020-01-01 00:00:00"
+    begin_time = "2018-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     val_begin_time = "2023-01-01 00:00:00"
     val_end_time = "2024-01-01 00:00:00"
@@ -497,9 +491,9 @@ def run_codes(codes):
         "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
-        "cal_rsi": True,
-        "cal_boll": True,
-        "cal_kdj": True,
+        "cal_rsi": False,
+        "cal_boll": False,
+        "cal_kdj": False,
         "kl_data_check": False,
         "MAX_BI": 7,
         "MAX_ZS": 1,
