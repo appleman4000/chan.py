@@ -98,5 +98,4 @@ class TaIndicators:
         # for period in periods:
         #     returns[f"ROCP{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
         # periods = [10, 20, 40]
-        # returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
         return returns
