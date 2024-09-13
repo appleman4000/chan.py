@@ -27,9 +27,8 @@ def calculate_all_cdl_patterns(opening, highest, lowest, closing):
 
 
 class TaIndicators:
-    def __init__(self, code, N):
+    def __init__(self,N):
         assert N > 1
-        self.code = code
         self.N = N
         self.arr = []
 
@@ -46,10 +45,6 @@ class TaIndicators:
         lowest = np.array(self.arr)[:, 2].astype(np.float64)
         closing = np.array(self.arr)[:, 3].astype(np.float64)
         returns = dict()
-        if "JPY" in self.code:
-            pip_value = 0.01
-        else:
-            pip_value = 0.0001
 
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1]
         periods = [6, 20]
@@ -69,10 +64,10 @@ class TaIndicators:
         returns["MACD_DEA"] = MACD_DEA[-1]
         returns["MACD_BAR"] = MACD_BAR[-1]
         returns["RSI"] = talib.RSI(closing, timeperiod=14)[-1] / 100
-        # returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
+        returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]
+        returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1]
+        returns.update(calculate_all_cdl_patterns(opening, highest, lowest, closing))
 
-        # returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1]
-        # returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1]
         # returns["APO"] = talib.APO(closing, fastperiod=12, slowperiod=26)[-1]
         # AROONDOWN, AROONUP = talib.AROON(highest, lowest, timeperiod=14)
         # returns["AROONDOWN"] = AROONDOWN[-1]

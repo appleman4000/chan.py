@@ -8,10 +8,10 @@ from Common.CEnum import TREND_TYPE
 from Common.ChanException import CChanException, ErrCode
 from Common.func_util import _parse_inf
 from Math.BOLL import BollModel
+from Math.Cross import CrossIndicators
 from Math.Demark import CDemarkEngine
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
-from Math.Cross import CrossIndicators
 from Math.MACD import CMACD
 from Math.RSI import RSI
 from Math.TrendModel import CTrendModel
@@ -20,10 +20,9 @@ from ZS.ZSConfig import CZSConfig
 
 
 class CChanConfig:
-    def __init__(self, code, conf=None):
+    def __init__(self, conf=None):
         if conf is None:
             conf = {}
-        self.code = code
         conf = ConfigWithCheck(conf)
         self.bi_conf = CBiConfig(
             bi_algo=conf.get("bi_algo", "normal"),
@@ -105,7 +104,7 @@ class CChanConfig:
             res.append(RSI(self.rsi_cycle))
         if self.cal_kdj:
             res.append(KDJ(self.kdj_cycle))
-        res.append(TaIndicators(self.code, N=120))
+        res.append(TaIndicators( N=120))
         res.append(CrossIndicators(T=120))
         return res
 

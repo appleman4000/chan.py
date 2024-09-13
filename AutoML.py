@@ -46,9 +46,9 @@ def max_draw_down(return_list):
 
 def plot(chan, plot_marker, name):
     plot_config = {
-        "plot_kline": True,
+        "plot_kline": False,
         "plot_kline_combine": False,
-        "plot_bi": False,
+        "plot_bi": True,
         "plot_seg": False,
         "plot_zs": False,
         "plot_bsp": False,
@@ -56,9 +56,9 @@ def plot(chan, plot_marker, name):
     }
     plot_para = {
         "figure": {
-            "w": 50,
+            "w": 400,
             "h": 10,
-            "x_range": 5000,
+            "x_range": 20000,
         },
         "marker": {
             "markers": plot_marker
@@ -69,7 +69,7 @@ def plot(chan, plot_marker, name):
         plot_config=plot_config,
         plot_para=plot_para,
     )
-    plot_driver.save2img(f"./result/{name}.png")
+    return plot_driver
 
 
 def predict_bsp(model, feature: dict, feature_names):
@@ -121,6 +121,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
         if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and lv_chan[-2].fx != FX_TYPE.UNKNOWN:
+            if factors is None:
+                continue
             last_bsp.add_feat(factors)
             features = dict(last_bsp.features.items())
             bsp1_pred = predict_bsp(model=model, feature=features, feature_names=feature_names)
@@ -131,10 +133,11 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
             # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
-            # exit_rule = cross == 1
+            # exit_rule = lv_chan[-1][-1].idx - long_klu_idx >= 7 and lv_chan[-1].fx == FX_TYPE.TOP
+            # exit_rule = lv_chan[-1][-1].rsi >= 0.7
             # 最大止盈止损保护
             tp = long_profit >= trade_params["bsp1_tp_long"]
-            sl = long_profit <= -trade_params["bsp1_tp_long"] / trade_params["profit_loss_radio"]
+            sl = long_profit <= -trade_params["bsp1_tp_long"] / trade_params["long_profit_loss_radio"]
             if tp or sl:
                 long_order = 0
                 bsp_dict[long_klu_idx]["close_time"] = lv_chan[-1][-1].time
@@ -147,9 +150,11 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # exit_rule = bsp1_pred > trade_params["bsp1_close"] and last_bsp.is_buy
             # cross = lv_chan[-1][-1].cross[f"Cross{trade_params['cross_period']}"]
             # exit_rule = cross == -1
+            # exit_rule = lv_chan[-1][-1].idx - short_klu_idx >= 7 and lv_chan[-1].fx == FX_TYPE.BOTTOM
+            # exit_rule = lv_chan[-1][-1].rsi <= 0.3
             # 最大止盈止损保护
             tp = short_profit >= trade_params["bsp1_tp_short"]
-            sl = short_profit <= -trade_params["bsp1_tp_short"] / trade_params["profit_loss_radio"]
+            sl = short_profit <= -trade_params["bsp1_tp_short"] / trade_params["short_profit_loss_radio"]
             if tp or sl:
                 short_order = 0
                 bsp_dict[short_klu_idx]["close_time"] = lv_chan[-1][-1].time
@@ -197,8 +202,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
         plot_marker[feature_info["open_time"].to_str()] = (
             label, "down" if feature_info["is_buy"] else "up")
-    plot(chan, plot_marker,
-         name=f"{code}")
+    plot_driver = plot(chan, plot_marker, name=f"{code}")
     trades = np.asarray(trades)
 
     if len(trades) == 0:
@@ -219,51 +223,63 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if math.isnan(score):
             score = 0
     print(f"{code} 盈利:{score} {capital}")
-    return code, score, capital
+    return code, score, capital, plot_driver
 
 
-def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names):
+def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names, profit_loss):
     trade_params = {
-        "bsp1_open": trial.suggest_float('bsp1_open', 0.1, 0.8, step=0.01),
-        "profit_loss_radio": trial.suggest_float('profit_loss_radio', 0.5, 3.0, step=0.1),
+        "bsp1_open": trial.suggest_float('bsp1_open', 0.1, 0.25, step=0.01),
+        "long_profit_loss_radio": trial.suggest_float('long_profit_loss_radio', 1.0, 3.0, step=0.1),
+        "short_profit_loss_radio": trial.suggest_float('short_profit_loss_radio', 1.0, 3.0, step=0.1),
         # "bsp1_close": trial.suggest_float('bsp1_close', 0.0, bsp1_open, step=0.01),
         # "cross_period": trial.suggest_int('cross_period', 8, 30),
-        "bsp1_tp_long": trial.suggest_float('bsp1_tp_long', 0.003, 0.02, step=0.001),
+        "bsp1_tp_long": profit_loss,  # trial.suggest_float('bsp1_tp_long', 0.003, 0.02, step=0.001),
         # "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
-        "bsp1_tp_short": trial.suggest_float('bsp1_tp_short', 0.003, 0.02, step=0.001),
+        "bsp1_tp_short": profit_loss,  # trial.suggest_float('bsp1_tp_short', 0.003, 0.02, step=0.001),
         # "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
     }
-    code, score, capital = run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names,
-                                     trade_params)
+    code, score, capital, plot_driver = run_trade(code, lv_list, begin_time, end_time, dataset_params, model,
+                                                  feature_names,
+                                                  trade_params)
     print(f"{code} score: {score} {capital} {trade_params}")
     trial.set_user_attr("trade_params", trade_params)
     trial.set_user_attr("capital", capital)
+    trial.set_user_attr("plot_driver", plot_driver)
     return score
 
 
 def get_model(code, params, X_train, X_test, y_train, y_test):
     X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
-    X_train = X_train.to_numpy(np.float32)
-    y_train = y_train["label"].to_numpy(int)
-    y_test = y_test["label"].to_numpy(int)
 
-    size0 = len(y_train[y_train == 0])
-    size1 = len(y_train[y_train == 1])
+    X_train = X_train.to_numpy(np.float32)
+    profit_loss_train = y_train["profit_loss"].to_numpy(np.float32)
+    profit_loss_test = y_test["profit_loss"].to_numpy(np.float32)
+    label_train = y_train["label"].to_numpy(int)
+    X_test = X_test.to_numpy(np.float32)
+    label_test = y_test["label"].to_numpy(int)
+
+    size0 = len(label_train[label_train == 0])
+    size1 = len(label_train[label_train == 1])
     w0 = (size0 + size1) / size0
     w1 = (size0 + size1) / size1
     sample_weight = []
-    for y in y_train:
-        if y == 0:
-            w = w0
+    min_profit_loss = np.min(profit_loss_train)
+    assert min_profit_loss > 0
+    max_profit_loss = np.max(profit_loss_train)
+    for idx, label in enumerate(label_train):
+        if label == 0:
+            w = w0 * (profit_loss_train[idx] - min_profit_loss) / (max_profit_loss - min_profit_loss)
         else:
-            w = w1
+            w = w1 * (profit_loss_train[idx] - min_profit_loss) / (max_profit_loss - min_profit_loss)
         sample_weight.append(w)
+    sample_weight = np.array(sample_weight)
+
     model = lgb.LGBMClassifier(**params)
-    X_train, y_train, sample_weight = shuffle(X_train, y_train, sample_weight, random_state=42)
-    model.fit(X=X_train, y=y_train, eval_set=[(X_test, y_test)], sample_weight=sample_weight,
+    X_train, label_train, sample_weight = shuffle(X_train, label_train, sample_weight, random_state=42)
+    model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)], sample_weight=sample_weight,
               callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
     test_probs = model.predict_proba(X_test)[:, 1]
-    auc = roc_auc_score(y_test, test_probs)
+    auc = roc_auc_score(label_test, test_probs)
     print(f"{code} AUC {auc}")
     accuracies = []
     precisions = []
@@ -273,15 +289,14 @@ def get_model(code, params, X_train, X_test, y_train, y_test):
     print("计算正确率、精确率、召回率和F1分数")
     for threshold in thresholds:
         y_pred = (test_probs >= threshold).astype(int)
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+        accuracy = accuracy_score(label_test, y_pred)
+        precision = precision_score(label_test, y_pred)
+        recall = recall_score(label_test, y_pred)
+        f1 = f1_score(label_test, y_pred)
         accuracies.append(accuracy)
         precisions.append(precision)
         recalls.append(recall)
         f1_scores.append(f1)
-    best_threshold = np.maximum(0.3, thresholds[np.argmax(f1_scores)])
     # 绘制曲线
     matplotlib.use('Agg')
     plt.figure(figsize=(12, 8))
@@ -299,16 +314,18 @@ def get_model(code, params, X_train, X_test, y_train, y_test):
     plt.clf()
     matplotlib.use('Agg')
 
-    return model, best_threshold
+    return model
 
 
 def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
     X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
 
     X_train = X_train.to_numpy(np.float32)
-    y_train = y_train["label"].to_numpy(int)
+    profit_loss_train = y_train["profit_loss"].to_numpy(np.float32)
+    profit_loss_test = y_test["profit_loss"].to_numpy(np.float32)
+    label_train = y_train["label"].to_numpy(int)
     X_test = X_test.to_numpy(np.float32)
-    y_test = y_test["label"].to_numpy(int)
+    label_test = y_test["label"].to_numpy(int)
     model_params = {
         'device': 'gpu',
         'objective': 'binary',
@@ -320,15 +337,15 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
         'max_depth': trial.suggest_int('max_depth', 3, 5),
-        'num_leaves': trial.suggest_int('num_leaves', 8, 31),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.01),
+        'num_leaves': trial.suggest_int('num_leaves', 8, 63),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),
         'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
         'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
         'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
         'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
-        'subsample': 0.8,  # trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
-        'subsample_freq': 5,  # trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': 0.8,  # trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
+        'subsample': 0.9,  # trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
+        'subsample_freq': 4,  # trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': 0.9,  # trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
         'reg_alpha': trial.suggest_int('reg_alpha', 0, 100),
         'reg_lambda': trial.suggest_int('reg_lambda', 0, 100),
         # 'feature_fraction': 0.95,  # trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
@@ -337,20 +354,24 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         'gpu_device_id': trial.number % 2  # 可选，通常为 0
 
     }
-    size0 = len(y_train[y_train == 0])
-    size1 = len(y_train[y_train == 1])
+    size0 = len(label_train[label_train == 0])
+    size1 = len(label_train[label_train == 1])
     w0 = (size0 + size1) / size0
     w1 = (size0 + size1) / size1
     sample_weight = []
-    for y in y_train:
-        if y == 0:
-            w = w0
+    min_profit_loss = np.min(profit_loss_train)
+    assert min_profit_loss > 0
+    max_profit_loss = np.max(profit_loss_train)
+    for idx, label in enumerate(label_train):
+        if label == 0:
+            w = w0 * (profit_loss_train[idx] - min_profit_loss) / (max_profit_loss - min_profit_loss)
         else:
-            w = w1
+            w = w1 * (profit_loss_train[idx] - min_profit_loss) / (max_profit_loss - min_profit_loss)
         sample_weight.append(w)
+
     sample_weight = np.array(sample_weight)
     model = lgb.LGBMClassifier(**model_params)
-    X_train, y_train, sample_weight = shuffle(X_train, y_train, sample_weight, random_state=42)
+    X_train, label_train, sample_weight = shuffle(X_train, label_train, sample_weight, random_state=42)
     # skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
     # cv_aucs = []
     # for train_index, val_index in skf.split(X_train, y_train):
@@ -365,22 +386,23 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
     #     auc = roc_auc_score(y_fold_val, y_pred_proba)
     #     cv_aucs.append(auc)
     # score = np.mean(cv_aucs)
-    model.fit(X=X_train, y=y_train, eval_set=[(X_test, y_test)], sample_weight=sample_weight,
+    model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)], sample_weight=sample_weight,
               callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
     val_probs = model.predict_proba(X_test)[:, 1]
+
+    profit_loss = np.mean(profit_loss_test[label_test == 1])
     # 计算AUC并记录
-    score = roc_auc_score(y_test, val_probs)
+    score = roc_auc_score(label_test, val_probs)
+    trial.set_user_attr("model", model)
     trial.set_user_attr("model_params", model_params)
+    trial.set_user_attr("profit_loss", profit_loss)
+
     return score
 
 
 def get_dataset(code, lv_list, begin_time, end_time, params):
     print(f"{code} 开始产生数据集")
-    if "JPY" in code:
-        pip_value = 0.01
-    else:
-        pip_value = 0.0001
-    config = CChanConfig(code=code, conf=params.copy())
+    config = CChanConfig(conf=params.copy())
 
     chan = CChan(
         code=code,
@@ -403,7 +425,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
             continue
         last_bsp = bsp_list[-1]
         if last_bsp.klu.klc.idx == lv_chan[-1].idx and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-            factors = FeatureFactors(chan_snapshot[0], pip_value,
+            factors = FeatureFactors(chan_snapshot[0],
                                      MAX_BI=params["MAX_BI"],
                                      MAX_ZS=params["MAX_ZS"],
                                      MAX_SEG=params["MAX_SEG"],
@@ -421,14 +443,36 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                 "price": lv_chan[-1][-1].close,
                 "is_buy": last_bsp.is_buy,
                 "state": 0,
-                "bsp": last_bsp
+                "last_bsp": last_bsp
             }
 
     bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0) if bsp.bi.next is not None]
     rows = []
     for bsp_klu_idx, feature_info in bsp_dict.items():
         label = int(bsp_klu_idx in bsp_academy)
-        row = {"label": label}
+        profit_loss = 0
+        if label == 1:
+            last_bsp = feature_info["last_bsp"]
+            if last_bsp.is_buy:
+                if last_bsp.bi.next is None:
+                    continue
+                profit_loss = (last_bsp.bi.next.get_end_val() / feature_info["price"]) - 1
+                assert profit_loss > 0
+            else:
+                if last_bsp.bi.next is None:
+                    continue
+                profit_loss = last_bsp.bi.next.get_end_val() / feature_info["price"] - 1
+                assert profit_loss < 0
+        if label == 0:
+            last_bsp = feature_info["last_bsp"]
+            if last_bsp.is_buy:
+                profit_loss = last_bsp.bi.get_end_val() / feature_info["price"] - 1
+                assert profit_loss < 0
+            else:
+                profit_loss = last_bsp.bi.get_end_val() / feature_info["price"] - 1
+                assert profit_loss > 0
+
+        row = {"label": label, "profit_loss": abs(profit_loss)}
         feature = feature_info["feature"]
         row.update(feature)
         rows.append(row)
@@ -457,9 +501,9 @@ def run_codes(codes):
         "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
-        "cal_rsi": False,
-        "cal_boll": False,
-        "cal_kdj": False,
+        "cal_rsi": True,
+        "cal_boll": True,
+        "cal_kdj": True,
         "kl_data_check": False,
         "MAX_BI": 7,
         "MAX_ZS": 1,
@@ -486,46 +530,54 @@ def run_codes(codes):
     for code, dataset in results:
         all_feature_names.update(set(dataset.columns))
     all_feature_names.remove("label")
+    all_feature_names.remove("profit_loss")
     all_x_train = pd.DataFrame(columns=list(all_feature_names))
     all_y_train = pd.DataFrame()
     for code, dataset in results:
-        dataset = pd.DataFrame(dataset, columns=["label"] + list(all_feature_names))
+        dataset = pd.DataFrame(dataset, columns=["label", "profit_loss"] + list(all_feature_names))
         feature_names[code] = list(all_feature_names)
         X_train[code], X_test[code], y_train[code], y_test[code] = train_test_split(dataset[list(all_feature_names)],
-                                                                                    dataset[["label"]],
+                                                                                    dataset[["label", "profit_loss"]],
                                                                                     test_size=0.2,
                                                                                     shuffle=False)
         all_x_train = pd.concat([all_x_train, X_train[code]])
         all_y_train = pd.concat([all_y_train, y_train[code]])
 
     for code in codes:
-        print(f"{code} Train Dataset:{all_x_train.shape} Test Dataset:{X_test[code].shape}")
+        print(f"{code} Train Dataset:{X_train[code].shape} Test Dataset:{X_test[code].shape}")
         print(f"{code}找最优模型参数")
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
         study.optimize(
             lambda trial: optimize_model(trial, X_train[code], X_test[code], y_train[code], y_test[code], seed=42),
-            n_trials=2000,
+            n_trials=1000,
             n_jobs=-1)
+        model = study.best_trial.user_attrs["model"]
         model_params = study.best_trial.user_attrs["model_params"]
-        print(f"{code} AUC {study.best_trial.value} {model_params}")
-        print(f"{code} 重新训练模型")
-        model, threshold = get_model(code, model_params, X_train[code], X_test[code], y_train[code], y_test[code])
+        profit_loss = study.best_trial.user_attrs["profit_loss"]
+        print(f"{code} AUC {study.best_trial.value} {profit_loss} {model_params}")
         print(f"{code}找最优交易参数")
         storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(),
+                                    storage=storage)
         study.optimize(
             lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                         feature_names[code]),
-            n_trials=30,
-            n_jobs=4)
+                                         feature_names[code], profit_loss),
+            n_trials=50,
+            n_jobs=8)
         trade_params = study.best_trial.user_attrs["trade_params"]
         capital = study.best_trial.user_attrs["capital"]
+        plot_driver = study.best_trial.user_attrs["plot_driver"]
+        plot_driver.save2img(f"./result/{code}_train.png")
+        plt.clf()
         print(f"{code} Best Score {study.best_trial.value} Best capital {capital} ")
         print("开始测试")
-        code, score, capital = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params, model,
-                                         feature_names[code],
-                                         trade_params)
+        code, score, capital, plot_driver = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params,
+                                                      model,
+                                                      feature_names[code],
+                                                      trade_params)
+        plot_driver.save2img(f"./result/{code}_test.png")
+        plt.clf()
         with open("./result/report.log", mode="a") as file:
             seq = f"{code} 2024年实战盈利:{score} {capital} ,dataset:{dataset_params},trade:{trade_params}\n"
             file.writelines(seq)
