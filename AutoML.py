@@ -78,11 +78,7 @@ def predict_bsp(model, feature: dict, feature_names):
 
 
 def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params):
-    if "JPY" in code:
-        pip_value = 0.01
-    else:
-        pip_value = 0.0001
-    config = CChanConfig(code=code, conf=dataset_params.copy())
+    config = CChanConfig(conf=dataset_params.copy())
     chan = CChan(
         code=code,
         data_src=DATA_SRC.FOREX,
@@ -114,7 +110,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
         if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-            factors = FeatureFactors(chan_snapshot[0], pip_value=pip_value, MAX_BI=dataset_params["MAX_BI"],
+            factors = FeatureFactors(chan_snapshot[0], MAX_BI=dataset_params["MAX_BI"],
                                      MAX_ZS=dataset_params["MAX_ZS"],
                                      MAX_SEG=dataset_params["MAX_SEG"],
                                      MAX_SEGSEG=dataset_params["MAX_SEGSEG"],
