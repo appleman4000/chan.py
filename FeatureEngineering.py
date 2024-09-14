@@ -102,7 +102,7 @@ class FeatureFactors:
             returns[f"bi_klc_cnt{i}"] = bi.get_klc_cnt()
             return returns
 
-        def indicators(i, klu):
+        def cal_indicators(i, klu):
             returns = dict()
             for key, value in klu.indicators.items():
                 returns[f"bi_end_{key}{i}"] = value
@@ -123,7 +123,7 @@ class FeatureFactors:
                 returns.update(bi_rate(i, bi))
                 returns.update(bi_klu_cnt(i, bi))
                 returns.update(bi_klc_cnt(i, bi))
-                returns.update(indicators(i, bi.end_klc[-1]))
+                returns.update(cal_indicators(i, bi.end_klc[-1]))
         return returns
 
     ############################### 中枢 ####################################
