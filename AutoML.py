@@ -119,11 +119,10 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
         if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and lv_chan[-2].fx != FX_TYPE.UNKNOWN:
-            if factors is None:
-                continue
-            last_bsp.add_feat(factors)
-            features = dict(last_bsp.features.items())
-            bsp1_pred = predict_bsp(model=model, feature=features, feature_names=feature_names)
+            if factors is not None:
+                last_bsp.add_feat(factors)
+                features = dict(last_bsp.features.items())
+                bsp1_pred = predict_bsp(model=model, feature=features, feature_names=feature_names)
         else:
             bsp1_pred = 0
         if long_order > 0:
@@ -184,7 +183,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # print(f"{profit} {capital}")
         capitals.append(capital)
     for bsp_klc_idx, feature_info in bsp_dict.items():
-        bs = "买" if feature_info["is_buy"] else "卖"
+        bs = "BUY" if feature_info["is_buy"] else "SELL"
         error = "√" if feature_info["profit"] > 0 else "×"
         label = bs + error
 
@@ -192,7 +191,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             label, "down" if feature_info["is_buy"] else "up", "red" if feature_info["is_buy"] else "green")
         if "close_time" in feature_info.keys():
             plot_marker[feature_info["close_time"].to_str()] = (
-                "关", "up" if feature_info["is_buy"] else "down")
+                "CLOSE", "up" if feature_info["is_buy"] else "down")
     plot_driver = plot(chan, plot_marker)
     trades = np.asarray(trades)
 
@@ -209,7 +208,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         score2 = 1 - max_draw_down(capitals) / 5000
         # 换算成等价盈亏比为1:1的胜率
         score3 = (win_rate * win_loss_radio - (1 - win_rate) + 1) / 2
-        a, b, c = 2, 1, 1
+        a, b, c = 0.5, 1, 1
         score = (a * score1 + b * score2 * c * score3) / (a + b + c)
         if math.isnan(score):
             score = 0
@@ -323,19 +322,19 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
         'max_depth': trial.suggest_int('max_depth', 3, 5),
-        'num_leaves': trial.suggest_int('num_leaves', 8, 63),
+        'num_leaves': trial.suggest_int('num_leaves', 7, 31),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),
         'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
         'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
         'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
         'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
-        'subsample': 0.9,  # trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
-        'subsample_freq': 4,  # trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': 0.9,  # trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
-        'reg_alpha': trial.suggest_int('reg_alpha', 0, 100),
-        'reg_lambda': trial.suggest_int('reg_lambda', 0, 100),
-        # 'feature_fraction': 0.95,  # trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
-        # 'bagging_fraction': 0.95,  # trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
+        'subsample': trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
+        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 100),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 100),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
         'gpu_platform_id': 0,  # 可选，通常为 0
         'gpu_device_id': trial.number % 2  # 可选，通常为 0
 
@@ -344,29 +343,10 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
     size1 = len(label_train[label_train == 1])
     w0 = (size0 + size1) / size0
     w1 = (size0 + size1) / size1
-    sample_weight = []
-    for idx, label in enumerate(label_train):
-        if label == 0:
-            w = w0
-        else:
-            w = w1
-        sample_weight.append(w)
-
-    size0 = len(label_test[label_test == 0])
-    size1 = len(label_test[label_test == 1])
-    w0 = (size0 + size1) / size0
-    w1 = (size0 + size1) / size1
-    eval_sample_weight = []
-    for idx, label in enumerate(label_test):
-        if label == 0:
-            w = w0
-        else:
-            w = w1
-        eval_sample_weight.append(w)
-
+    sample_weight = [w0 if label == 0 else w1 for label in label_train]
+    eval_sample_weight = [w0 if label == 0 else w1 for label in label_test]
     model = lgb.LGBMClassifier(**model_params)
     X_train, label_train, sample_weight = shuffle(X_train, label_train, sample_weight, random_state=42)
-
     model.fit(X=X_train, y=label_train, sample_weight=sample_weight, eval_set=[(X_test, label_test)],
               eval_sample_weight=[eval_sample_weight],
               callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
@@ -495,7 +475,7 @@ def run_codes(codes):
         "cal_kdj": False,
         "kl_data_check": False,
         "MAX_BI": 7,
-        "MAX_ZS": 1,
+        "MAX_ZS": 2,
         "MAX_SEG": 1,
         "MAX_SEGSEG": 1,
         "MAX_SEGZS": 1,
@@ -592,7 +572,7 @@ def run_codes(codes):
         plt.savefig(f"./result/{code}_metric.png")
         plt.clf()
         matplotlib.use('Agg')
-        print(f"{code}找最优交易参数")
+        print(f"{code} 找最优交易参数")
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(),
                                     storage=storage)
@@ -606,7 +586,7 @@ def run_codes(codes):
         plot_driver = study.best_trial.user_attrs["plot_driver"]
         plot_driver.save2img(f"./result/{code}_train.png")
         plt.clf()
-        print(f"{code} Best Score {study.best_trial.value} Best capital {capital} ")
+        print(f"{code} Best Score {study.best_trial.value} Best capital {capital} trade {trade_params}")
         print("开始测试")
         code, score, capital, plot_driver = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params,
                                                       model,
@@ -614,9 +594,10 @@ def run_codes(codes):
                                                       trade_params)
         plot_driver.save2img(f"./result/{code}_test.png")
         plt.clf()
+        message = f"{code} 2024年实战盈利:{score} {capital} ,dataset:{dataset_params},trade:{trade_params}\n"
+        print(message)
         with open("./result/report.log", mode="a") as file:
-            seq = f"{code} 2024年实战盈利:{score} {capital} ,dataset:{dataset_params},trade:{trade_params}\n"
-            file.writelines(seq)
+            file.writelines(message)
 
 
 def main():
