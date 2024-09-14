@@ -139,7 +139,7 @@ class FeatureFactors:
         def zs_end(i, zs):
             klu = self.chan[-1][-1]
             returns = dict()
-            returns[f"zs_end{i}"] = zs.begin.idx - zs.end.idx + 1
+            returns[f"zs_end{i}"] = klu.idx - zs.end.idx + 1
             for key, value in zs.end.indicators.items():
                 returns[f"zs_end_{key}{i}"] = value
             return returns
