@@ -33,10 +33,7 @@ class TaIndicators:
         self.arr = []
 
     def add(self, open, high, low, close) -> dict:
-        if len(self.arr) == 0:
-            self.arr = [[open, high, low, close]] * self.N
-        else:
-            self.arr.append([open, high, low, close])
+        self.arr.append([open, high, low, close])
 
         if len(self.arr) > self.N:
             del self.arr[0]
@@ -49,8 +46,8 @@ class TaIndicators:
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1]
         periods = [6, 20]
         for period in periods:
-            returns[f"ROCP{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
-        periods = [10, 20, 40]
+            returns[f"ROC{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
+        periods = [10, 20]
         for period in periods:
             returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close-1
             returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close-1

@@ -9,14 +9,12 @@ import warnings
 from typing import Dict
 
 import lightgbm as lgb
-import matplotlib
 import numpy as np
 import optuna
 import pandas as pd
 from joblib import Parallel, delayed
 from lightgbm import early_stopping
 from matplotlib import pyplot as plt
-from sklearn.metrics import roc_auc_score, recall_score, precision_score, f1_score, accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
@@ -31,6 +29,32 @@ logging.getLogger('LGBMClassifier').setLevel(logging.CRITICAL)
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 warnings.filterwarnings("ignore")
 sys.setrecursionlimit(100000)
+
+symbols = [
+    # Major
+    "EURUSD",
+    "GBPUSD",
+    "AUDUSD",
+    "NZDUSD",
+    "USDJPY",
+    "USDCAD",
+    "USDCHF",
+    # Crosses
+    "AUDCHF",
+    "AUDJPY",
+    "AUDNZD",
+    "CADCHF",
+    "CADJPY",
+    "CHFJPY",
+    "EURAUD",
+    "EURCAD",
+    "AUDCAD",
+    "EURCHF",
+    "GBPNZD",
+    "GBPCAD",
+    "GBPCHF",
+    "GBPJPY",
+]
 
 
 def max_draw_down(return_list):
@@ -73,8 +97,9 @@ def plot(chan, plot_marker):
 
 
 def predict_bsp(model, feature: dict, feature_names):
-    values = pd.DataFrame([feature], columns=feature_names).to_numpy(np.float32)
-    return model.predict_proba(values)[0, 1]
+    values = pd.DataFrame([feature], columns=feature_names)
+    # values.fillna(0.0, inplace=True)
+    return model.predict_proba(values.to_numpy(np.float32))[:, 0]
 
 
 def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, feature_names, trade_params):
@@ -121,6 +146,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and lv_chan[-2].fx != FX_TYPE.UNKNOWN:
             if factors is not None:
                 last_bsp.add_feat(factors)
+                last_bsp.add_feat("code", symbols.index(code))
                 features = dict(last_bsp.features.items())
                 bsp1_pred = predict_bsp(model=model, feature=features, feature_names=feature_names)
         else:
@@ -130,9 +156,9 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             close_price = round(lv_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
             # 最大止盈止损保护
-            tp = long_profit >= trade_params["bsp1_tp_long"]
-            sl = long_profit <= -trade_params["bsp1_tp_long"] / trade_params["risk_reward_ratio"]
-            if tp or sl:
+            tp = long_profit >= trade_params["bsp1_sl_long"] * trade_params["risk_reward_ratio"]
+            sl = long_profit <= -trade_params["bsp1_sl_long"]
+            if tp and lv_chan[-2].fx == FX_TYPE.TOP or sl:
                 long_order = 0
                 bsp_dict[long_klu_idx]["close_time"] = lv_chan[-1][-1].time
                 bsp_dict[long_klu_idx]["profit"] = round(long_profit * money, 2)
@@ -141,9 +167,9 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             close_price = round(lv_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
             # 最大止盈止损保护
-            tp = short_profit >= trade_params["bsp1_tp_short"]
-            sl = short_profit <= -trade_params["bsp1_tp_short"] / trade_params["risk_reward_ratio"]
-            if tp or sl:
+            tp = short_profit >= trade_params["bsp1_sl_short"] * trade_params["risk_reward_ratio"]
+            sl = short_profit <= -trade_params["bsp1_sl_short"]
+            if tp and lv_chan[-2].fx == FX_TYPE.BOTTOM or sl:
                 short_order = 0
                 bsp_dict[short_klu_idx]["close_time"] = lv_chan[-1][-1].time
                 bsp_dict[short_klu_idx]["profit"] = round(short_profit * money, 2)
@@ -208,7 +234,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         score2 = 1 - max_draw_down(capitals) / 5000
         # 换算成等价盈亏比为1:1的胜率
         score3 = (win_rate * win_loss_radio - (1 - win_rate) + 1) / 2
-        a, b, c = 0.5, 1, 1
+        a, b, c = 1, 1, 1
         score = (a * score1 + b * score2 * c * score3) / (a + b + c)
         if math.isnan(score):
             score = 0
@@ -217,14 +243,14 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
 def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, model, feature_names, profit_loss):
     trade_params = {
-        "bsp1_open": trial.suggest_float('bsp1_open', 0.1, 0.25, step=0.01),
-        "risk_reward_ratio": trial.suggest_float('risk_reward_ratio', 1.0, 3.0, step=0.1),
+        "bsp1_open": trial.suggest_float('bsp1_open', 0.1, 0.7, step=0.01),
+        "risk_reward_ratio": trial.suggest_float('risk_reward_ratio', 1.0, 4.0, step=0.1),
         # "bsp1_close": trial.suggest_float('bsp1_close', 0.0, bsp1_open, step=0.01),
         # "cross_period": trial.suggest_int('cross_period', 8, 30),
-        "bsp1_tp_long": profit_loss,  # trial.suggest_float('bsp1_tp_long', 0.003, 0.02, step=0.001),
-        # "bsp1_sl_long": trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
-        "bsp1_tp_short": profit_loss,  # trial.suggest_float('bsp1_tp_short', 0.003, 0.02, step=0.001),
-        # "bsp1_sl_short": trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
+        # "bsp1_tp_long": profit_loss,  # trial.suggest_float('bsp1_tp_long', 0.003, 0.02, step=0.001),
+        "bsp1_sl_long": 0.003,  # trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
+        # "bsp1_tp_short": profit_loss,  # trial.suggest_float('bsp1_tp_short', 0.003, 0.02, step=0.001),
+        "bsp1_sl_short": 0.003,  # trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
     }
     code, score, capital, plot_driver = run_trade(code, lv_list, begin_time, end_time, dataset_params, model,
                                                   feature_names,
@@ -236,81 +262,15 @@ def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, m
     return score
 
 
-def get_model(code, params, X_train, X_test, y_train, y_test):
-    X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
-
-    X_train = X_train.to_numpy(np.float32)
-    profit_loss_train = y_train["profit_loss"].to_numpy(np.float32)
-    profit_loss_test = y_test["profit_loss"].to_numpy(np.float32)
-    label_train = y_train["label"].to_numpy(int)
-    X_test = X_test.to_numpy(np.float32)
-    label_test = y_test["label"].to_numpy(int)
-
-    size0 = len(label_train[label_train == 0])
-    size1 = len(label_train[label_train == 1])
-    w0 = (size0 + size1) / size0
-    w1 = (size0 + size1) / size1
-    sample_weight = []
-    for idx, label in enumerate(label_train):
-        if label == 0:
-            w = w0
-        else:
-            w = w1
-        sample_weight.append(w)
-    sample_weight = np.array(sample_weight)
-
-    model = lgb.LGBMClassifier(**params)
-    X_train, label_train, sample_weight = shuffle(X_train, label_train, sample_weight, random_state=42)
-    model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)], sample_weight=sample_weight,
-              callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
-    test_probs = model.predict_proba(X_test)[:, 1]
-    auc = roc_auc_score(label_test, test_probs)
-    print(f"{code} AUC {auc}")
-    accuracies = []
-    precisions = []
-    recalls = []
-    f1_scores = []
-    thresholds = np.linspace(0.0, 1.0, 100)
-    print("计算正确率、精确率、召回率和F1分数")
-    for threshold in thresholds:
-        y_pred = (test_probs >= threshold).astype(int)
-        accuracy = accuracy_score(label_test, y_pred, sample_weight=sample_weight)
-        precision = precision_score(label_test, y_pred, sample_weight=sample_weight)
-        recall = recall_score(label_test, y_pred, sample_weight=sample_weight)
-        f1 = f1_score(label_test, y_pred, sample_weight=sample_weight)
-        accuracies.append(accuracy)
-        precisions.append(precision)
-        recalls.append(recall)
-        f1_scores.append(f1)
-    # 绘制曲线
-    matplotlib.use('Agg')
-    plt.figure(figsize=(12, 8))
-    plt.plot(thresholds, accuracies, marker='x', label='Accuracy')
-    plt.plot(thresholds, precisions, marker='x', label='Precision')
-    plt.plot(thresholds, recalls, marker='x', label='Recall')
-    plt.plot(thresholds, f1_scores, marker='x', label='F1 Score')
-
-    plt.xlabel('Probability Threshold')
-    plt.ylabel('Score')
-    plt.title(f'{code} AUC:{auc} Threshold vs Accuracy,Precision, Recall,F1 Score')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(f"./result/{code}_metric.png")
-    plt.clf()
-    matplotlib.use('Agg')
-
-    return model
-
-
 def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
     X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
 
     X_train = X_train.to_numpy(np.float32)
-    profit_loss_train = y_train["profit_loss"].to_numpy(np.float32)
-    profit_loss_test = y_test["profit_loss"].to_numpy(np.float32)
     label_train = y_train["label"].to_numpy(int)
     X_test = X_test.to_numpy(np.float32)
     label_test = y_test["label"].to_numpy(int)
+    negative_samples = len(label_train[label_train == 0])
+    positive_samples = len(label_train[label_train == 1])
     model_params = {
         'device': 'gpu',
         'objective': 'binary',
@@ -318,37 +278,31 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         'boosting_type': 'gbdt',
         'verbose': -1,
         'num_threads': 1,
+        "scale_pos_weight": negative_samples / positive_samples,
         "random_state": seed,
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
         'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 7, 31),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
-        'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
-        'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
-        'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
-        'subsample': trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
-        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 100),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 100),
-        'feature_fraction': trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
-        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 1000),
+        # 'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
+        # 'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
+        # 'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
+        'subsample': 0.95,  # trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
+        'subsample_freq': 5,  # trial.suggest_int('subsample_freq', 1, 7),
+        'colsample_bytree': 0.95,  # trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+        # 'feature_fraction': trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
+        # 'bagging_fraction': trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
         'gpu_platform_id': 0,  # 可选，通常为 0
         'gpu_device_id': trial.number % 2  # 可选，通常为 0
 
     }
-    size0 = len(label_train[label_train == 0])
-    size1 = len(label_train[label_train == 1])
-    w0 = (size0 + size1) / size0
-    w1 = (size0 + size1) / size1
-    sample_weight = [w0 if label == 0 else w1 for label in label_train]
-    eval_sample_weight = [w0 if label == 0 else w1 for label in label_test]
     model = lgb.LGBMClassifier(**model_params)
-    X_train, label_train, sample_weight = shuffle(X_train, label_train, sample_weight, random_state=42)
-    model.fit(X=X_train, y=label_train, sample_weight=sample_weight, eval_set=[(X_test, label_test)],
-              eval_sample_weight=[eval_sample_weight],
+    X_train, label_train = shuffle(X_train, label_train, random_state=42)
+    model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)],
               callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
     # 从 evals_result_ 中提取验证集的 AUC 值
     evals_result = model.evals_result_
@@ -361,10 +315,8 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
 
     # 获取最佳 AUC 值
     score = auc_values[best_iteration - 1]
-    profit_loss = np.mean(profit_loss_test[label_test == 1])
     trial.set_user_attr("model", model)
     trial.set_user_attr("model_params", model_params)
-    trial.set_user_attr("profit_loss", profit_loss)
 
     return score
 
@@ -415,33 +367,12 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                 "last_bsp": last_bsp
             }
 
-    bsp_academy = [bsp.klu.idx for bsp in chan.get_bsp(0) if bsp.bi.next is not None]
+    bsp_academy = np.array([bsp.klu.idx for bsp in chan.get_bsp(0)], dtype=int)
     rows = []
     for bsp_klu_idx, feature_info in bsp_dict.items():
-        label = int(bsp_klu_idx in bsp_academy)
-        profit_loss = 0
-        if label == 1:
-            last_bsp = feature_info["last_bsp"]
-            if last_bsp.is_buy:
-                if last_bsp.bi.next is None:
-                    continue
-                profit_loss = (last_bsp.bi.next.get_end_val() / feature_info["price"]) - 1
-                assert profit_loss > 0
-            else:
-                if last_bsp.bi.next is None:
-                    continue
-                profit_loss = last_bsp.bi.next.get_end_val() / feature_info["price"] - 1
-                assert profit_loss < 0
-        if label == 0:
-            last_bsp = feature_info["last_bsp"]
-            if last_bsp.is_buy:
-                profit_loss = last_bsp.bi.get_end_val() / feature_info["price"] - 1
-                assert profit_loss < 0
-            else:
-                profit_loss = last_bsp.bi.get_end_val() / feature_info["price"] - 1
-                assert profit_loss > 0
-
-        row = {"label": label, "profit_loss": abs(profit_loss)}
+        # label = int(bsp_klu_idx in bsp_academy)
+        label = np.min(np.abs(bsp_klu_idx - bsp_academy)) <= 4
+        row = {"label": label}
         feature = feature_info["feature"]
         row.update(feature)
         rows.append(row)
@@ -451,7 +382,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 def run_codes(codes):
     lv_list = [KL_TYPE.K_30M]
-    begin_time = "2018-01-01 00:00:00"
+    begin_time = "2022-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     val_begin_time = "2023-01-01 00:00:00"
     val_end_time = "2024-01-01 00:00:00"
@@ -499,86 +430,59 @@ def run_codes(codes):
     for code, dataset in results:
         all_feature_names.update(set(dataset.columns))
     all_feature_names.remove("label")
-    all_feature_names.remove("profit_loss")
+    all_feature_names.add("code")
     all_x_train = pd.DataFrame(columns=list(all_feature_names))
     all_y_train = pd.DataFrame()
+    all_x_test = pd.DataFrame(columns=list(all_feature_names))
+    all_y_test = pd.DataFrame()
     for code, dataset in results:
-        dataset = pd.DataFrame(dataset, columns=["label", "profit_loss"] + list(all_feature_names))
+        dataset = pd.DataFrame(dataset, columns=["label"] + list(all_feature_names))
         feature_names[code] = list(all_feature_names)
         X_train[code], X_test[code], y_train[code], y_test[code] = train_test_split(dataset[list(all_feature_names)],
-                                                                                    dataset[["label", "profit_loss"]],
+                                                                                    dataset[["label"]],
                                                                                     test_size=0.2,
                                                                                     shuffle=False)
+        X_train[code]["code"] = symbols.index(code)
+        X_test[code]["code"] = symbols.index(code)
         all_x_train = pd.concat([all_x_train, X_train[code]])
         all_y_train = pd.concat([all_y_train, y_train[code]])
+        all_x_test = pd.concat([all_x_test, X_test[code]])
+        all_y_test = pd.concat([all_y_test, y_test[code]])
+    negative_samples = len(all_y_train[all_y_train["label"] == 0])
+    positive_samples = len(all_y_train[all_y_train["label"] == 1])
+    print(f"Train Dataset:{all_x_train.shape} Test Dataset:{all_x_test.shape} {negative_samples / positive_samples}")
+    print(f"找最优模型参数")
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    study.optimize(
+        lambda trial: optimize_model(trial, all_x_train, all_x_test, all_y_train, all_y_test, seed=42),
+        n_trials=1000,
+        n_jobs=8)
+    model = study.best_trial.user_attrs["model"]
+    model_params = study.best_trial.user_attrs["model_params"]
+    auc = study.best_trial.value
+    print(f"AUC {auc} {model_params}")
+    # 获取特征的重要性，使用 gain 或 split 排名
+    importance = model.feature_importances_
+
+    # 获取特征名称（如果有）
+    feature_names = list(all_feature_names)
+
+    # 打印因子排名
+    with open("./result/feature_importance.log", mode="w") as file:
+        for name, score in sorted(zip(feature_names, importance), key=lambda x: x[1], reverse=True):
+            print(f"{name}: {score}")
+            file.writelines(f"{name}: {score}\n")
 
     for code in codes:
-        print(f"{code} Train Dataset:{all_x_train.shape} Test Dataset:{X_test[code].shape}")
-        print(f"{code}找最优模型参数")
-        storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-        study.optimize(
-            lambda trial: optimize_model(trial, all_x_train, X_test[code], all_y_train, y_test[code], seed=42),
-            n_trials=1000,
-            n_jobs=8)
-        model = study.best_trial.user_attrs["model"]
-        model_params = study.best_trial.user_attrs["model_params"]
-        profit_loss = study.best_trial.user_attrs["profit_loss"]
-        auc = study.best_trial.value
-        print(f"{code} AUC {auc} {profit_loss} {model_params}")
-        label_test = y_test[code]["label"].to_numpy(int)
-        size0 = len(label_test[label_test == 0])
-        size1 = len(label_test[label_test == 1])
-        w0 = (size0 + size1) / size0
-        w1 = (size0 + size1) / size1
-        sample_weight = []
-        for idx, label in enumerate(label_test):
-            if label == 0:
-                w = w0
-            else:
-                w = w1
-            sample_weight.append(w)
-        sample_weight = np.array(sample_weight)
-        test_probs = model.predict_proba(X_test[code].to_numpy(np.float32))[:, 1]
-        accuracies = []
-        precisions = []
-        recalls = []
-        f1_scores = []
-        thresholds = np.linspace(0.0, 1.0, 100)
-        print("计算正确率、精确率、召回率和F1分数")
-        for threshold in thresholds:
-            y_pred = (test_probs >= threshold).astype(int)
-            accuracy = accuracy_score(label_test, y_pred, sample_weight=sample_weight)
-            precision = precision_score(label_test, y_pred, sample_weight=sample_weight)
-            recall = recall_score(label_test, y_pred, sample_weight=sample_weight)
-            f1 = f1_score(label_test, y_pred, sample_weight=sample_weight)
-            accuracies.append(accuracy)
-            precisions.append(precision)
-            recalls.append(recall)
-            f1_scores.append(f1)
-        # 绘制曲线
-        matplotlib.use('Agg')
-        plt.figure(figsize=(12, 8))
-        plt.plot(thresholds, accuracies, marker='x', label='Accuracy')
-        plt.plot(thresholds, precisions, marker='x', label='Precision')
-        plt.plot(thresholds, recalls, marker='x', label='Recall')
-        plt.plot(thresholds, f1_scores, marker='x', label='F1 Score')
-
-        plt.xlabel('Probability Threshold')
-        plt.ylabel('Score')
-        plt.title(f'{code} AUC:{auc} Threshold vs Accuracy,Precision, Recall,F1 Score')
-        plt.legend()
-        plt.grid(True)
-        plt.savefig(f"./result/{code}_metric.png")
-        plt.clf()
-        matplotlib.use('Agg')
         print(f"{code} 找最优交易参数")
+        profit_loss = 0.007
         storage = optuna.storages.InMemoryStorage()
         study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(),
                                     storage=storage)
         study.optimize(
             lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                         feature_names[code], profit_loss),
+                                         feature_names, profit_loss),
             n_trials=50,
             n_jobs=4)
         trade_params = study.best_trial.user_attrs["trade_params"]
@@ -590,7 +494,7 @@ def run_codes(codes):
         print("开始测试")
         code, score, capital, plot_driver = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params,
                                                       model,
-                                                      feature_names[code],
+                                                      feature_names,
                                                       trade_params)
         plot_driver.save2img(f"./result/{code}_test.png")
         plt.clf()
@@ -601,32 +505,6 @@ def run_codes(codes):
 
 
 def main():
-    symbols = [
-        # Major
-        "EURUSD",
-        "GBPUSD",
-        "AUDUSD",
-        "NZDUSD",
-        "USDJPY",
-        "USDCAD",
-        "USDCHF",
-        # Crosses
-        "AUDCHF",
-        "AUDJPY",
-        "AUDNZD",
-        "CADCHF",
-        "CADJPY",
-        "CHFJPY",
-        "EURAUD",
-        "EURCAD",
-        "AUDCAD",
-        "EURCHF",
-        "GBPNZD",
-        "GBPCAD",
-        "GBPCHF",
-        "GBPJPY",
-    ]
-
     run_codes(symbols)
 
 

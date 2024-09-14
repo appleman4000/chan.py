@@ -30,8 +30,7 @@ class FeatureFactors:
     def cal_indicators(self):
         returns = dict()
         klu = self.chan[-1][-1]
-        for key, value in klu.indicators.items():
-            returns[f"{key}"] = value
+        returns.update(klu.indicators)
         return returns
 
     def open_klu_rate(self):
