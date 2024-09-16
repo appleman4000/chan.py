@@ -49,13 +49,13 @@ class TaIndicators:
             returns[f"ROC{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
         periods = [10, 20]
         for period in periods:
-            returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close-1
-            returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close-1
+            returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close
+            returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close
         UPPERBAND, MIDDLEBAND, LOWERBAND = \
             talib.BBANDS(closing, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-        returns["UPPERBAND"] = UPPERBAND[-1] / close-1
-        returns["MIDDLEBAND"] = MIDDLEBAND[-1] / close-1
-        returns["LOWERBAND"] = LOWERBAND[-1] / close-1
+        returns["UPPERBAND"] = UPPERBAND[-1] / close
+        returns["MIDDLEBAND"] = MIDDLEBAND[-1] / close
+        returns["LOWERBAND"] = LOWERBAND[-1] / close
         MACD_DIF, MACD_DEA, MACD_BAR = talib.MACD(closing, fastperiod=12, slowperiod=26, signalperiod=9)
         returns["MACD_DIF"] = MACD_DIF[-1]
         returns["MACD_DEA"] = MACD_DEA[-1]
@@ -84,14 +84,14 @@ class TaIndicators:
         returns["AROONDOWN"] = AROONDOWN[-1] / 100.0
         returns["AROONUP"] = AROONUP[-1] / 100.0
 
-        returns["SAR"] = talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close-1
+        returns["SAR"] = talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close
 
         returns["MOM"] = talib.MOM(closing, timeperiod=10)[-1]
         periods = [6, 12, 26]
         for period in periods:
-            returns[f"DEMA{period}"] = talib.DEMA(closing, timeperiod=period)[-1] / close-1
-            returns[f"EMA{period}"] = talib.EMA(closing, timeperiod=period)[-1] / close-1
-            returns[f"TEMA{period}"] = talib.TEMA(closing, timeperiod=period)[-1] / close-1
+            returns[f"DEMA{period}"] = talib.DEMA(closing, timeperiod=period)[-1] / close
+            returns[f"EMA{period}"] = talib.EMA(closing, timeperiod=period)[-1] / close
+            returns[f"TEMA{period}"] = talib.TEMA(closing, timeperiod=period)[-1] / close
         periods = [14, 20]
         for period in periods:
             returns[f"ATR{period}"] = talib.ATR(highest, lowest, closing, timeperiod=period)[-1]
