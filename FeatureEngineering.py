@@ -236,7 +236,7 @@ class FeatureFactors:
         returns = dict()
 
         for i, seg in enumerate(segs):
-            zs_lst = seg.zs_lst
+            zs_lst = seg.zs_lst[::-1]
             for j in range(len(zs_lst)):
                 zs = zs_lst[j]
                 returns.update(zs_begin(f"{i}{j}", zs))
@@ -251,7 +251,7 @@ class FeatureFactors:
                 returns.update(divergence(f"{i}{j}", zs))
 
         for i, segseg in enumerate(segsegs):
-            zs_lst = segseg.zs_lst
+            zs_lst = segseg.zs_lst[::-1]
             for j in range(len(zs_lst)):
                 segzs = zs_lst[j]
                 returns.update(zs_begin(f"_segzs{i}{j}", segzs))

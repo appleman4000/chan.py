@@ -458,7 +458,7 @@ def run_codes(codes):
         "cal_boll": True,
         "cal_kdj": True,
         "kl_data_check": False,
-        "MAX_BI": 14,
+        "MAX_BI": 7,
     }
     if not os.path.exists("./result/all_codes.dat"):
         print("制作训练集")
@@ -500,26 +500,32 @@ def run_codes(codes):
     feature_names.remove("profit")
     feature_names.remove("open_time")
     feature_names.remove("code")
-    all_x_train, all_x_test, all_y_train, all_y_test = train_test_split(merged_df[feature_names],
-                                                                        merged_df[["label", "profit"]],
-                                                                        test_size=0.2,
-                                                                        shuffle=False)
+    if not os.path.exists("./result/model.dat"):
+        all_x_train, all_x_test, all_y_train, all_y_test = train_test_split(merged_df[feature_names],
+                                                                            merged_df[["label", "profit"]],
+                                                                            test_size=0.2,
+                                                                            shuffle=False)
 
-    negative_samples = len(all_y_train[all_y_train["label"] == 0])
-    positive_samples = len(all_y_train[all_y_train["label"] == 1])
-    print(
-        f"Train Dataset:{all_x_train.shape} Test Dataset:{all_x_test.shape} {negative_samples / positive_samples}")
-    print(f"找最优模型参数")
-    storage = optuna.storages.InMemoryStorage()
-    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-    study.optimize(
-        lambda trial: optimize_model(trial, all_x_train, all_x_test, all_y_train, all_y_test, seed=42),
-        n_trials=1000,
-        n_jobs=8)
-    model = study.best_trial.user_attrs["model"]
-    model_params = study.best_trial.user_attrs["model_params"]
-    auc = study.best_trial.value
-    print(f"AUC {auc} {model_params}")
+        negative_samples = len(all_y_train[all_y_train["label"] == 0])
+        positive_samples = len(all_y_train[all_y_train["label"] == 1])
+        print(
+            f"Train Dataset:{all_x_train.shape} Test Dataset:{all_x_test.shape} {negative_samples / positive_samples}")
+        print(f"找最优模型参数")
+        storage = optuna.storages.InMemoryStorage()
+        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+        study.optimize(
+            lambda trial: optimize_model(trial, all_x_train, all_x_test, all_y_train, all_y_test, seed=42),
+            n_trials=1000,
+            n_jobs=8)
+        model = study.best_trial.user_attrs["model"]
+        model_params = study.best_trial.user_attrs["model_params"]
+        auc = study.best_trial.value
+        print(f"AUC {auc} {model_params}")
+        with open("./result/model.dat", "wb") as fid:
+            pickle.dump(model, fid)
+    else:
+        with open("./result/model.dat", "rb") as fid:
+            model = pickle.load(fid)
     for code in codes:
         # print(f"{code} 找最优交易参数")
         # storage = optuna.storages.InMemoryStorage()
