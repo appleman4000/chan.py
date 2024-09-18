@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 from lightgbm import early_stopping
 from matplotlib import pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.utils import shuffle
+from sklearn.utils import shuffle, class_weight
 
 from Chan import CChan
 from ChanConfig import CChanConfig
@@ -98,6 +98,9 @@ def plot(chan, plot_marker):
 
 def predict_bsp(model, feature: dict, feature_names):
     values = pd.DataFrame([feature], columns=feature_names)
+    # values.dropna(inplace=True)
+    # if len(values) == 0:
+    #     return 0.0
     return model.predict_proba(values.to_numpy(np.float32))[:, 0]
 
 
@@ -121,8 +124,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
     trades = []
     plot_marker = {}
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    factors0 = None
-    factors1 = None
+    factors = None
     bsp1_pred = 0
     long_klu_idx = 0
     short_klu_idx = 0
@@ -130,33 +132,19 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
         lv_chan = chan_snapshot[0]
         profit = 0
-        bsp_list = chan.get_bsp(0)  # 获取买卖点列表
+        bsp_list = chan.get_seg_bsp(0)  # 获取买卖点列表
         if not bsp_list:
             continue
         last_bsp = bsp_list[-1]
 
         if last_bsp.klu.klc.idx == lv_chan[-1].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-            factors0 = FeatureFactors(chan_snapshot[0], MAX_BI=dataset_params["MAX_BI"],
-                                      MAX_ZS=dataset_params["MAX_ZS"],
-                                      MAX_SEG=dataset_params["MAX_SEG"],
-                                      MAX_SEGSEG=dataset_params["MAX_SEGSEG"],
-                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
-            factors1 = FeatureFactors(chan_snapshot[1], MAX_BI=dataset_params["MAX_BI"],
-                                      MAX_ZS=dataset_params["MAX_ZS"],
-                                      MAX_SEG=dataset_params["MAX_SEG"],
-                                      MAX_SEGSEG=dataset_params["MAX_SEGSEG"],
-                                      MAX_SEGZS=dataset_params["MAX_SEGZS"]).get_factors()
+            factors = FeatureFactors(chan_snapshot[0], MAX_BI=dataset_params["MAX_BI"]).get_factors()
+            factors.update(dict(last_bsp.features.items()))
         if last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and lv_chan[-2].fx != FX_TYPE.UNKNOWN:
-
-            if factors0 is not None and factors1 is not None:
-                features = dict()
-                for key, value in factors0.items():
-                    features.update({f"{key}_0": value})
-                for key, value in factors1.items():
-                    features.update({f"{key}_1": value})
-                bsp1_pred = predict_bsp(model=model, feature=features, feature_names=feature_names)
+            if factors is not None:
+                bsp1_pred = predict_bsp(model=model, feature=factors, feature_names=feature_names)
         else:
             bsp1_pred = 0
         if long_order > 0:
@@ -269,44 +257,13 @@ def optimize_trade(trial, code, lv_list, begin_time, end_time, dataset_params, m
     return score
 
 
-def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
+def get_model(model_params, X_train, X_test, y_train, y_test):
     X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
 
     X_train = X_train.to_numpy(np.float32)
     label_train = y_train["label"].to_numpy(int)
     X_test = X_test.to_numpy(np.float32)
     label_test = y_test["label"].to_numpy(int)
-    negative_samples = len(label_train[label_train == 0])
-    positive_samples = len(label_train[label_train == 1])
-    model_params = {
-        'device': 'gpu',
-        'objective': 'binary',
-        'metric': 'auc',
-        'boosting_type': 'gbdt',
-        'verbose': -1,
-        'num_threads': 1,
-        "scale_pos_weight": negative_samples / positive_samples,
-        "random_state": seed,
-        "bagging_seed": seed,
-        "feature_fraction_seed": seed,
-        'max_depth': trial.suggest_int('max_depth', 3, 5),
-        'num_leaves': trial.suggest_int('num_leaves', 7, 31),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, step=0.01),
-        'n_estimators': trial.suggest_int('n_estimators', 50, 200),
-        'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
-        'min_split_gain': trial.suggest_float('min_split_gain', 0.01, 1.0, step=0.01),
-        'min_child_weight': trial.suggest_float('min_child_weight', 0, 10, step=0.01),
-        'subsample': trial.suggest_float('subsample', 0.7, 1.0, step=0.01),
-        'subsample_freq': trial.suggest_int('subsample_freq', 1, 7),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0, step=0.01),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-        'feature_fraction': trial.suggest_float('feature_fraction', 0.7, 1.0, step=0.01),
-        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.7, 1.0, step=0.01),
-        'gpu_platform_id': 0,  # 可选，通常为 0
-        'gpu_device_id': trial.number % 2  # 可选，通常为 0
-
-    }
     model = lgb.LGBMClassifier(**model_params)
     X_train, label_train = shuffle(X_train, label_train, random_state=42)
     model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)],
@@ -322,6 +279,80 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
 
     # 获取最佳 AUC 值
     score = auc_values[best_iteration - 1]
+    return model, score
+
+
+def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
+    X_train, X_test, y_train, y_test = X_train.copy(), X_test.copy(), y_train.copy(), y_test.copy()
+
+    X_train = X_train.to_numpy(np.float32)
+    label_train = y_train["label"].to_numpy(int)
+    profit_train = y_train["profit"].to_numpy(float)
+    X_test = X_test.to_numpy(np.float32)
+    label_test = y_test["label"].to_numpy(int)
+    profit_test = y_test["profit"].to_numpy(float)
+    negative_samples = len(label_train[label_train == 0])
+    positive_samples = len(label_train[label_train == 1])
+    scale_pos_weight = negative_samples / positive_samples
+    # sample_weight = []
+    # min_profit = np.min(np.abs(profit_train))
+    # max_profit = np.max(np.abs(profit_train))
+    # for i, label in enumerate(label_train):
+    #     if label == 0:
+    #         sample_weight.append(1.0 * ((profit_train[i] - min_profit) / (max_profit - min_profit) + 0.5))
+    #     else:
+    #         sample_weight.append(scale_pos_weight * ((profit_train[i] - min_profit) / (max_profit - min_profit) + 0.5))
+    eval_sample_weight = []
+    for i, label in enumerate(label_test):
+        if label == 0:
+            eval_sample_weight.append(1.0)
+        else:
+            eval_sample_weight.append(scale_pos_weight)
+    class_weights = class_weight.compute_class_weight(
+        "balanced", classes=np.unique(label_train), y=label_train
+    )
+    model_params = {
+        'device': 'gpu',
+        'objective': 'binary',
+        'metric': 'auc',
+        'boosting_type': 'gbdt',
+        'verbose': -1,
+        'num_threads': 1,
+        "random_state": seed,
+        "bagging_seed": seed,
+        "feature_fraction_seed": seed,
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 31),  # 调整范围
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),  # 限制学习率上限
+        'n_estimators': trial.suggest_int('n_estimators', 100, 500, step=50),  # 缩小范围
+        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100, step=10),  # 提高最小样本数
+        'subsample': trial.suggest_float('subsample', 0.8, 1.0, step=0.01),  # 提高下采样比例
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.8, 1.0, step=0.01),  # 调整特征子样本
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),  # 缩小正则化范围
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),  # 缩小正则化范围
+        'gpu_platform_id': 0,
+        'gpu_device_id': trial.number % 2,
+        "class_weight": {
+            0: class_weights[0],
+            1: class_weights[1],
+        },
+    }
+    model = lgb.LGBMClassifier(**model_params)
+
+    # X_train, label_train = shuffle(X_train, label_train, random_state=42)
+    model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)],
+              callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
+    # 从 evals_result_ 中提取验证集的 AUC 值
+    evals_result = model.evals_result_
+
+    # 获取验证集的 AUC 列表
+    values = evals_result['valid_0']['auc']
+
+    # 获取最佳迭代次数
+    best_iteration = model.best_iteration_
+
+    # 获取最佳 AUC 值
+    score = values[best_iteration - 1]
     trial.set_user_attr("model", model)
     trial.set_user_attr("model_params", model_params)
 
@@ -344,8 +375,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
     # 跑策略，保存买卖点的特征
-    factors0 = None
-    factors1 = None
+    factors = None
     for chan_snapshot in chan.step_load():
 
         lv_chan = chan_snapshot[0]
@@ -354,55 +384,61 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
             continue
         last_bsp = bsp_list[-1]
         if last_bsp.klu.klc.idx == lv_chan[-1].idx and (BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
-            factors0 = FeatureFactors(chan_snapshot[0],
-                                      MAX_BI=params["MAX_BI"],
-                                      MAX_ZS=params["MAX_ZS"],
-                                      MAX_SEG=params["MAX_SEG"],
-                                      MAX_SEGSEG=params["MAX_SEGSEG"],
-                                      MAX_SEGZS=params["MAX_SEGZS"]
-                                      ).get_factors()
-            factors1 = FeatureFactors(chan_snapshot[1],
-                                      MAX_BI=params["MAX_BI"],
-                                      MAX_ZS=params["MAX_ZS"],
-                                      MAX_SEG=params["MAX_SEG"],
-                                      MAX_SEGSEG=params["MAX_SEGSEG"],
-                                      MAX_SEGZS=params["MAX_SEGZS"]
-                                      ).get_factors()
+            factors = FeatureFactors(chan_snapshot[0],
+                                     MAX_BI=params["MAX_BI"]
+                                     ).get_factors()
+            factors.update(dict(last_bsp.features.items()))
         if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and lv_chan[-2].fx != FX_TYPE.UNKNOWN:
-            if factors0 is None or factors1 is None:
+            if factors is None:
                 continue
-            features = dict()
-            for key, value in factors0.items():
-                features.update({f"{key}_0": value})
-            for key, value in factors1.items():
-                features.update({f"{key}_1": value})
             bsp_dict[last_bsp.klu.idx] = {
-                "feature": features,
+                "feature": factors,
                 "price": lv_chan[-1][-1].close,
                 "is_buy": last_bsp.is_buy,
                 "state": 0,
-                "last_bsp": last_bsp
+                "last_bsp": last_bsp,
+                "open_time": lv_chan[-1][-1].time
             }
 
     bsp_academy = np.array([bsp.klu.idx for bsp in chan.get_bsp(0)], dtype=int)
     rows = []
     for bsp_klu_idx, feature_info in bsp_dict.items():
         label = int(bsp_klu_idx in bsp_academy)
-        row = {"label": label}
+        profit = 0
+        open_price = feature_info["price"]
+        last_bsp = feature_info["last_bsp"]
+        if label == 1:
+            if last_bsp.bi.next:
+                open_price = feature_info["price"]
+                if last_bsp.is_buy:
+                    profit = last_bsp.bi.next.get_end_val() / open_price - 1
+                    assert profit > 0
+                else:
+                    profit = open_price / last_bsp.bi.next.get_end_val() - 1
+                    assert profit > 0
+        if label == 0:
+            if last_bsp.is_buy:
+                profit = last_bsp.bi.get_end_val() / open_price - 1
+                assert profit < 0
+            else:
+                profit = open_price / last_bsp.bi.get_end_val() - 1
+                assert profit < 0
+        open_time = feature_info["open_time"].ts
+        row = {"code": code, "open_time": open_time, "label": label, "profit": profit}
         feature = feature_info["feature"]
         row.update(feature)
         rows.append(row)
     df = pd.DataFrame(rows)
-    return code, df
+    return df
 
 
 def run_codes(codes):
-    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
-    begin_time = "2018-01-01 00:00:00"
-    end_time = "2023-01-01 00:00:00"
-    val_begin_time = "2023-01-01 00:00:00"
-    val_end_time = "2024-01-01 00:00:00"
+    lv_list = [KL_TYPE.K_30M]
+    begin_time = "2010-01-01 00:00:00"
+    end_time = "2024-01-01 00:00:00"
+    # val_begin_time = "2023-01-01 00:00:00"
+    # val_end_time = "2024-01-01 00:00:00"
     test_begin_time = "2024-01-01 00:00:00"
     test_end_time = "2024-09-10 00:00:00"
     dataset_params = {
@@ -415,86 +451,98 @@ def run_codes(codes):
         "min_zs_cnt": 0,
         "bs1_peak": True,
         "macd_algo": "peak",
-        # "bs_type": '1,2,3a,1p,2s,3b',
-        "bs_type": '1,1p',
+        "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
-        "cal_rsi": False,
-        "cal_boll": False,
-        "cal_kdj": False,
+        "cal_rsi": True,
+        "cal_boll": True,
+        "cal_kdj": True,
         "kl_data_check": False,
-        "MAX_BI": 7,
-        "MAX_ZS": 1,
-        "MAX_SEG": 1,
-        "MAX_SEGSEG": 1,
-        "MAX_SEGZS": 1,
+        "MAX_BI": 14,
     }
     if not os.path.exists("./result/all_codes.dat"):
         print("制作训练集")
-        results = Parallel(n_jobs=-1, backend="multiprocessing")(
-            delayed(get_dataset)(code, lv_list, begin_time, end_time, dataset_params) for code in codes)
+        df1 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2010-01-01 00:00:00", "2012-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df2 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2012-01-01 00:00:00", "2014-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df3 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2014-01-01 00:00:00", "2016-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df4 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2016-01-01 00:00:00", "2018-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df5 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2018-01-01 00:00:00", "2020-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df6 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2020-01-01 00:00:00", "2022-02-01 00:00:00", dataset_params) for code
+            in codes)
+        df7 = Parallel(n_jobs=-1, backend="multiprocessing")(
+            delayed(get_dataset)(code, lv_list, "2022-01-01 00:00:00", "2024-01-01 00:00:00", dataset_params) for code
+            in codes)
+
+        dfs = df1 + df2 + df3 + df4 + df5 + df6 + df7
+        merged_df = pd.concat(dfs)
+        merged_df.drop_duplicates(subset=['code', 'open_time'], keep='last', inplace=True)
+        merged_df.sort_values(by='open_time', inplace=True)
         with open("./result/all_codes.dat", "wb") as fid:
-            pickle.dump(results, fid)
+            pickle.dump(merged_df, fid)
     else:
         with open("./result/all_codes.dat", "rb") as fid:
-            results = pickle.load(fid)
+            merged_df = pickle.load(fid)
+    # merged_df.dropna(inplace=True)
+    feature_names = merged_df.columns.tolist()
 
-    X_train = dict()
-    y_train = dict()
-    X_test = dict()
-    y_test = dict()
-    feature_names = dict()
-    all_feature_names = set()
-    for code, dataset in results:
-        all_feature_names.update(set(dataset.columns))
-    all_feature_names.remove("label")
-    all_x_train = pd.DataFrame(columns=list(all_feature_names))
-    all_y_train = pd.DataFrame()
-    all_x_test = pd.DataFrame(columns=list(all_feature_names))
-    all_y_test = pd.DataFrame()
-    for code, dataset in results:
-        dataset = pd.DataFrame(dataset, columns=["label"] + list(all_feature_names))
-        X_train[code], X_test[code], y_train[code], y_test[code] = train_test_split(dataset[list(all_feature_names)],
-                                                                                    dataset[["label"]],
-                                                                                    test_size=0.2,
-                                                                                    shuffle=False)
-        all_x_train = pd.concat([all_x_train, X_train[code]])
-        all_y_train = pd.concat([all_y_train, y_train[code]])
-        all_x_test = pd.concat([all_x_test, X_test[code]])
-        all_y_test = pd.concat([all_y_test, y_test[code]])
-    feature_names = list(all_feature_names)
+    feature_names.remove("label")
+    feature_names.remove("profit")
+    feature_names.remove("open_time")
+    feature_names.remove("code")
+    all_x_train, all_x_test, all_y_train, all_y_test = train_test_split(merged_df[feature_names],
+                                                                        merged_df[["label", "profit"]],
+                                                                        test_size=0.2,
+                                                                        shuffle=False)
+
+    negative_samples = len(all_y_train[all_y_train["label"] == 0])
+    positive_samples = len(all_y_train[all_y_train["label"] == 1])
+    print(
+        f"Train Dataset:{all_x_train.shape} Test Dataset:{all_x_test.shape} {negative_samples / positive_samples}")
+    print(f"找最优模型参数")
+    storage = optuna.storages.InMemoryStorage()
+    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
+    study.optimize(
+        lambda trial: optimize_model(trial, all_x_train, all_x_test, all_y_train, all_y_test, seed=42),
+        n_trials=1000,
+        n_jobs=8)
+    model = study.best_trial.user_attrs["model"]
+    model_params = study.best_trial.user_attrs["model_params"]
+    auc = study.best_trial.value
+    print(f"AUC {auc} {model_params}")
     for code in codes:
-        negative_samples = len(y_train[code][y_train[code]["label"] == 0])
-        positive_samples = len(y_train[code][y_train[code]["label"] == 1])
-        print(
-            f"Train Dataset:{X_train[code].shape} Test Dataset:{X_test[code].shape} {negative_samples / positive_samples}")
-        print(f"找最优模型参数")
-        storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(), storage=storage)
-        study.optimize(
-            lambda trial: optimize_model(trial, X_train[code], X_test[code], y_train[code], y_test[code], seed=42),
-            n_trials=1000,
-            n_jobs=8)
-        model = study.best_trial.user_attrs["model"]
-        model_params = study.best_trial.user_attrs["model_params"]
-        auc = study.best_trial.value
-        print(f"AUC {auc} {model_params}")
-        print(f"{code} 找最优交易参数")
-        storage = optuna.storages.InMemoryStorage()
-        study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(),
-                                    storage=storage)
-        study.optimize(
-            lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
-                                         feature_names),
-            n_trials=50,
-            n_jobs=4)
-        trade_params = study.best_trial.user_attrs["trade_params"]
-        capital = study.best_trial.user_attrs["capital"]
-        plot_driver = study.best_trial.user_attrs["plot_driver"]
-        plot_driver.save2img(f"./result/{code}_train.png")
-        plt.clf()
-        print(f"{code} Best Score {study.best_trial.value} Best capital {capital} trade {trade_params}")
+        # print(f"{code} 找最优交易参数")
+        # storage = optuna.storages.InMemoryStorage()
+        # study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(),
+        #                             storage=storage)
+        # study.optimize(
+        #     lambda trial: optimize_trade(trial, code, lv_list, val_begin_time, val_end_time, dataset_params, model,
+        #                                  feature_names),
+        #     n_trials=50,
+        #     n_jobs=4)
+        # trade_params = study.best_trial.user_attrs["trade_params"]
+        # capital = study.best_trial.user_attrs["capital"]
+        # plot_driver = study.best_trial.user_attrs["plot_driver"]
+        # plot_driver.save2img(f"./result/{code}_train.png")
+        # plt.clf()
+        # print(f"{code} Best Score {study.best_trial.value} Best capital {capital} trade {trade_params}")
         print("开始测试")
+        trade_params = {
+            "bsp1_open": 0.22,
+            "risk_reward_ratio": 3.0,
+            "bsp1_sl_long": 0.002,
+            "bsp1_sl_short": 0.002,
+        }
         code, score, capital, plot_driver = run_trade(code, lv_list, test_begin_time, test_end_time, dataset_params,
                                                       model,
                                                       feature_names,

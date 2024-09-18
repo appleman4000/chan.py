@@ -46,11 +46,12 @@ class TaIndicators:
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1]
         periods = [6, 20]
         for period in periods:
-            returns[f"ROC{period}"] = talib.ROCP(closing, timeperiod=period)[-1]
+            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1]
         periods = [10, 20]
         for period in periods:
             returns[f"MAX{period}"] = talib.MAX(highest, timeperiod=period)[-1] / close
             returns[f"MIN{period}"] = talib.MIN(lowest, timeperiod=period)[-1] / close
+            returns[f"MID{period}"] = (returns[f"MAX{period}"] + returns[f"MIN{period}"]) / 2.0
         UPPERBAND, MIDDLEBAND, LOWERBAND = \
             talib.BBANDS(closing, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
         returns["UPPERBAND"] = UPPERBAND[-1] / close

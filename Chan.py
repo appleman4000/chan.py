@@ -3,6 +3,7 @@
 import copy
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Union
+
 from BuySellPoint.BS_Point import CBS_Point
 from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
@@ -12,6 +13,7 @@ from Common.func_util import check_kltype_order, kltype_lte_day
 from DataAPI.CommonStockAPI import CCommonStockApi
 from KLine.KLine_List import CKLine_List
 from KLine.KLine_Unit import CKLine_Unit
+
 
 # 缠论实现类
 class CChan:
@@ -312,3 +314,9 @@ class CChan:
             return sorted(self[idx].bs_point_lst.lst, key=lambda x: x.klu.time)
         assert len(self.lv_list) == 1
         return sorted(self[0].bs_point_lst.lst, key=lambda x: x.klu.time)
+
+    def get_seg_bsp(self, idx=None) -> List[CBS_Point]:
+        if idx is not None:
+            return sorted(self[idx].seg_bs_point_lst.lst, key=lambda x: x.klu.time)
+        assert len(self.lv_list) == 1
+        return sorted(self[0].seg_bs_point_lst.lst, key=lambda x: x.klu.time)
