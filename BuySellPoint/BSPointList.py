@@ -1,10 +1,11 @@
 # cython: language_level=3
 # encoding:utf-8
+import copy
 from typing import Dict, Generic, List, Optional, TypeVar, Union, overload
 
 from Bi.Bi import CBi
 from Bi.BiList import CBiList
-from Common.CEnum import BSP_TYPE
+from Common.CEnum import BSP_TYPE, MACD_ALGO
 from Common.func_util import has_overlap
 from Seg.Seg import CSeg
 from Seg.SegListComm import CSegListComm
@@ -115,6 +116,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
 
     def treat_bsp1(self, seg: CSeg[LINE_TYPE], BSP_CONF: CPointConfig, is_target_bsp: bool):
         last_zs = seg.zs_lst[-1]
+        last_bi = seg.end_bi
         break_peak, _ = last_zs.out_bi_is_peak(seg.end_bi.idx)
         if BSP_CONF.bs1_peak and not break_peak:
             is_target_bsp = False
@@ -123,11 +125,9 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         feature_dict.update({
             'divergence_rate': divergence_rate,
         })
+
         if not is_diver:
             is_target_bsp = False
-        feature_dict.update({
-            'zs_cnt': len(seg.zs_lst),
-        })
         self.add_bs(bs_type=BSP_TYPE.T1, bi=seg.end_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
 
@@ -154,9 +154,9 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         })
         if isinstance(bi_list, CBiList):
             assert isinstance(last_bi, CBi) and isinstance(pre_bi, CBi)
-        feature_dict.update({
-            # 'bsp1_bi_amp': last_bi.amp(),
-        })
+        # feature_dict.update({
+        #     'bsp1_bi_amp': last_bi.amp(),
+        # })
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp,
                     feature_dict=feature_dict)
 
@@ -194,11 +194,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         retrace_rate = bsp2_bi.amp() / break_bi.amp()
         bsp2_flag = retrace_rate <= BSP_CONF.max_bs2_rate
         if bsp2_flag:
-            feature_dict = {
-                'bsp2_retrace_rate': retrace_rate,
-                'bsp2_break_bi_amp': break_bi.amp(),
-                'bsp2_bi_amp': bsp2_bi.amp(),
-            }
+            feature_dict = dict()
             self.add_bs(bs_type=BSP_TYPE.T2, bi=bsp2_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore
         elif BSP_CONF.bsp2s_follow_2:
@@ -241,10 +237,10 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             if retrace_rate > BSP_CONF.max_bs2_rate:
                 break
             feature_dict = {
-                'bsp2s_retrace_rate': retrace_rate,
-                'bsp2s_break_bi_amp': break_bi.amp(),
-                'bsp2s_bi_amp': bsp2s_bi.amp(),
-                'bsp2s_lv': bias / 2,
+                # 'bsp2s_retrace_rate': retrace_rate,
+                # 'bsp2s_break_bi_amp': break_bi.amp(),
+                # 'bsp2s_bi_amp': bsp2s_bi.amp(),
+                # 'bsp2s_lv': bias / 2,
             }
             self.add_bs(bs_type=BSP_TYPE.T2S, bi=bsp2s_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore

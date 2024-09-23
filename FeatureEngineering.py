@@ -1,20 +1,20 @@
 # cython: language_level=3
 # encoding:utf-8
-
+from Chan import CChan
 from Common.CEnum import BI_DIR, FX_TYPE, MACD_ALGO
-from KLine.KLine_List import CKLine_List
 
 coefficient = 100
 
 
 class FeatureFactors:
-    def __init__(self, chan: CKLine_List,
+    def __init__(self, chan_snapshot: CChan,
                  MAX_BI=2,
                  MAX_ZS=1,
                  MAX_SEG=1,
                  MAX_SEGSEG=1,
                  MAX_SEGZS=1):
-        self.chan = chan
+        self.lv0_chan = chan_snapshot[0]
+        # self.lv1_chan = chan_snapshot[1]
         self.MAX_BI = MAX_BI
         self.MAX_ZS = MAX_ZS
         self.MAX_SEG = MAX_SEG
@@ -24,61 +24,72 @@ class FeatureFactors:
     def get_factors(self):
         bis = []
         for i in range(1, self.MAX_BI + 1):
-            if i < len(self.chan.bi_list):
-                bi = self.chan.bi_list[-i]
+            if i < len(self.lv0_chan.bi_list):
+                bi = self.lv0_chan.bi_list[-i]
                 bis.append(bi)
         if self.MAX_SEG <= 0:
             segs = []
         else:
-            segs = self.chan.seg_list[-min(self.MAX_SEG, len(self.chan.seg_list)):]
+            segs = self.lv0_chan.seg_list[-min(self.MAX_SEG, len(self.lv0_chan.seg_list)):]
         if self.MAX_SEGSEG <= 0:
             segsegs = []
         else:
-            segsegs = self.chan.segseg_list[-min(self.MAX_SEGSEG, len(self.chan.segseg_list)):]
+            segsegs = self.lv0_chan.segseg_list[-min(self.MAX_SEGSEG, len(self.lv0_chan.segseg_list)):]
         if self.MAX_ZS <= 0:
             zss = []
         else:
-            zss = self.chan.zs_list[-min(self.MAX_ZS, len(self.chan.zs_list)):]
+            zss = self.lv0_chan.zs_list[-min(self.MAX_ZS, len(self.lv0_chan.zs_list)):]
         if self.MAX_SEGZS <= 0:
             segzss = []
         else:
-            segzss = self.chan.segzs_list[-min(self.MAX_SEGZS, len(self.chan.segzs_list)):]
+            segzss = self.lv0_chan.segzs_list[-min(self.MAX_SEGZS, len(self.lv0_chan.segzs_list)):]
+
         factors = dict()
-        factors.update(self.bi(bis))
-        factors.update(self.seg(segs, segsegs))
-        factors.update(self.zs(zss, segzss))
+        factors.update(self.bi(bis, self.lv0_chan[-1][-1]))
+        factors.update(self.seg(segs, segsegs, self.lv0_chan[-1][-1]))
+        factors.update(self.zs(zss, segzss, self.lv0_chan[-1][-1]))
+
+        # factors1 = dict()
+        # bis = []
+        # for i in range(1, self.MAX_BI + 1):
+        #     if i < len(self.lv1_chan.bi_list):
+        #         bi = self.lv1_chan.bi_list[-i]
+        #         bis.append(bi)
+        # factors1.update(self.bi(bis, self.lv1_chan[-1][-1]))
+        # factors = dict()
+        # for key, value in factors0.items():
+        #     factors.update({f"lv0_{key}": value})
+        # for key, value in factors1.items():
+        #     factors.update({f"lv1_{key}": value})
         return factors
 
     # 最后一个分型
     def fx(self):
-        fx = self.chan[-1].fx
+        fx = self.lv0_chan[-1].fx
         return {"fx": list(FX_TYPE).index(fx)}
 
     ############################### 笔 ########################################
-    def bi(self, bis):
+    def bi(self, bis, klu):
 
         def bi_begin(i, bi):
-            klu = self.chan[-1][-1]
             factors = dict()
-            factors[f"bi_begin_klu_cnt{i}"] = (klu.idx - bi.get_begin_klu().idx + 1)
-            factors[f"bi_begin_klc_cnt{i}"] = (klu.klc.idx - bi.get_begin_klu().klc.idx + 1)
+            factors[f"bi_begin_klu_cnt{i}"] = (klu.idx - bi.get_begin_klu().idx + 1) / coefficient
+            factors[f"bi_begin_klc_cnt{i}"] = (klu.klc.idx - bi.get_begin_klu().klc.idx + 1) / coefficient
             factors[f"bi_begin_amp{i}"] = (bi.get_begin_val() / klu.close - 1) * coefficient
             factors[f"bi_begin_slope{i}"] = (bi.get_begin_val() - klu.close) * coefficient / (
                     klu.idx - bi.get_begin_klu().idx + 1)
             return factors
 
         def bi_end(i, bi):
-            klu = self.chan[-1][-1]
             factors = dict()
-            factors[f"bi_end_klu_cnt{i}"] = (klu.idx - bi.get_end_klu().idx + 1)
-            factors[f"bi_end_klc_cnt{i}"] = (klu.klc.idx - bi.get_end_klu().klc.idx + 1)
+            factors[f"bi_end_klu_cnt{i}"] = (klu.idx - bi.get_end_klu().idx + 1) / coefficient
+            factors[f"bi_end_klc_cnt{i}"] = (klu.klc.idx - bi.get_end_klu().klc.idx + 1) / coefficient
             factors[f"bi_end_amp{i}"] = (bi.get_end_val() / klu.close - 1) * coefficient
             factors[f"bi_end_slope{i}"] = (bi.get_end_val() / klu.close - 1) * coefficient / (
                     klu.idx - bi.get_end_klu().idx + 1)
             return factors
 
         def bi_high(i, bi):
-            klu = self.chan[-1][-1]
             factors = dict()
             factors[f"bi_high{i}"] = (bi._high() / bi._low() - 1) * coefficient
             factors[f"bi_high_amp{i}"] = (bi._high() / klu.close - 1) * coefficient
@@ -86,13 +97,11 @@ class FeatureFactors:
             return factors
 
         def bi_low(i, bi):
-            klu = self.chan[-1][-1]
             factors = dict()
             factors[f"bi_low_amp{i}"] = (bi._low() / klu.close - 1) * coefficient
             return factors
 
         def bi_mid(i, bi):
-            klu = self.chan[-1][-1]
             factors = dict()
             factors[f"bi_mid_amp{i}"] = (bi._mid() / klu.close - 1) * coefficient
             return factors
@@ -104,63 +113,22 @@ class FeatureFactors:
                                               bi.get_end_val() / bi.get_begin_val() - 1) * coefficient / bi.get_klu_cnt()
             return factors
 
-        def bi_dir(i, bi):
-            factors = dict()
-            factors[f"bi_dir{i}"] = list(BI_DIR).index(bi.dir)
-            return factors
-
-        def bi_is_sure(i, bi):
-            factors = dict()
-            factors[f"bi_is_sure{i}"] = int(bi.is_sure)
-            return factors
 
         def bi_klu_cnt(i, bi):
             factors = dict()
-            factors[f"bi_klu_cnt{i}"] = bi.get_klu_cnt()
+            factors[f"bi_klu_cnt{i}"] = bi.get_klu_cnt() / coefficient
             return factors
 
         def bi_klc_cnt(i, bi):
             factors = dict()
-            factors[f"bi_klc_cnt{i}"] = bi.get_klc_cnt()
+            factors[f"bi_klc_cnt{i}"] = bi.get_klc_cnt() / coefficient
             return factors
 
         def bi_indicators(i, bi):
             factors = dict()
-            for key, value in bi.get_begin_klu().indicators.items():
+            for key, value in bi.get_end_klu().indicators.items():
                 factors[f"bi{i}_{key}"] = value
             return factors
-
-        # def bi_open_klu_rate(i, klu):
-        #     factors = dict()
-        #     factors[f"open_klu_rate"] = klu.close - klu.open
-        #     return factors
-        #
-        # def bi_macd(i, klu):
-        #     factors = dict()
-        #     factors[f"macd{i}"] = klu.macd.macd
-        #     factors[f"dif{i}"] = klu.macd.DIF
-        #     factors[f"dea{i}"] = klu.macd.DEA
-        #
-        #     return factors
-        #
-        # def rsi(i, klu):
-        #     factors = dict()
-        #     factors[f"rsi{i}"] = klu.rsi / 100.0
-        #     return factors
-        #
-        # def kdj(i, klu):
-        #     factors = dict()
-        #     factors[f"k{i}"] = klu.kdj.k
-        #     factors[f"d{i}"] = klu.kdj.d
-        #     factors[f"j{i}"] = klu.kdj.j
-        #     return factors
-
-        # def boll(i, klu):
-        #     factors = dict()
-        #     factors[f"up{i}"] = klu.boll.UP - klu.close
-        #     factors[f"mid{i}"] = klu.boll.MID - klu.close
-        #     factors[f"down{i}"] = klu.boll.DOWN - klu.close
-        #     return factors
 
         factors = dict()
         for i, bi in enumerate(bis):
@@ -176,33 +144,33 @@ class FeatureFactors:
         return factors
 
     ############################### 中枢 ####################################
-    def zs(self, zss, segzss):
+    def zs(self, zss, segzss, klu):
         def zs_begin(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
-            factors[f"zs_begin_klu_cnt{i}"] = klu.idx - zs.begin.idx + 1
-            factors[f"zs_begin_klc_cnt{i}"] = klu.klc.idx - zs.begin.klc.idx + 1
+            factors[f"zs_begin_klu_cnt{i}"] = (klu.idx - zs.begin.idx + 1) / coefficient
+            factors[f"zs_begin_klc_cnt{i}"] = (klu.klc.idx - zs.begin.klc.idx + 1) / coefficient
             return factors
 
         def zs_end(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
-            factors[f"zs_end_klu_cnt{i}"] = klu.idx - zs.end.idx + 1
-            factors[f"zs_end_klc_cnt{i}"] = klu.klc.idx - zs.end.klc.idx + 1
+            factors[f"zs_end_klu_cnt{i}"] = (klu.idx - zs.end.idx + 1) / coefficient
+            factors[f"zs_end_klc_cnt{i}"] = (klu.klc.idx - zs.end.klc.idx + 1) / coefficient
             return factors
 
         def zs_klu_cnt(i, zs):
             factors = dict()
-            factors[f"zs_klu_cnt{i}"] = zs.end.idx - zs.begin.idx + 1
+            factors[f"zs_klu_cnt{i}"] = (zs.end.idx - zs.begin.idx + 1) / coefficient
             return factors
 
         def zs_klc_cnt(i, zs):
             factors = dict()
-            factors[f"zs_klc_cnt{i}"] = zs.end.klc.idx - zs.begin.klc.idx + 1
+            factors[f"zs_klc_cnt{i}"] = (zs.end.klc.idx - zs.begin.klc.idx + 1) / coefficient
             return factors
 
         def zs_high(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"zs_high_low_amp{i}"] = (zs.high / zs.low - 1) * coefficient
             factors[f"zs_high_amp{i}"] = (zs.high / klu.close - 1) * coefficient
@@ -210,19 +178,19 @@ class FeatureFactors:
             return factors
 
         def zs_low(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"zs_low_amp{i}"] = (zs.low / klu.close - 1) * coefficient
             return factors
 
         def zs_mid(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"zs_mid_amp{i}"] = (zs.mid / klu.close - 1) * coefficient
             return factors
 
         def zs_peak_high(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"zs_peak_high_low_amp{i}"] = (zs.peak_high / zs.peak_low - 1) * coefficient
             factors[f"zs_peak_high_amp{i}"] = (zs.peak_high / klu.close - 1) * coefficient
@@ -231,7 +199,7 @@ class FeatureFactors:
             return factors
 
         def zs_peak_low(i, zs):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"zs_peak_low_amp{i}"] = (zs.peak_low / klu.close - 1) * coefficient
             return factors
@@ -247,10 +215,10 @@ class FeatureFactors:
                 MACD_ALGO.AMP
             ]:
                 bi_in_metric = zs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
-                factors[f"bi_in_{macd_algo.name}{i}"] = bi_in_metric
+                factors[f"bi_in_{macd_algo.name}{i}"] = bi_in_metric * coefficient
                 if zs.bi_out:
                     bi_out_metric = zs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-                    factors[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric
+                    factors[f"bi_out_{macd_algo.name}{i}"] = bi_out_metric * coefficient
                     factors[f"divergence_{macd_algo.name}{i}"] = bi_out_metric / (bi_in_metric + 1e-7)
             return factors
 
@@ -284,29 +252,27 @@ class FeatureFactors:
             ]:
                 bi_in_metric = segzs.bi_in.cal_macd_metric(macd_algo, is_reverse=False)
                 bi_out_metric = segzs.bi_out.cal_macd_metric(macd_algo, is_reverse=True)
-                factors[f"segzs_bi_in_{macd_algo.name}{i}"] = bi_in_metric
-                factors[f"segzs_bi_out_{macd_algo.name}{i}"] = bi_out_metric
+                factors[f"segzs_bi_in_{macd_algo.name}{i}"] = bi_in_metric * coefficient
+                factors[f"segzs_bi_out_{macd_algo.name}{i}"] = bi_out_metric * coefficient
                 factors[f"segzs_divergence_{macd_algo.name}{i}"] = bi_out_metric / (bi_in_metric + 1e-7)
 
         return factors
 
     ############################### 线段 ######################################
-    def seg(self, segs, segsegs):
+    def seg(self, segs, segsegs, klu):
         def seg_begin(i, seg):
-            klu = self.chan[-1][-1]
             factors = dict()
-            factors[f"seg_begin_klu_cnt{i}"] = klu.idx - seg.get_begin_klu().idx + 1
-            factors[f"seg_begin_klc_cnt{i}"] = klu.klc.idx - seg.get_begin_klu().klc.idx + 1
+            factors[f"seg_begin_klu_cnt{i}"] = (klu.idx - seg.get_begin_klu().idx + 1) / coefficient
+            factors[f"seg_begin_klc_cnt{i}"] = (klu.klc.idx - seg.get_begin_klu().klc.idx + 1) / coefficient
             factors[f"seg_begin_amp{i}"] = (seg.get_begin_val() / klu.close - 1) * coefficient
             factors[f"seg_begin_slope{i}"] = (seg.get_begin_val() / klu.close - 1) * coefficient / (
                     klu.idx - seg.get_begin_klu().idx + 1)
             return factors
 
         def seg_end(i, seg):
-            klu = self.chan[-1][-1]
             factors = dict()
-            factors[f"seg_end_klu_cnt{i}"] = klu.idx - seg.get_end_klu().idx + 1
-            factors[f"seg_end_klc_cnt{i}"] = klu.klc.idx - seg.get_end_klu().klc.idx + 1
+            factors[f"seg_end_klu_cnt{i}"] = (klu.idx - seg.get_end_klu().idx + 1) / coefficient
+            factors[f"seg_end_klc_cnt{i}"] = (klu.klc.idx - seg.get_end_klu().klc.idx + 1) / coefficient
             factors[f"seg_end_val_amp{i}"] = (seg.get_end_val() / klu.close - 1) * coefficient
             factors[f"seg_end_val_slope{i}"] = (seg.get_end_val() / klu.close - 1) * coefficient / (
                     klu.idx - seg.get_end_klu().idx + 1)
@@ -320,21 +286,20 @@ class FeatureFactors:
             return factors
 
         def seg_high(i, seg):
-            klu = self.chan[-1][-1]
             factors = dict()
             factors[f"seg_high_low_amp{i}"] = (seg._high() / seg._low() - 1) * coefficient
             factors[f"seg_high_amp{i}"] = (seg._high() / klu.close - 1) * coefficient
             return factors
 
         def seg_low(i, seg):
-            klu = self.chan[-1][-1]
+
             factors = dict()
             factors[f"seg_low_amp{i}"] = (seg._low() / klu.close - 1) * coefficient
             return factors
 
         def seg_bi_cnt(i, seg):
             factors = dict()
-            factors[f"seg_bi_cnt{i}"] = seg.cal_bi_cnt()
+            factors[f"seg_bi_cnt{i}"] = seg.cal_bi_cnt() / coefficient
             return factors
 
         def seg_is_down(i, seg):
@@ -344,18 +309,18 @@ class FeatureFactors:
 
         def seg_klu_cnt(i, seg):
             factors = dict()
-            factors[f"seg_klu_cnt{i}"] = seg.get_klu_cnt()
+            factors[f"seg_klu_cnt{i}"] = seg.get_klu_cnt() / coefficient
             return factors
 
         def seg_klc_cnt(i, seg):
             factors = dict()
-            factors[f"seg_klc_cnt{i}"] = seg.get_end_klu().klc.idx - seg.get_begin_klu().klc.idx + 1
+            factors[f"seg_klc_cnt{i}"] = (seg.get_end_klu().klc.idx - seg.get_begin_klu().klc.idx + 1) / coefficient
             return factors
 
         def seg_macd(i, seg):
             factors = dict()
-            factors[f"seg_macd_slope{i}"] = seg.Cal_MACD_slope()
-            factors[f"seg_macd_amp{i}"] = seg.Cal_MACD_amp()
+            factors[f"seg_macd_slope{i}"] = seg.Cal_MACD_slope() * coefficient
+            factors[f"seg_macd_amp{i}"] = seg.Cal_MACD_amp() * coefficient
             return factors
 
         factors = dict()
