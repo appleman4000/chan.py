@@ -349,7 +349,7 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "random_state": seed,
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
-        'L0_depth': trial.suggest_int('L0_depth', 3, 5),
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
         'num_leaves': trial.suggest_int('num_leaves', 15, 31),  # 调整范围
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),  # 限制学习率上限
         'n_estimators': trial.suggest_int('n_estimators', 50, 500, step=10),  # 缩小范围
@@ -578,13 +578,6 @@ def run_codes(codes):
     model = study.best_trial.user_attrs["model"]
     model_params = study.best_trial.user_attrs["model_params"]
     auc = study.best_trial.value
-    # model_params = {'device': 'gpu', 'objective': 'binary', 'metric': 'auc', 'boosting_type': 'gbdt', 'verbose': -1,
-    #                 'num_threads': 8, 'random_state': 42, 'bagging_seed': 42, 'feature_fraction_seed': 42,
-    #                 'L0_depth': 3, 'num_leaves': 16, 'learning_rate': 0.09999999999999999, 'n_estimators': 500,
-    #                 'min_child_samples': 80, 'subsample': 0.9400000000000001, 'colsample_bytree': 0.9700000000000001,
-    #                 'reg_alpha': 7.34192217854519, 'reg_lambda': 6.044596383511273, 'gpu_platform_id': 0,
-    #                 'gpu_device_id': 0, 'scale_pos_weight': 4.7411803934644885}
-    # model, auc = get_model(model_params, all_x_train, all_x_test, all_y_train, all_y_test)
     print(f"AUC {auc} {model_params}")
     y_prob = np.array(model.predict_proba(all_x_test)[:, 1])
     thresholds = np.linspace(0, 1, 100)
