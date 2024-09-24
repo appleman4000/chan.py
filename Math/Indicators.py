@@ -64,7 +64,7 @@ class TaIndicators:
         returns["MACD_DEA"] = MACD_DEA[-1] * coefficient
         returns["MACD_BAR"] = MACD_BAR[-1] * coefficient
         returns["RSI"] = talib.RSI(closing, timeperiod=14)[-1] / 100.0
-        returns["CCI"] = talib.CCI(highest, lowest, closing, timeperiod=14)[-1] / 100.0
+        # returns["CCI"] = talib.CCI(highest, lowest, closing, timeperiod=14)[-1] / 100.0
 
         K, D = talib.STOCH(highest, lowest, closing,
                            fastk_period=9,  # K 线的周期
@@ -75,24 +75,24 @@ class TaIndicators:
         returns["K"] = K[-1] / 100.0
         returns["D"] = D[-1] / 100.0
         returns["J"] = (3 * K[-1] - 2 * D[-1]) / 100.0
-        returns["AROONOSC"] = talib.AROONOSC(highest, lowest, timeperiod=14)[-1] / 100.0
-        returns["PPO"] = talib.PPO(closing, fastperiod=12, slowperiod=26, matype=0)[-1]
+        # returns["AROONOSC"] = talib.AROONOSC(highest, lowest, timeperiod=14)[-1] / 100.0
+        # returns["PPO"] = talib.PPO(closing, fastperiod=12, slowperiod=26, matype=0)[-1]
         periods = [12, 26]
         for period in periods:
             returns[f"CMO{period}"] = talib.CMO(closing, timeperiod=period)[-1] / 100.0
         returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1] / 100.0
         returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1] / 100.0
-        returns["APO"] = talib.APO(closing, fastperiod=12, slowperiod=26)[-1] * coefficient
-        AROONDOWN, AROONUP = talib.AROON(highest, lowest, timeperiod=14)
-        returns["AROONDOWN"] = AROONDOWN[-1] / 100.0
-        returns["AROONUP"] = AROONUP[-1] / 100.0
+        # returns["APO"] = talib.APO(closing, fastperiod=12, slowperiod=26)[-1] * coefficient
+        # AROONDOWN, AROONUP = talib.AROON(highest, lowest, timeperiod=14)
+        # returns["AROONDOWN"] = AROONDOWN[-1] / 100.0
+        # returns["AROONUP"] = AROONUP[-1] / 100.0
 
-        returns["SAR"] = (talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close - 1) * coefficient
+        # returns["SAR"] = (talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close - 1) * coefficient
 
-        returns["MOM"] = talib.MOM(closing, timeperiod=10)[-1] * coefficient
-        periods = [6, 12, 26]
-        for period in periods:
-            returns[f"DEMA{period}"] = (talib.DEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
-            returns[f"EMA{period}"] = (talib.EMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
-            returns[f"TEMA{period}"] = (talib.TEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+        # returns["MOM"] = talib.MOM(closing, timeperiod=10)[-1] * coefficient
+        # periods = [6, 12, 26]
+        # for period in periods:
+        #     returns[f"DEMA{period}"] = (talib.DEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+        #     returns[f"EMA{period}"] = (talib.EMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+        #     returns[f"TEMA{period}"] = (talib.TEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
         return returns
