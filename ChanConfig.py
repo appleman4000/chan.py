@@ -7,9 +7,7 @@ from BuySellPoint.BSPointConfig import CBSPointConfig
 from Common.CEnum import TREND_TYPE
 from Common.ChanException import CChanException, ErrCode
 from Common.func_util import _parse_inf
-from Math.ATR import ATR
 from Math.BOLL import BollModel
-from Math.Cross import CrossIndicators
 from Math.Demark import CDemarkEngine
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
@@ -106,8 +104,6 @@ class CChanConfig:
         if self.cal_kdj:
             res.append(KDJ(self.kdj_cycle))
         res.append(TaIndicators(N=200))
-        res.append(CrossIndicators(T=200))
-        res.append(ATR(n=200, period=60))
         return res
 
     def set_bsp_config(self, conf):

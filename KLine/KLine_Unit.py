@@ -6,9 +6,7 @@ from typing import Dict, Optional
 from Common.CEnum import DATA_FIELD, TRADE_INFO_LST, TREND_TYPE
 from Common.CTime import CTime
 from Common.ChanException import CChanException, ErrCode
-from Math.ATR import ATR
 from Math.BOLL import BOLL_Metric, BollModel
-from Math.Cross import CrossIndicators
 from Math.Demark import CDemarkEngine, CDemarkIndex
 from Math.Indicators import TaIndicators
 from Math.KDJ import KDJ
@@ -143,10 +141,6 @@ class CKLine_Unit:
                 self.kdj = metric_model.add(self.high, self.low, self.close)
             elif isinstance(metric_model, TaIndicators):
                 self.indicators = metric_model.add(self.open, self.high, self.low, self.close)
-            elif isinstance(metric_model, CrossIndicators):
-                self.cross = metric_model.add(self.close)
-            elif isinstance(metric_model, ATR):
-                self.atr = metric_model.add(self.high, self.low, self.close)
 
     def get_parent_klc(self):
         assert self.sup_kl is not None
