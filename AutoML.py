@@ -489,7 +489,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 
 def run_codes(codes):
-    lv_list = [KL_TYPE.K_1H, KL_TYPE.K_15M]
+    lv_list = [KL_TYPE.K_1H, KL_TYPE.K_10M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     # val_begin_time = "2023-01-01 00:00:00"

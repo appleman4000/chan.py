@@ -48,7 +48,7 @@ class TaIndicators:
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1] / 100.0
         periods = [6, 20]
         for period in periods:
-            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1] * 10
+            returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1] * 10.0
         periods = [10, 20, 40]
         for period in periods:
             returns[f"MAX{period}"] = (talib.MAX(highest, timeperiod=period)[-1] / close - 1) * coefficient
@@ -77,9 +77,9 @@ class TaIndicators:
         returns["J"] = (3 * K[-1] - 2 * D[-1]) / 100.0
         # returns["AROONOSC"] = talib.AROONOSC(highest, lowest, timeperiod=14)[-1] / 100.0
         # returns["PPO"] = talib.PPO(closing, fastperiod=12, slowperiod=26, matype=0)[-1]
-        periods = [12, 26]
-        for period in periods:
-            returns[f"CMO{period}"] = talib.CMO(closing, timeperiod=period)[-1] / 100.0
+        # periods = [12, 26]
+        # for period in periods:
+        #     returns[f"CMO{period}"] = talib.CMO(closing, timeperiod=period)[-1] / 100.0
         returns["ADX"] = talib.ADX(highest, lowest, closing, timeperiod=14)[-1] / 100.0
         returns["ADXR"] = talib.ADXR(highest, lowest, closing, timeperiod=14)[-1] / 100.0
         # returns["APO"] = talib.APO(closing, fastperiod=12, slowperiod=26)[-1] * coefficient
