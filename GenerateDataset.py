@@ -103,6 +103,8 @@ class T_SAMPLE_INFO(TypedDict):
     close_time: CTime
     profit: float
     last_bsp: CBS_Point
+    atr: float
+    bsp_price: float
 
 
 def generate_dataset(code, source_dir, lv_list, begin_time, end_time):

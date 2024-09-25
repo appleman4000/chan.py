@@ -175,9 +175,13 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 止盈
             close_price = round(lv0_chan[-1][-1].close, 5)
             long_profit = close_price / long_order - 1
+            atr = bsp_dict[long_klu_idx]["atr"]
+            bsp_price = bsp_dict[long_klu_idx]["bsp_price"]
+            tp = close_price >= bsp_price + 7 * atr
+            sl = close_price <= bsp_price - 3 * atr
             # 最大止盈止损保护
-            tp = long_profit >= trade_params["bsp1_sl_long"] * trade_params["risk_reward_ratio"]
-            sl = long_profit <= -trade_params["bsp1_sl_long"]
+            # tp = long_profit >= trade_params["bsp1_sl_long"] * trade_params["risk_reward_ratio"]
+            # sl = long_profit <= -trade_params["bsp1_sl_long"]
             exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
                     BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and not last_bsp.is_buy
             if exit_rule or tp or sl:
@@ -188,9 +192,13 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if short_order > 0:
             close_price = round(lv0_chan[-1][-1].close, 5)
             short_profit = short_order / close_price - 1
+            atr = bsp_dict[short_klu_idx]["atr"]
+            bsp_price = bsp_dict[short_klu_idx]["bsp_price"]
+            tp = close_price <= bsp_price - 7 * atr
+            sl = close_price >= bsp_price + 3 * atr
             # 最大止盈止损保护
-            tp = short_profit >= trade_params["bsp1_sl_short"] * trade_params["risk_reward_ratio"]
-            sl = short_profit <= -trade_params["bsp1_sl_short"]
+            # tp = short_profit >= trade_params["bsp1_sl_short"] * trade_params["risk_reward_ratio"]
+            # sl = short_profit <= -trade_params["bsp1_sl_short"]
             exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
                     BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and last_bsp.is_buy
             if exit_rule or tp or sl:
@@ -229,6 +237,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                         "price": lv0_chan[-1][-1].close,
                         "state": 0,
                         "profit": 0,
+                        "atr": last_bsp.klu.atr,
+                        "bsp_price": last_bsp.klu.close
                     }
                     long_klu_idx = last_bsp.klu.idx
                     long_order = round(lv0_chan[-1][-1].close * fee, 5)
@@ -239,6 +249,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                         "price": lv0_chan[-1][-1].close,
                         "state": 0,
                         "profit": 0,
+                        "atr": last_bsp.klu.atr,
+                        "bsp_price": last_bsp.klu.close
                     }
                     short_klu_idx = last_bsp.klu.idx
                     short_order = round(lv0_chan[-1][-1].close / fee, 5)
@@ -564,7 +576,7 @@ def run_codes(codes):
                 delayed(get_dataset)(code, lv_list,
                                      start.strftime(local_time_format),
                                      min(datetime.datetime.strptime(end_time, local_time_format),
-                                         (start + datetime.timedelta(days=120))).strftime(local_time_format),
+                                         (start + datetime.timedelta(days=90))).strftime(local_time_format),
                                      dataset_params) for code in codes)
             print(
                 f"{min(datetime.datetime.strptime(end_time, local_time_format), (start + datetime.timedelta(days=90))).strftime(local_time_format)} completed")
