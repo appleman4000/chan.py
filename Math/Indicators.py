@@ -46,7 +46,7 @@ class TaIndicators:
         returns = dict()
         returns["OPEN_KLU_RATE"] = ((closing / opening - 1) * coefficient)[-1]
         returns["WILLR"] = talib.WILLR(highest, lowest, closing, timeperiod=14)[-1] / 100.0
-        periods = [6, 20]
+        periods = [5, 20]
         for period in periods:
             returns[f"ROC{period}"] = talib.ROC(closing, timeperiod=period)[-1] * 10.0
         periods = [10, 20, 40]
@@ -90,9 +90,9 @@ class TaIndicators:
         # returns["SAR"] = (talib.SAR(highest, lowest, acceleration=0.02, maximum=0.2)[-1] / close - 1) * coefficient
 
         # returns["MOM"] = talib.MOM(closing, timeperiod=10)[-1] * coefficient
-        # periods = [6, 12, 26]
-        # for period in periods:
-        #     returns[f"DEMA{period}"] = (talib.DEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
-        #     returns[f"EMA{period}"] = (talib.EMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
-        #     returns[f"TEMA{period}"] = (talib.TEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+        periods = [6, 12, 26]
+        for period in periods:
+            returns[f"DEMA{period}"] = (talib.DEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+            returns[f"EMA{period}"] = (talib.EMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
+            returns[f"TEMA{period}"] = (talib.TEMA(closing, timeperiod=period)[-1] / close - 1) * coefficient
         return returns

@@ -23,8 +23,7 @@ from sklearn.utils import shuffle
 
 from Chan import CChan
 from ChanConfig import CChanConfig
-from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE, BSP_TYPE, FX_TYPE
-from DataAPI.MT5ForexAPI import CMT5ForexAPI
+from Common.CEnum import DATA_SRC, KL_TYPE, AUTYPE, BSP_TYPE
 from FeatureLib import FeatureLib
 from GenerateDataset import T_SAMPLE_INFO
 from Plot.PlotDriver import CPlotDriver
@@ -33,7 +32,7 @@ logging.getLogger('LGBMClassifier').setLevel(logging.CRITICAL)
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 warnings.filterwarnings("ignore")
 sys.setrecursionlimit(100000)
-
+local_time_format = '%Y-%m-%d %H:%M:%S'
 symbols = [
     # Major
     "EURUSD",
@@ -154,6 +153,18 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             continue
         if len(lv1_chan.segzs_list) < dataset_params["L1_SEGZS"]:
             continue
+
+        lv2_chan = chan[2]
+        if len(lv2_chan.bi_list) < dataset_params["L2_BI"]:
+            continue
+        if len(lv2_chan.seg_list) < dataset_params["L2_SEG"]:
+            continue
+        if len(lv2_chan.segseg_list) < dataset_params["L2_SEGSEG"]:
+            continue
+        if len(lv2_chan.zs_list) < dataset_params["L2_ZS"]:
+            continue
+        if len(lv2_chan.segzs_list) < dataset_params["L2_SEGZS"]:
+            continue
         profit = 0
         bsp_list = chan.get_bsp(0)  # 获取买卖点列表
         if not bsp_list:
@@ -167,7 +178,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 最大止盈止损保护
             tp = long_profit >= trade_params["bsp1_sl_long"] * trade_params["risk_reward_ratio"]
             sl = long_profit <= -trade_params["bsp1_sl_long"]
-            exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and lv0_chan[-2].fx == FX_TYPE.TOP and (
+            exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
                     BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and not last_bsp.is_buy
             if exit_rule or tp or sl:
                 long_order = 0
@@ -180,7 +191,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             # 最大止盈止损保护
             tp = short_profit >= trade_params["bsp1_sl_short"] * trade_params["risk_reward_ratio"]
             sl = short_profit <= -trade_params["bsp1_sl_short"]
-            exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and lv0_chan[-2].fx == FX_TYPE.BOTTOM and (
+            exit_rule = last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
                     BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type) and last_bsp.is_buy
             if exit_rule or tp or sl:
                 short_order = 0
@@ -190,7 +201,7 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
 
         if long_order == 0 and short_order == 0:
             if last_bsp.klu.idx not in treated_bsp_idx and last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
-                    BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type):
+                    BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type):
                 treated_bsp_idx.add(last_bsp.klu.idx)
                 factors = FeatureLib(chan_snapshot,
                                      0.01 if 'JPY' in code else 0.0001,
@@ -203,7 +214,12 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                                      dataset_params["L1_ZS"],
                                      dataset_params["L1_SEG"],
                                      dataset_params["L1_SEGSEG"],
-                                     dataset_params["L1_SEGZS"]
+                                     dataset_params["L1_SEGZS"],
+                                     dataset_params["L2_BI"],
+                                     dataset_params["L2_ZS"],
+                                     dataset_params["L2_SEG"],
+                                     dataset_params["L2_SEGSEG"],
+                                     dataset_params["L2_SEGZS"]
                                      ).get_factors()
                 bsp_pred = predict_bsp(model=model, feature=factors, feature_names=feature_names)
                 if bsp_pred >= trade_params["bsp1_open"] and last_bsp.is_buy:
@@ -294,7 +310,7 @@ def get_model(model_params, X_train, X_test, y_train, y_test):
     model = lgb.LGBMClassifier(**model_params)
     X_train, label_train = shuffle(X_train, label_train, random_state=42)
     model.fit(X=X_train, y=label_train, eval_set=[(X_test, label_test)],
-              callbacks=[early_stopping(stopping_rounds=100, verbose=False)])
+              callbacks=[early_stopping(stopping_rounds=10, verbose=False)])
     # 从 evals_result_ 中提取验证集的 AUC 值
     evals_result = model.evals_result_
 
@@ -349,15 +365,15 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "random_state": seed,
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
-        'max_depth': trial.suggest_int('max_depth', 3, 5),
-        'num_leaves': trial.suggest_int('num_leaves', 15, 31),  # 调整范围
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, step=0.01),  # 限制学习率上限
-        'n_estimators': trial.suggest_int('n_estimators', 50, 500, step=10),  # 缩小范围
-        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100, step=10),  # 提高最小样本数
+        'max_depth': trial.suggest_int('max_depth', 3, 6),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 63),  # 调整范围
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.01),  # 限制学习率上限
+        'n_estimators': trial.suggest_int('n_estimators', 50, 1000, step=10),  # 缩小范围
+        'min_child_samples': trial.suggest_int('min_child_samples', 50, 100, step=10),  # 提高最小样本数
         'subsample': trial.suggest_float('subsample', 0.8, 1.0, step=0.01),  # 提高下采样比例
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.8, 1.0, step=0.01),  # 调整特征子样本
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),  # 缩小正则化范围
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),  # 缩小正则化范围
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 5),  # 缩小正则化范围
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 5),  # 缩小正则化范围
         'gpu_platform_id': 0,
         'gpu_device_id': trial.number % 2,
         'scale_pos_weight': scale_pos_weight,
@@ -399,16 +415,8 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
-    data_src_0 = CMT5ForexAPI(code, k_type=lv_list[0], begin_date=begin_time, end_date=end_time)
-    data_src_1 = CMT5ForexAPI(code, k_type=lv_list[1], begin_date=begin_time, end_date=end_time)
-    kl_1_all = list(data_src_1.get_kl_data())
-    for _idx, klu in enumerate(data_src_0.get_kl_data()):
-        if _idx == 0:
-            chan.trigger_load({lv_list[0]: [klu], lv_list[1]: kl_1_all})
-        else:
-            chan.trigger_load({lv_list[0]: [klu]})
-
-        lv0_chan = chan[0]
+    for chan_snapshot in chan.step_load():
+        lv0_chan = chan_snapshot[0]
         if len(lv0_chan.bi_list) < params["L0_BI"]:
             continue
         if len(lv0_chan.seg_list) < params["L0_SEG"]:
@@ -420,7 +428,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
         if len(lv0_chan.segzs_list) < params["L0_SEGZS"]:
             continue
 
-        lv1_chan = chan[1]
+        lv1_chan = chan_snapshot[1]
         if len(lv1_chan.bi_list) < params["L1_BI"]:
             continue
         if len(lv1_chan.seg_list) < params["L1_SEG"]:
@@ -431,11 +439,23 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
             continue
         if len(lv1_chan.segzs_list) < params["L1_SEGZS"]:
             continue
+
+        lv2_chan = chan_snapshot[2]
+        if len(lv2_chan.bi_list) < params["L2_BI"]:
+            continue
+        if len(lv2_chan.seg_list) < params["L2_SEG"]:
+            continue
+        if len(lv2_chan.segseg_list) < params["L2_SEGSEG"]:
+            continue
+        if len(lv2_chan.zs_list) < params["L2_ZS"]:
+            continue
+        if len(lv2_chan.segzs_list) < params["L2_SEGZS"]:
+            continue
         bsp_list = chan.get_bsp(0)  # 获取买卖点列表
         if not bsp_list:
             continue
-
         last_bsp = bsp_list[-1]
+
         if last_bsp.klu.idx not in bsp_dict and last_bsp.klu.klc.idx == lv0_chan[-2].idx and (
                 BSP_TYPE.T1 in last_bsp.type or BSP_TYPE.T1P in last_bsp.type or
                 BSP_TYPE.T2 in last_bsp.type or BSP_TYPE.T2S in last_bsp.type or
@@ -451,7 +471,12 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                                  params["L1_ZS"],
                                  params["L1_SEG"],
                                  params["L1_SEGSEG"],
-                                 params["L1_SEGZS"]
+                                 params["L1_SEGZS"],
+                                 params["L2_BI"],
+                                 params["L2_ZS"],
+                                 params["L2_SEG"],
+                                 params["L2_SEGSEG"],
+                                 params["L2_SEGZS"]
                                  ).get_factors()
             bsp_dict[last_bsp.klu.idx] = {
                 "feature": factors,
@@ -489,7 +514,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 
 def run_codes(codes):
-    lv_list = [KL_TYPE.K_1H, KL_TYPE.K_10M]
+    lv_list: list[KL_TYPE] = [KL_TYPE.K_1H, KL_TYPE.K_15M, KL_TYPE.K_3M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     # val_begin_time = "2023-01-01 00:00:00"
@@ -515,16 +540,21 @@ def run_codes(codes):
         "kl_data_check": False,
         "L0_BI": 5,
         "L0_ZS": 1,
-        "L0_SEG": 1,
-        "L0_SEGSEG": 1,
+        "L0_SEG": 2,
+        "L0_SEGSEG": 2,
         "L0_SEGZS": 1,
         "L1_BI": 5,
         "L1_ZS": 1,
-        "L1_SEG": 1,
-        "L1_SEGSEG": 1,
-        "L1_SEGZS": 1
+        "L1_SEG": 2,
+        "L1_SEGSEG": 2,
+        "L1_SEGZS": 1,
+        "L2_BI": 5,
+        "L2_ZS": 1,
+        "L2_SEG": 2,
+        "L2_SEGSEG": 2,
+        "L2_SEGZS": 1
     }
-    local_time_format = '%Y-%m-%d %H:%M:%S'
+
     if not os.path.exists("./result/all_codes.dat"):
         print("制作训练集")
         start = datetime.datetime.strptime(begin_time, local_time_format)
@@ -534,10 +564,12 @@ def run_codes(codes):
                 delayed(get_dataset)(code, lv_list,
                                      start.strftime(local_time_format),
                                      min(datetime.datetime.strptime(end_time, local_time_format),
-                                         (start + datetime.timedelta(days=210))).strftime(local_time_format),
+                                         (start + datetime.timedelta(days=120))).strftime(local_time_format),
                                      dataset_params) for code in codes)
-            start = start + datetime.timedelta(days=200)
-            print(f"{start} completed")
+            print(
+                f"{min(datetime.datetime.strptime(end_time, local_time_format), (start + datetime.timedelta(days=90))).strftime(local_time_format)} completed")
+
+            start = start + datetime.timedelta(days=60)
             dfs += df
         print("all tasks completed")
         merged_df = pd.concat(dfs)
@@ -549,7 +581,7 @@ def run_codes(codes):
     else:
         with open("./result/all_codes.dat", "rb") as fid:
             merged_df = pickle.load(fid)
-    merged_df = merged_df[merged_df['bsp_types'].str.split(',').apply(lambda x: '2' in x or '2s' in x)]
+    merged_df = merged_df[merged_df['bsp_types'].str.split(',').apply(lambda x: '1' in x or '1p' in x)]
     # # 删除重复的列
     merged_df = merged_df.T.drop_duplicates().T
     feature_names = merged_df.columns.tolist()
@@ -579,7 +611,7 @@ def run_codes(codes):
     model_params = study.best_trial.user_attrs["model_params"]
     auc = study.best_trial.value
     print(f"AUC {auc} {model_params}")
-    y_prob = np.array(model.predict_proba(all_x_test)[:, 1])
+    y_prob = np.array(model.predict_proba(all_x_test.to_numpy(np.float32))[:, 1])
     thresholds = np.linspace(0, 1, 100)
     accuracies = []
     precisions = []
@@ -589,10 +621,10 @@ def run_codes(codes):
     # 计算每个阈值下的正确率、召回率和F1分数
     for t in thresholds:
         y_pred = (y_prob >= t).astype(int)
-        accuracy = accuracy_score(all_y_test['label'], y_pred)
-        precision = precision_score(all_y_test['label'], y_pred)
-        recall = recall_score(all_y_test['label'], y_pred)
-        f1 = f1_score(all_y_test[['label']], y_pred)
+        accuracy = accuracy_score(all_y_test['label'].astype(int), y_pred)
+        precision = precision_score(all_y_test['label'].astype(int), y_pred)
+        recall = recall_score(all_y_test['label'].astype(int), y_pred)
+        f1 = f1_score(all_y_test['label'].astype(int), y_pred)
         accuracies.append(accuracy)
         precisions.append(precision)
         recalls.append(recall)
@@ -633,7 +665,7 @@ def run_codes(codes):
         print("开始测试")
         trade_params = {
             "bsp1_open": 0.65,
-            "risk_reward_ratio": 2,
+            "risk_reward_ratio": 2.5,
             "bsp1_sl_long": 0.005,  # trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
             "bsp1_sl_short": 0.005,  # trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
         }

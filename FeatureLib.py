@@ -16,11 +16,16 @@ class FeatureLib:
                  L1_ZS=1,
                  L1_SEG=1,
                  L1_SEGSEG=1,
-                 L1_SEGZS=1
+                 L1_SEGZS=1,
+                 L2_BI=7,
+                 L2_ZS=1,
+                 L2_SEG=1,
+                 L2_SEGSEG=1,
+                 L2_SEGZS=1
                  ):
         self.lv0_chan = chan_snapshot[0]
         self.lv1_chan = chan_snapshot[1]
-        self.klu = self.lv1_chan[-1][-1]
+        self.lv2_chan = chan_snapshot[2]
         self.pip_value = pip_value
         self.L0_BI = L0_BI
         self.L0_ZS = L0_ZS
@@ -32,8 +37,13 @@ class FeatureLib:
         self.L1_SEG = L1_SEG
         self.L1_SEGSEG = L1_SEGSEG
         self.L1_SEGZS = L1_SEGZS
+        self.L2_BI = L2_BI
+        self.L2_ZS = L2_ZS
+        self.L2_SEG = L2_SEG
+        self.L2_SEGSEG = L2_SEGSEG
+        self.L2_SEGZS = L2_SEGZS
 
-    def lv_factors(self, lv_name, bis, segs, segsegs, zss, segzss):
+    def lv_factors(self, lv_chan, lv_name, bis, segs, segsegs, zss, segzss):
         factors = dict()
         for idx, bi in enumerate(bis):
             factors.update({
@@ -42,16 +52,16 @@ class FeatureLib:
                 f'{lv_name}_bi{idx}_slope': self.bi_slope(bi),
                 f'{lv_name}_bi{idx}_klu_cnt': self.bi_klu_cnt(bi),
                 f'{lv_name}_bi{idx}_klc_cnt': self.bi_klc_cnt(bi),
-                f'{lv_name}_bi{idx}_begin_klu_cnt': self.bi_begin_klu_cnt(bi),
-                f'{lv_name}_bi{idx}_begin_klc_cnt': self.bi_begin_klc_cnt(bi),
-                f'{lv_name}_bi{idx}_begin_amp': self.bi_begin_amp(bi),
-                f'{lv_name}_bi{idx}_begin_rate': self.bi_begin_rate(bi),
-                f'{lv_name}_bi{idx}_begin_slope': self.bi_begin_slope(bi),
-                f'{lv_name}_bi{idx}_end_klu_cnt': self.bi_end_klu_cnt(bi),
-                f'{lv_name}_bi{idx}_end_klc_cnt': self.bi_end_klc_cnt(bi),
-                f'{lv_name}_bi{idx}_end_amp': self.bi_end_amp(bi),
-                f'{lv_name}_bi{idx}_end_rate': self.bi_end_rate(bi),
-                f'{lv_name}_bi{idx}_end_slope': self.bi_end_slope(bi),
+                f'{lv_name}_bi{idx}_begin_klu_cnt': self.bi_begin_klu_cnt(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_begin_klc_cnt': self.bi_begin_klc_cnt(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_begin_amp': self.bi_begin_amp(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_begin_rate': self.bi_begin_rate(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_begin_slope': self.bi_begin_slope(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_end_klu_cnt': self.bi_end_klu_cnt(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_end_klc_cnt': self.bi_end_klc_cnt(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_end_amp': self.bi_end_amp(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_end_rate': self.bi_end_rate(bi, lv_chan[-1][-1]),
+                f'{lv_name}_bi{idx}_end_slope': self.bi_end_slope(bi, lv_chan[-1][-1]),
             })
             if idx < len(bis) - 1:
                 factors.update({
@@ -65,16 +75,16 @@ class FeatureLib:
                 f'{lv_name}_seg{idx}_slope': self.seg_slope(seg),
                 f'{lv_name}_seg{idx}_klu_cnt': self.seg_klu_cnt(seg),
                 f'{lv_name}_seg{idx}_klc_cnt': self.seg_klc_cnt(seg),
-                f'{lv_name}_seg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(seg),
-                f'{lv_name}_seg{idx}_begin_klc_cnt': self.seg_begin_klc_cnt(seg),
-                f'{lv_name}_seg{idx}_begin_amp': self.seg_begin_amp(seg),
-                f'{lv_name}_seg{idx}_begin_rate': self.seg_begin_rate(seg),
-                f'{lv_name}_seg{idx}_begin_slope': self.seg_begin_slope(seg),
-                f'{lv_name}_seg{idx}_end_klu_cnt': self.seg_end_klu_cnt(seg),
-                f'{lv_name}_seg{idx}_end_klc_cnt': self.seg_end_klc_cnt(seg),
-                f'{lv_name}_seg{idx}_end_amp': self.seg_end_amp(seg),
-                f'{lv_name}_seg{idx}_end_rate': self.seg_end_rate(seg),
-                f'{lv_name}_seg{idx}_end_slope': self.seg_end_slope(seg),
+                f'{lv_name}_seg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_begin_klc_cnt': self.seg_begin_klc_cnt(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_begin_amp': self.seg_begin_amp(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_begin_rate': self.seg_begin_rate(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_begin_slope': self.seg_begin_slope(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_end_klu_cnt': self.seg_end_klu_cnt(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_end_klc_cnt': self.seg_end_klc_cnt(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_end_amp': self.seg_end_amp(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_end_rate': self.seg_end_rate(seg, lv_chan[-1][-1]),
+                f'{lv_name}_seg{idx}_end_slope': self.seg_end_slope(seg, lv_chan[-1][-1]),
             })
             if idx < len(segs) - 1:
                 factors.update({
@@ -89,16 +99,16 @@ class FeatureLib:
                 f'{lv_name}_segseg{idx}_slope': self.seg_slope(segseg),
                 f'{lv_name}_segseg{idx}_klu_cnt': self.seg_klu_cnt(segseg),
                 f'{lv_name}_segseg{idx}_klc_cnt': self.seg_klc_cnt(segseg),
-                f'{lv_name}_segseg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(segseg),
-                f'{lv_name}_segseg{idx}_begin_klc_cnt': self.seg_begin_klc_cnt(segseg),
-                f'{lv_name}_segseg{idx}_begin_amp': self.seg_begin_amp(segseg),
-                f'{lv_name}_segseg{idx}_begin_rate': self.seg_begin_rate(segseg),
-                f'{lv_name}_segseg{idx}_begin_slope': self.seg_begin_slope(segseg),
-                f'{lv_name}_segseg{idx}_end_klu_cnt': self.seg_end_klu_cnt(segseg),
-                f'{lv_name}_segseg{idx}_end_klc_cnt': self.seg_end_klc_cnt(segseg),
-                f'{lv_name}_segseg{idx}_end_amp': self.seg_end_amp(segseg),
-                f'{lv_name}_segseg{idx}_end_rate': self.seg_end_rate(segseg),
-                f'{lv_name}_segseg{idx}_end_slope': self.seg_end_slope(segseg),
+                f'{lv_name}_segseg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_begin_klc_cnt': self.seg_begin_klc_cnt(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_begin_amp': self.seg_begin_amp(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_begin_rate': self.seg_begin_rate(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_begin_slope': self.seg_begin_slope(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_end_klu_cnt': self.seg_end_klu_cnt(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_end_klc_cnt': self.seg_end_klc_cnt(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_end_amp': self.seg_end_amp(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_end_rate': self.seg_end_rate(segseg, lv_chan[-1][-1]),
+                f'{lv_name}_segseg{idx}_end_slope': self.seg_end_slope(segseg, lv_chan[-1][-1]),
             })
             if idx < len(segsegs) - 1:
                 factors.update({
@@ -113,23 +123,23 @@ class FeatureLib:
                 f'{lv_name}_zs{idx}_slope': self.zs_slope(zs),
                 f'{lv_name}_zs{idx}_klu_cnt': self.zs_klu_cnt(zs),
                 f'{lv_name}_zs{idx}_klc_cnt': self.zs_klc_cnt(zs),
-                f'{lv_name}_zs{idx}_begin_klu_cnt': self.zs_begin_klu_cnt(zs),
-                f'{lv_name}_zs{idx}_begin_klc_cnt': self.zs_begin_klc_cnt(zs),
+                f'{lv_name}_zs{idx}_begin_klu_cnt': self.zs_begin_klu_cnt(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_begin_klc_cnt': self.zs_begin_klc_cnt(zs, lv_chan[-1][-1]),
                 f'{lv_name}_zs{idx}_peak_amp': self.zs_peak_amp(zs),
                 f'{lv_name}_zs{idx}_peak_rate': self.zs_peak_rate(zs),
                 f'{lv_name}_zs{idx}_peak_slope': self.zs_peak_slope(zs),
-                f'{lv_name}_zs{idx}_end_klu_cnt': self.zs_end_klu_cnt(zs),
-                f'{lv_name}_zs{idx}_end_klc_cnt': self.zs_end_klc_cnt(zs),
-                f'{lv_name}_zs{idx}_high_amp': self.zs_high_amp(zs),
-                f'{lv_name}_zs{idx}_high_rate': self.zs_high_rate(zs),
-                f'{lv_name}_zs{idx}_low_amp': self.zs_low_amp(zs),
-                f'{lv_name}_zs{idx}_low_rate': self.zs_low_rate(zs),
-                f'{lv_name}_zs{idx}_mid_amp': self.zs_mid_amp(zs),
-                f'{lv_name}_zs{idx}_mid_rate': self.zs_mid_rate(zs),
-                f'{lv_name}_zs{idx}_peak_high_amp': self.zs_peak_high_amp(zs),
-                f'{lv_name}_zs{idx}_peak_high_rate': self.zs_peak_high_rate(zs),
-                f'{lv_name}_zs{idx}_peak_low_amp': self.zs_peak_low_amp(zs),
-                f'{lv_name}_zs{idx}_peak_low_rate': self.zs_peak_low_rate(zs),
+                f'{lv_name}_zs{idx}_end_klu_cnt': self.zs_end_klu_cnt(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_end_klc_cnt': self.zs_end_klc_cnt(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_high_amp': self.zs_high_amp(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_high_rate': self.zs_high_rate(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_low_amp': self.zs_low_amp(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_low_rate': self.zs_low_rate(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_mid_amp': self.zs_mid_amp(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_mid_rate': self.zs_mid_rate(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_peak_high_amp': self.zs_peak_high_amp(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_peak_high_rate': self.zs_peak_high_rate(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_peak_low_amp': self.zs_peak_low_amp(zs, lv_chan[-1][-1]),
+                f'{lv_name}_zs{idx}_peak_low_rate': self.zs_peak_low_rate(zs, lv_chan[-1][-1]),
             })
             for key, value in self.zs_divergence(zs).items():
                 factors.update({f'{lv_name}_zs{idx}_{key}': value})
@@ -140,23 +150,23 @@ class FeatureLib:
                 f'{lv_name}_segzs{idx}_slope': self.zs_slope(segzs),
                 f'{lv_name}_segzs{idx}_klu_cnt': self.zs_klu_cnt(segzs),
                 f'{lv_name}_segzs{idx}_klc_cnt': self.zs_klc_cnt(segzs),
-                f'{lv_name}_segzs{idx}_begin_klu_cnt': self.zs_begin_klu_cnt(segzs),
-                f'{lv_name}_segzs{idx}_begin_klc_cnt': self.zs_begin_klc_cnt(segzs),
+                f'{lv_name}_segzs{idx}_begin_klu_cnt': self.zs_begin_klu_cnt(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_begin_klc_cnt': self.zs_begin_klc_cnt(segzs, lv_chan[-1][-1]),
                 f'{lv_name}_segzs{idx}_peak_amp': self.zs_peak_amp(segzs),
                 f'{lv_name}_segzs{idx}_peak_rate': self.zs_peak_rate(segzs),
                 f'{lv_name}_segzs{idx}_peak_slope': self.zs_peak_slope(segzs),
-                f'{lv_name}_segzs{idx}_end_klu_cnt': self.zs_end_klu_cnt(segzs),
-                f'{lv_name}_segzs{idx}_end_klc_cnt': self.zs_end_klc_cnt(segzs),
-                f'{lv_name}_segzs{idx}_high_amp': self.zs_high_amp(segzs),
-                f'{lv_name}_segzs{idx}_high_rate': self.zs_high_rate(segzs),
-                f'{lv_name}_segzs{idx}_low_amp': self.zs_low_amp(segzs),
-                f'{lv_name}_segzs{idx}_low_rate': self.zs_low_rate(segzs),
-                f'{lv_name}_segzs{idx}_mid_amp': self.zs_mid_amp(segzs),
-                f'{lv_name}_segzs{idx}_mid_rate': self.zs_mid_rate(segzs),
-                f'{lv_name}_segzs{idx}_peak_high_amp': self.zs_peak_high_amp(segzs),
-                f'{lv_name}_segzs{idx}_peak_high_rate': self.zs_peak_high_rate(segzs),
-                f'{lv_name}_segzs{idx}_peak_low_amp': self.zs_peak_low_amp(segzs),
-                f'{lv_name}_segzs{idx}_peak_low_rate': self.zs_peak_low_rate(segzs),
+                f'{lv_name}_segzs{idx}_end_klu_cnt': self.zs_end_klu_cnt(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_end_klc_cnt': self.zs_end_klc_cnt(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_high_amp': self.zs_high_amp(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_high_rate': self.zs_high_rate(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_low_amp': self.zs_low_amp(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_low_rate': self.zs_low_rate(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_mid_amp': self.zs_mid_amp(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_mid_rate': self.zs_mid_rate(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_peak_high_amp': self.zs_peak_high_amp(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_peak_high_rate': self.zs_peak_high_rate(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_peak_low_amp': self.zs_peak_low_amp(segzs, lv_chan[-1][-1]),
+                f'{lv_name}_segzs{idx}_peak_low_rate': self.zs_peak_low_rate(segzs, lv_chan[-1][-1]),
             })
             for key, value in self.segzs_divergence(segzs).items():
                 factors.update({f'{lv_name}_segzs{idx}_{key}': value})
@@ -206,11 +216,40 @@ class FeatureLib:
         else:
             lv1_segzss = self.lv1_chan.segzs_list[-min(self.L1_SEGZS, len(self.lv1_chan.segzs_list)):][::-1]
 
+        if self.L2_BI <= 0:
+            lv2_bis = []
+        else:
+            lv2_bis = self.lv2_chan.bi_list[-min(self.L2_BI, len(self.lv2_chan.bi_list)):][::-1]
+        if self.L2_SEG <= 0:
+            lv2_segs = []
+        else:
+            lv2_segs = self.lv2_chan.seg_list[-min(self.L2_SEG, len(self.lv2_chan.seg_list)):][::-1]
+        if self.L2_SEGSEG <= 0:
+            lv2_segsegs = []
+        else:
+            lv2_segsegs = self.lv2_chan.segseg_list[-min(self.L2_SEGSEG, len(self.lv2_chan.segseg_list)):][::-1]
+        if self.L2_ZS <= 0:
+            lv2_zss = []
+        else:
+            lv2_zss = self.lv2_chan.zs_list[-min(self.L2_ZS, len(self.lv2_chan.zs_list)):][::-1]
+        if self.L2_SEGZS <= 0:
+            lv2_segzss = []
+        else:
+            lv2_segzss = self.lv2_chan.segzs_list[-min(self.L2_SEGZS, len(self.lv2_chan.segzs_list)):][::-1]
+
         factors = dict()
-        lv0_factors = self.lv_factors("lv0", lv0_bis, lv0_segs, lv0_segsegs, lv0_zss, lv0_segzss)
-        lv1_factors = self.lv_factors("lv1", lv1_bis, lv1_segs, lv1_segsegs, lv1_zss, lv1_segzss)
+        for key, value in self.lv0_chan[-1][-1].indicators.items():
+            factors.update({f"lv0_last_klu_{key}": value})
+        for key, value in self.lv1_chan[-1][-1].indicators.items():
+            factors.update({f"lv1_last_klu_{key}": value})
+        for key, value in self.lv2_chan[-1][-1].indicators.items():
+            factors.update({f"lv2_last_klu_{key}": value})
+        lv0_factors = self.lv_factors(self.lv0_chan, "lv0", lv0_bis, lv0_segs, lv0_segsegs, lv0_zss, lv0_segzss)
+        lv1_factors = self.lv_factors(self.lv1_chan, "lv1", lv1_bis, lv1_segs, lv1_segsegs, lv1_zss, lv1_segzss)
+        lv2_factors = self.lv_factors(self.lv2_chan, "lv2", lv2_bis, lv2_segs, lv2_segsegs, lv2_zss, lv2_segzss)
         factors.update(lv0_factors)
         factors.update(lv1_factors)
+        factors.update(lv2_factors)
         return factors
 
     ############################### 笔 ########################################
@@ -229,35 +268,35 @@ class FeatureLib:
     def bi_klc_cnt(self, bi):
         return bi.get_klc_cnt()
 
-    def bi_begin_klu_cnt(self, bi):
-        return self.klu.idx - bi.get_begin_klu().idx + 1
+    def bi_begin_klu_cnt(self, bi, klu):
+        return klu.idx - bi.get_begin_klu().idx + 1
 
-    def bi_begin_klc_cnt(self, bi):
-        return self.klu.klc.idx - bi.get_begin_klu().klc.idx + 1
+    def bi_begin_klc_cnt(self, bi, klu):
+        return klu.klc.idx - bi.get_begin_klu().klc.idx + 1
 
-    def bi_begin_amp(self, bi):
-        return (bi.get_begin_val() - self.klu.close) / self.pip_value
+    def bi_begin_amp(self, bi, klu):
+        return (bi.get_begin_val() - klu.close) / self.pip_value
 
-    def bi_begin_rate(self, bi):
-        return (bi.get_begin_val() / self.klu.close - 1) / self.pip_value
+    def bi_begin_rate(self, bi, klu):
+        return (bi.get_begin_val() / klu.close - 1) / self.pip_value
 
-    def bi_begin_slope(self, bi):
-        return (bi.get_begin_val() - self.klu.close) / self.pip_value / (self.klu.idx - bi.get_begin_klu().idx + 1)
+    def bi_begin_slope(self, bi, klu):
+        return (bi.get_begin_val() - klu.close) / self.pip_value / (klu.idx - bi.get_begin_klu().idx + 1)
 
-    def bi_end_klu_cnt(self, bi):
-        return self.klu.idx - bi.get_end_klu().idx + 1
+    def bi_end_klu_cnt(self, bi, klu):
+        return klu.idx - bi.get_end_klu().idx + 1
 
-    def bi_end_klc_cnt(self, bi):
-        return self.klu.klc.idx - bi.get_end_klu().klc.idx + 1
+    def bi_end_klc_cnt(self, bi, klu):
+        return klu.klc.idx - bi.get_end_klu().klc.idx + 1
 
-    def bi_end_amp(self, bi):
-        return (bi.get_end_val() - self.klu.close) / self.pip_value
+    def bi_end_amp(self, bi, klu):
+        return (bi.get_end_val() - klu.close) / self.pip_value
 
-    def bi_end_rate(self, bi):
-        return (bi.get_end_val() / self.klu.close - 1) / self.pip_value
+    def bi_end_rate(self, bi, klu):
+        return (bi.get_end_val() / klu.close - 1) / self.pip_value
 
-    def bi_end_slope(self, bi):
-        return (bi.get_end_val() - self.klu.close) / self.pip_value / (self.klu.idx - bi.get_end_klu().idx + 1)
+    def bi_end_slope(self, bi, klu):
+        return (bi.get_end_val() - klu.close) / self.pip_value / (klu.idx - bi.get_end_klu().idx + 1)
 
     def bi_macd_metric(self, bi):
         factors = dict()
@@ -299,35 +338,35 @@ class FeatureLib:
     def seg_klc_cnt(self, seg):
         return seg.get_end_klu().klc.idx - seg.get_begin_klu().klc.idx + 1
 
-    def seg_begin_klu_cnt(self, seg):
-        return self.klu.idx - seg.get_begin_klu().idx + 1
+    def seg_begin_klu_cnt(self, seg, klu):
+        return klu.idx - seg.get_begin_klu().idx + 1
 
-    def seg_begin_klc_cnt(self, seg):
-        return self.klu.klc.idx - seg.get_begin_klu().klc.idx + 1
+    def seg_begin_klc_cnt(self, seg, klu):
+        return klu.klc.idx - seg.get_begin_klu().klc.idx + 1
 
-    def seg_begin_amp(self, seg):
-        return (seg.get_begin_val() - self.klu.close) / self.pip_value
+    def seg_begin_amp(self, seg, klu):
+        return (seg.get_begin_val() - klu.close) / self.pip_value
 
-    def seg_begin_rate(self, seg):
-        return (seg.get_begin_val() / self.klu.close - 1) / self.pip_value
+    def seg_begin_rate(self, seg, klu):
+        return (seg.get_begin_val() / klu.close - 1) / self.pip_value
 
-    def seg_begin_slope(self, seg):
-        return (seg.get_begin_val() - self.klu.close) / self.pip_value / (self.klu.idx - seg.get_begin_klu().idx + 1)
+    def seg_begin_slope(self, seg, klu):
+        return (seg.get_begin_val() - klu.close) / self.pip_value / (klu.idx - seg.get_begin_klu().idx + 1)
 
-    def seg_end_klu_cnt(self, seg):
-        return self.klu.idx - seg.get_end_klu().idx + 1
+    def seg_end_klu_cnt(self, seg, klu):
+        return klu.idx - seg.get_end_klu().idx + 1
 
-    def seg_end_klc_cnt(self, seg):
-        return self.klu.klc.idx - seg.get_end_klu().klc.idx + 1
+    def seg_end_klc_cnt(self, seg, klu):
+        return klu.klc.idx - seg.get_end_klu().klc.idx + 1
 
-    def seg_end_amp(self, seg):
-        return (seg.get_end_val() - self.klu.close) / self.pip_value
+    def seg_end_amp(self, seg, klu):
+        return (seg.get_end_val() - klu.close) / self.pip_value
 
-    def seg_end_rate(self, seg):
-        return (seg.get_end_val() / self.klu.close - 1) / self.pip_value
+    def seg_end_rate(self, seg, klu):
+        return (seg.get_end_val() / klu.close - 1) / self.pip_value
 
-    def seg_end_slope(self, seg):
-        return (seg.get_end_val() - self.klu.close) / self.pip_value / (self.klu.idx - seg.get_end_klu().idx + 1)
+    def seg_end_slope(self, seg, klu):
+        return (seg.get_end_val() - klu.close) / self.pip_value / (klu.idx - seg.get_end_klu().idx + 1)
 
     def seg_macd_slope(self, seg):
         return seg.Cal_MACD_slope() / self.pip_value
@@ -359,47 +398,47 @@ class FeatureLib:
     def zs_peak_slope(self, zs):
         return (zs.peak_high - zs.peak_low) / self.pip_value / (zs.end.idx - zs.begin.idx + 1)
 
-    def zs_begin_klu_cnt(self, zs):
-        return self.klu.idx - zs.begin.idx + 1
+    def zs_begin_klu_cnt(self, zs, klu):
+        return klu.idx - zs.begin.idx + 1
 
-    def zs_begin_klc_cnt(self, zs):
-        return self.klu.klc.idx - zs.begin.klc.idx + 1
+    def zs_begin_klc_cnt(self, zs, klu):
+        return klu.klc.idx - zs.begin.klc.idx + 1
 
-    def zs_end_klu_cnt(self, zs):
-        return self.klu.idx - zs.end.idx + 1
+    def zs_end_klu_cnt(self, zs, klu):
+        return klu.idx - zs.end.idx + 1
 
-    def zs_end_klc_cnt(self, zs):
-        return self.klu.klc.idx - zs.end.klc.idx + 1
+    def zs_end_klc_cnt(self, zs, klu):
+        return klu.klc.idx - zs.end.klc.idx + 1
 
-    def zs_high_amp(self, zs):
-        return (zs.high - self.klu.close) / self.pip_value
+    def zs_high_amp(self, zs, klu):
+        return (zs.high - klu.close) / self.pip_value
 
-    def zs_high_rate(self, zs):
-        return (zs.high / self.klu.close - 1) / self.pip_value
+    def zs_high_rate(self, zs, klu):
+        return (zs.high / klu.close - 1) / self.pip_value
 
-    def zs_low_amp(self, zs):
-        return (zs.low - self.klu.close) / self.pip_value
+    def zs_low_amp(self, zs, klu):
+        return (zs.low - klu.close) / self.pip_value
 
-    def zs_low_rate(self, zs):
-        return (zs.low / self.klu.close - 1) / self.pip_value
+    def zs_low_rate(self, zs, klu):
+        return (zs.low / klu.close - 1) / self.pip_value
 
-    def zs_mid_amp(self, zs):
-        return (zs.mid - self.klu.close) / self.pip_value
+    def zs_mid_amp(self, zs, klu):
+        return (zs.mid - klu.close) / self.pip_value
 
-    def zs_mid_rate(self, zs):
-        return (zs.mid / self.klu.close - 1) / self.pip_value
+    def zs_mid_rate(self, zs, klu):
+        return (zs.mid / klu.close - 1) / self.pip_value
 
-    def zs_peak_high_amp(self, zs):
-        return (zs.peak_high - self.klu.close) / self.pip_value
+    def zs_peak_high_amp(self, zs, klu):
+        return (zs.peak_high - klu.close) / self.pip_value
 
-    def zs_peak_high_rate(self, zs):
-        return (zs.peak_high / self.klu.close - 1) / self.pip_value
+    def zs_peak_high_rate(self, zs, klu):
+        return (zs.peak_high / klu.close - 1) / self.pip_value
 
-    def zs_peak_low_amp(self, zs):
-        return (zs.peak_low - self.klu.close - 1) / self.pip_value
+    def zs_peak_low_amp(self, zs, klu):
+        return (zs.peak_low - klu.close - 1) / self.pip_value
 
-    def zs_peak_low_rate(self, zs):
-        return (zs.peak_low / self.klu.close - 1) / self.pip_value
+    def zs_peak_low_rate(self, zs, klu):
+        return (zs.peak_low / klu.close - 1) / self.pip_value
 
     def zs_divergence(self, zs):
         for macd_algo in [
