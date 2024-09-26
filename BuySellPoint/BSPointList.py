@@ -116,7 +116,6 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
 
     def treat_bsp1(self, seg: CSeg[LINE_TYPE], BSP_CONF: CPointConfig, is_target_bsp: bool):
         last_zs = seg.zs_lst[-1]
-        last_bi = seg.end_bi
         break_peak, _ = last_zs.out_bi_is_peak(seg.end_bi.idx)
         if BSP_CONF.bs1_peak and not break_peak:
             is_target_bsp = False
@@ -307,8 +306,8 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         if BSP_CONF.bsp3_peak and not bsp3_peak_zs:
             return
         feature_dict = {
-            'bsp3_zs_height': (first_zs.high - first_zs.low) / first_zs.low,
-            'bsp3_bi_amp': bsp3_bi.amp(),
+            # 'bsp3_zs_height': (first_zs.high - first_zs.low) / first_zs.low,
+            # 'bsp3_bi_amp': bsp3_bi.amp(),
         }
         self.add_bs(bs_type=BSP_TYPE.T3A, bi=bsp3_bi, relate_bsp1=real_bsp1, feature_dict=feature_dict)  # type: ignore
 
@@ -340,8 +339,8 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             if bsp3_back2zs(bsp3_bi, cmp_zs):  # type: ignore
                 continue
             feature_dict = {
-                'bsp3_zs_height': (cmp_zs.high - cmp_zs.low) / cmp_zs.low,
-                'bsp3_bi_amp': bsp3_bi.amp(),
+                # 'bsp3_zs_height': (cmp_zs.high - cmp_zs.low) / cmp_zs.low,
+                # 'bsp3_bi_amp': bsp3_bi.amp(),
             }
             self.add_bs(bs_type=BSP_TYPE.T3B, bi=bsp3_bi, relate_bsp1=real_bsp1,
                         feature_dict=feature_dict)  # type: ignore

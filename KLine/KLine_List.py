@@ -111,7 +111,7 @@ class CKLine_List:
         update_zs_in_seg(self.seg_list, self.segseg_list, self.segzs_list)  # 计算segseg的zs_lst，以及中枢的bi_in, bi_out
 
         # 计算买卖点
-        # self.seg_bs_point_lst.cal(self.seg_list, self.segseg_list)  # 线段线段买卖点
+        self.seg_bs_point_lst.cal(self.seg_list, self.segseg_list)  # 线段线段买卖点
         self.bs_point_lst.cal(self.bi_list, self.seg_list)  # 再算笔买卖点
 
     def need_cal_step_by_step(self):

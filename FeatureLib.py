@@ -17,15 +17,15 @@ class FeatureLib:
                  L1_SEG=1,
                  L1_SEGSEG=1,
                  L1_SEGZS=1,
-                 L2_BI=7,
-                 L2_ZS=1,
-                 L2_SEG=1,
-                 L2_SEGSEG=1,
-                 L2_SEGZS=1
+                 # L2_BI=7,
+                 # L2_ZS=1,
+                 # L2_SEG=1,
+                 # L2_SEGSEG=1,
+                 # L2_SEGZS=1
                  ):
         self.lv0_chan = chan_snapshot[0]
         self.lv1_chan = chan_snapshot[1]
-        self.lv2_chan = chan_snapshot[2]
+        # self.lv2_chan = chan_snapshot[2]
         self.pip_value = pip_value
         self.L0_BI = L0_BI
         self.L0_ZS = L0_ZS
@@ -37,14 +37,21 @@ class FeatureLib:
         self.L1_SEG = L1_SEG
         self.L1_SEGSEG = L1_SEGSEG
         self.L1_SEGZS = L1_SEGZS
-        self.L2_BI = L2_BI
-        self.L2_ZS = L2_ZS
-        self.L2_SEG = L2_SEG
-        self.L2_SEGSEG = L2_SEGSEG
-        self.L2_SEGZS = L2_SEGZS
+        # self.L2_BI = L2_BI
+        # self.L2_ZS = L2_ZS
+        # self.L2_SEG = L2_SEG
+        # self.L2_SEGSEG = L2_SEGSEG
+        # self.L2_SEGZS = L2_SEGZS
 
     def lv_factors(self, lv_chan, lv_name, bis, segs, segsegs, zss, segzss):
         factors = dict()
+        factors[f"{lv_name}_open_klu_amp"] = (lv_chan[-1][-1].close - lv_chan.bi_list[
+            -1].get_end_klu().close) / self.pip_value
+        factors[f"{lv_name}_open_klu_rate"] = (lv_chan[-1][-1].close / lv_chan.bi_list[
+            -1].get_end_klu().close - 1) / self.pip_value
+        factors[f"{lv_name}_open_klu_slope"] = (lv_chan[-1][-1].close / lv_chan.bi_list[
+            -1].get_end_klu().close - 1) / self.pip_value / (lv_chan[-1][-1].idx - lv_chan.bi_list[
+            -1].get_end_klu().idx + 1)
         for idx, bi in enumerate(bis):
             factors.update({
                 f'{lv_name}_bi{idx}_amp': self.bi_amp(bi),
@@ -73,6 +80,7 @@ class FeatureLib:
                 f'{lv_name}_seg{idx}_amp': self.seg_amp(seg),
                 f'{lv_name}_seg{idx}_rate': self.seg_rate(seg),
                 f'{lv_name}_seg{idx}_slope': self.seg_slope(seg),
+                f'{lv_name}_seg{idx}_zs_cnt': self.seg_zs_cnt(seg),
                 f'{lv_name}_seg{idx}_klu_cnt': self.seg_klu_cnt(seg),
                 f'{lv_name}_seg{idx}_klc_cnt': self.seg_klc_cnt(seg),
                 f'{lv_name}_seg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(seg, lv_chan[-1][-1]),
@@ -97,6 +105,7 @@ class FeatureLib:
                 f'{lv_name}_segseg{idx}_amp': self.seg_amp(segseg),
                 f'{lv_name}_segseg{idx}_rate': self.seg_rate(segseg),
                 f'{lv_name}_segseg{idx}_slope': self.seg_slope(segseg),
+                f'{lv_name}_segseg{idx}_zs_cnt': self.seg_zs_cnt(segseg),
                 f'{lv_name}_segseg{idx}_klu_cnt': self.seg_klu_cnt(segseg),
                 f'{lv_name}_segseg{idx}_klc_cnt': self.seg_klc_cnt(segseg),
                 f'{lv_name}_segseg{idx}_begin_klu_cnt': self.seg_begin_klu_cnt(segseg, lv_chan[-1][-1]),
@@ -173,7 +182,7 @@ class FeatureLib:
         return factors
 
     def get_factors(self):
-
+        # print(self.lv1_chan.bi_list[-1].get_end_klu().time, " ", self.lv1_chan[-1][-1].time)
         if self.L0_BI <= 0:
             lv0_bis = []
         else:
@@ -216,40 +225,33 @@ class FeatureLib:
         else:
             lv1_segzss = self.lv1_chan.segzs_list[-min(self.L1_SEGZS, len(self.lv1_chan.segzs_list)):][::-1]
 
-        if self.L2_BI <= 0:
-            lv2_bis = []
-        else:
-            lv2_bis = self.lv2_chan.bi_list[-min(self.L2_BI, len(self.lv2_chan.bi_list)):][::-1]
-        if self.L2_SEG <= 0:
-            lv2_segs = []
-        else:
-            lv2_segs = self.lv2_chan.seg_list[-min(self.L2_SEG, len(self.lv2_chan.seg_list)):][::-1]
-        if self.L2_SEGSEG <= 0:
-            lv2_segsegs = []
-        else:
-            lv2_segsegs = self.lv2_chan.segseg_list[-min(self.L2_SEGSEG, len(self.lv2_chan.segseg_list)):][::-1]
-        if self.L2_ZS <= 0:
-            lv2_zss = []
-        else:
-            lv2_zss = self.lv2_chan.zs_list[-min(self.L2_ZS, len(self.lv2_chan.zs_list)):][::-1]
-        if self.L2_SEGZS <= 0:
-            lv2_segzss = []
-        else:
-            lv2_segzss = self.lv2_chan.segzs_list[-min(self.L2_SEGZS, len(self.lv2_chan.segzs_list)):][::-1]
-
+        # if self.L2_BI <= 0:
+        #     lv2_bis = []
+        # else:
+        #     lv2_bis = self.lv2_chan.bi_list[-min(self.L2_BI, len(self.lv2_chan.bi_list)):][::-1]
+        # if self.L2_SEG <= 0:
+        #     lv2_segs = []
+        # else:
+        #     lv2_segs = self.lv2_chan.seg_list[-min(self.L2_SEG, len(self.lv2_chan.seg_list)):][::-1]
+        # if self.L2_SEGSEG <= 0:
+        #     lv2_segsegs = []
+        # else:
+        #     lv2_segsegs = self.lv2_chan.segseg_list[-min(self.L2_SEGSEG, len(self.lv2_chan.segseg_list)):][::-1]
+        # if self.L2_ZS <= 0:
+        #     lv2_zss = []
+        # else:
+        #     lv2_zss = self.lv2_chan.zs_list[-min(self.L2_ZS, len(self.lv2_chan.zs_list)):][::-1]
+        # if self.L2_SEGZS <= 0:
+        #     lv2_segzss = []
+        # else:
+        #     lv2_segzss = self.lv2_chan.segzs_list[-min(self.L2_SEGZS, len(self.lv2_chan.segzs_list)):][::-1]
         factors = dict()
-        for key, value in self.lv0_chan[-1][-1].indicators.items():
-            factors.update({f"lv0_last_klu_{key}": value})
-        for key, value in self.lv1_chan[-1][-1].indicators.items():
-            factors.update({f"lv1_last_klu_{key}": value})
-        for key, value in self.lv2_chan[-1][-1].indicators.items():
-            factors.update({f"lv2_last_klu_{key}": value})
         lv0_factors = self.lv_factors(self.lv0_chan, "lv0", lv0_bis, lv0_segs, lv0_segsegs, lv0_zss, lv0_segzss)
         lv1_factors = self.lv_factors(self.lv1_chan, "lv1", lv1_bis, lv1_segs, lv1_segsegs, lv1_zss, lv1_segzss)
-        lv2_factors = self.lv_factors(self.lv2_chan, "lv2", lv2_bis, lv2_segs, lv2_segsegs, lv2_zss, lv2_segzss)
+        # lv2_factors = self.lv_factors(self.lv2_chan, "lv2", lv2_bis, lv2_segs, lv2_segsegs, lv2_zss, lv2_segzss)
         factors.update(lv0_factors)
         factors.update(lv1_factors)
-        factors.update(lv2_factors)
+        # factors.update(lv2_factors)
         return factors
 
     ############################### 笔 ########################################
@@ -325,6 +327,9 @@ class FeatureLib:
     def seg_slope(self, seg):
         return (seg.get_end_val() - seg.get_begin_val()) / self.pip_value / (
                 seg.get_end_klu().idx - seg.get_begin_klu().idx + 1)
+
+    def seg_zs_cnt(self, seg):
+        return len(seg.zs_lst)
 
     def seg_bi_cnt(self, seg):
         return seg.cal_bi_cnt()

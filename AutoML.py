@@ -154,17 +154,17 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
         if len(lv1_chan.segzs_list) < dataset_params["L1_SEGZS"]:
             continue
 
-        lv2_chan = chan[2]
-        if len(lv2_chan.bi_list) < dataset_params["L2_BI"]:
-            continue
-        if len(lv2_chan.seg_list) < dataset_params["L2_SEG"]:
-            continue
-        if len(lv2_chan.segseg_list) < dataset_params["L2_SEGSEG"]:
-            continue
-        if len(lv2_chan.zs_list) < dataset_params["L2_ZS"]:
-            continue
-        if len(lv2_chan.segzs_list) < dataset_params["L2_SEGZS"]:
-            continue
+        # lv2_chan = chan[2]
+        # if len(lv2_chan.bi_list) < dataset_params["L2_BI"]:
+        #     continue
+        # if len(lv2_chan.seg_list) < dataset_params["L2_SEG"]:
+        #     continue
+        # if len(lv2_chan.segseg_list) < dataset_params["L2_SEGSEG"]:
+        #     continue
+        # if len(lv2_chan.zs_list) < dataset_params["L2_ZS"]:
+        #     continue
+        # if len(lv2_chan.segzs_list) < dataset_params["L2_SEGZS"]:
+        #     continue
         profit = 0
         bsp_list = chan.get_bsp(0)  # 获取买卖点列表
         if not bsp_list:
@@ -177,8 +177,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             long_profit = close_price / long_order - 1
             atr = bsp_dict[long_klu_idx]["atr"]
             bsp_price = bsp_dict[long_klu_idx]["bsp_price"]
-            tp = close_price >= bsp_price + 7 * atr
-            sl = close_price <= bsp_price - 3 * atr
+            tp = close_price >= bsp_price + 6 * atr
+            sl = close_price <= bsp_price - 2 * atr
             # 最大止盈止损保护
             # tp = long_profit >= trade_params["bsp1_sl_long"] * trade_params["risk_reward_ratio"]
             # sl = long_profit <= -trade_params["bsp1_sl_long"]
@@ -194,8 +194,8 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
             short_profit = short_order / close_price - 1
             atr = bsp_dict[short_klu_idx]["atr"]
             bsp_price = bsp_dict[short_klu_idx]["bsp_price"]
-            tp = close_price <= bsp_price - 7 * atr
-            sl = close_price >= bsp_price + 3 * atr
+            tp = close_price <= bsp_price - 6 * atr
+            sl = close_price >= bsp_price + 2 * atr
             # 最大止盈止损保护
             # tp = short_profit >= trade_params["bsp1_sl_short"] * trade_params["risk_reward_ratio"]
             # sl = short_profit <= -trade_params["bsp1_sl_short"]
@@ -223,11 +223,11 @@ def run_trade(code, lv_list, begin_time, end_time, dataset_params, model, featur
                                      dataset_params["L1_SEG"],
                                      dataset_params["L1_SEGSEG"],
                                      dataset_params["L1_SEGZS"],
-                                     dataset_params["L2_BI"],
-                                     dataset_params["L2_ZS"],
-                                     dataset_params["L2_SEG"],
-                                     dataset_params["L2_SEGSEG"],
-                                     dataset_params["L2_SEGZS"]
+                                     # dataset_params["L2_BI"],
+                                     # dataset_params["L2_ZS"],
+                                     # dataset_params["L2_SEG"],
+                                     # dataset_params["L2_SEGSEG"],
+                                     # dataset_params["L2_SEGZS"]
                                      ).get_factors()
                 bsp_pred = predict_bsp(model=model, feature=factors, feature_names=feature_names)
                 if bsp_pred >= trade_params["bsp1_open"] and last_bsp.is_buy:
@@ -377,8 +377,8 @@ def optimize_model(trial, X_train, X_test, y_train, y_test, seed):
         "random_state": seed,
         "bagging_seed": seed,
         "feature_fraction_seed": seed,
-        'max_depth': trial.suggest_int('max_depth', 3, 6),
-        'num_leaves': trial.suggest_int('num_leaves', 15, 63),  # 调整范围
+        'max_depth': trial.suggest_int('max_depth', 3, 5),
+        'num_leaves': trial.suggest_int('num_leaves', 15, 31),  # 调整范围
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, step=0.01),  # 限制学习率上限
         'n_estimators': trial.suggest_int('n_estimators', 50, 1000, step=10),  # 缩小范围
         'min_child_samples': trial.suggest_int('min_child_samples', 50, 100, step=10),  # 提高最小样本数
@@ -452,17 +452,17 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
         if len(lv1_chan.segzs_list) < params["L1_SEGZS"]:
             continue
 
-        lv2_chan = chan_snapshot[2]
-        if len(lv2_chan.bi_list) < params["L2_BI"]:
-            continue
-        if len(lv2_chan.seg_list) < params["L2_SEG"]:
-            continue
-        if len(lv2_chan.segseg_list) < params["L2_SEGSEG"]:
-            continue
-        if len(lv2_chan.zs_list) < params["L2_ZS"]:
-            continue
-        if len(lv2_chan.segzs_list) < params["L2_SEGZS"]:
-            continue
+        # lv2_chan = chan_snapshot[2]
+        # if len(lv2_chan.bi_list) < params["L2_BI"]:
+        #     continue
+        # if len(lv2_chan.seg_list) < params["L2_SEG"]:
+        #     continue
+        # if len(lv2_chan.segseg_list) < params["L2_SEGSEG"]:
+        #     continue
+        # if len(lv2_chan.zs_list) < params["L2_ZS"]:
+        #     continue
+        # if len(lv2_chan.segzs_list) < params["L2_SEGZS"]:
+        #     continue
         bsp_list = chan.get_bsp(0)  # 获取买卖点列表
         if not bsp_list:
             continue
@@ -484,11 +484,11 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
                                  params["L1_SEG"],
                                  params["L1_SEGSEG"],
                                  params["L1_SEGZS"],
-                                 params["L2_BI"],
-                                 params["L2_ZS"],
-                                 params["L2_SEG"],
-                                 params["L2_SEGSEG"],
-                                 params["L2_SEGZS"]
+                                 # params["L2_BI"],
+                                 # params["L2_ZS"],
+                                 # params["L2_SEG"],
+                                 # params["L2_SEGSEG"],
+                                 # params["L2_SEGZS"]
                                  ).get_factors()
             bsp_dict[last_bsp.klu.idx] = {
                 "feature": factors,
@@ -526,7 +526,7 @@ def get_dataset(code, lv_list, begin_time, end_time, params):
 
 
 def run_codes(codes):
-    lv_list: list[KL_TYPE] = [KL_TYPE.K_1H, KL_TYPE.K_15M, KL_TYPE.K_3M]
+    lv_list: list[KL_TYPE] = [KL_TYPE.K_1H, KL_TYPE.K_10M]
     begin_time = "2010-01-01 00:00:00"
     end_time = "2023-01-01 00:00:00"
     # val_begin_time = "2023-01-01 00:00:00"
@@ -536,7 +536,7 @@ def run_codes(codes):
     dataset_params = {
         "trigger_step": True,  # 打开开关！
         "bi_strict": True,
-        "skip_step": 200,
+        "skip_step": 0,
         "divergence_rate": float("inf"),
         "bsp2_follow_1": True,
         "bsp3_follow_1": True,
@@ -560,11 +560,11 @@ def run_codes(codes):
         "L1_SEG": 2,
         "L1_SEGSEG": 2,
         "L1_SEGZS": 1,
-        "L2_BI": 5,
-        "L2_ZS": 1,
-        "L2_SEG": 2,
-        "L2_SEGSEG": 2,
-        "L2_SEGZS": 1
+        # "L2_BI": 5,
+        # "L2_ZS": 1,
+        # "L2_SEG": 2,
+        # "L2_SEGSEG": 2,
+        # "L2_SEGZS": 1
     }
 
     if not os.path.exists("./result/all_codes.dat"):
@@ -576,12 +576,12 @@ def run_codes(codes):
                 delayed(get_dataset)(code, lv_list,
                                      start.strftime(local_time_format),
                                      min(datetime.datetime.strptime(end_time, local_time_format),
-                                         (start + datetime.timedelta(days=90))).strftime(local_time_format),
+                                         (start + datetime.timedelta(days=150))).strftime(local_time_format),
                                      dataset_params) for code in codes)
             print(
-                f"{min(datetime.datetime.strptime(end_time, local_time_format), (start + datetime.timedelta(days=90))).strftime(local_time_format)} completed")
+                f"{min(datetime.datetime.strptime(end_time, local_time_format), (start + datetime.timedelta(days=150))).strftime(local_time_format)} completed")
 
-            start = start + datetime.timedelta(days=60)
+            start = start + datetime.timedelta(days=120)
             dfs += df
         print("all tasks completed")
         merged_df = pd.concat(dfs)
@@ -622,6 +622,12 @@ def run_codes(codes):
     model = study.best_trial.user_attrs["model"]
     model_params = study.best_trial.user_attrs["model_params"]
     auc = study.best_trial.value
+    # model_params = {'device': 'gpu', 'objective': 'binary', 'metric': 'auc', 'boosting_type': 'gbdt', 'verbose': -1, 'num_threads': 8,
+    #  'random_state': 42, 'bagging_seed': 42, 'feature_fraction_seed': 42, 'max_depth': 6, 'num_leaves': 15,
+    #  'learning_rate': 0.08, 'n_estimators': 710, 'min_child_samples': 50, 'subsample': 0.8700000000000001,
+    #  'colsample_bytree': 0.9700000000000001, 'reg_alpha': 0.2677312287310178, 'reg_lambda': 4.02314360627926,
+    #  'gpu_platform_id': 0, 'gpu_device_id': 0, 'scale_pos_weight': 4.848513011152416}
+    # model,auc = get_model(model_params,all_x_train, all_x_test, all_y_train, all_y_test)
     print(f"AUC {auc} {model_params}")
     y_prob = np.array(model.predict_proba(all_x_test.to_numpy(np.float32))[:, 1])
     thresholds = np.linspace(0, 1, 100)
@@ -676,7 +682,7 @@ def run_codes(codes):
         # print(f"{code} Best Score {study.best_trial.value} Best capital {capital} trade {trade_params}")
         print("开始测试")
         trade_params = {
-            "bsp1_open": 0.65,
+            "bsp1_open": 0.4,
             "risk_reward_ratio": 2.5,
             "bsp1_sl_long": 0.005,  # trial.suggest_float('bsp1_sl_long', 0.002, 0.005, step=0.001),
             "bsp1_sl_short": 0.005,  # trial.suggest_float('bsp1_sl_short', 0.002, 0.005, step=0.001),
